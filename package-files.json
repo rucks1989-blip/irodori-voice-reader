@@ -110,7 +110,7 @@
     },
     {
       "path": "chrome-extension/manifest.json",
-      "sha256": "950914b710ea9d0db792fd6323cbf737cf97e4dcc9c7c89abf9557fb4e026b57"
+      "sha256": "aae44e31608ebf9c602f573dc384fbbe94acf955d570e1085b0db5f6a80b8ebc"
     },
     {
       "path": "chrome-extension/muse-watcher.js",
@@ -226,7 +226,7 @@
     },
     {
       "path": "firefox-extension/manifest.json",
-      "sha256": "7ed2a9fe5c5ab84f395a6bbe805d0e4b86a2e863e65ea26798f4bc08fbb19ab7"
+      "sha256": "e76f1abf033f14dc06fab1184367d3f1f76a705837d09b52cddd2331789e71df"
     },
     {
       "path": "firefox-extension/muse-watcher.js",
@@ -502,7 +502,7 @@
     },
     {
       "path": "tests/test_distribution.py",
-      "sha256": "bc91347a21f20a1731f35b53347ea3c55f7af14ea4d3a3e906374f29c3d57168"
+      "sha256": "ec5a47c2323f5d413b39aec100a0f9dc08b10ac8eb7457ffecdfb6ecbf0953b5"
     },
     {
       "path": "tests/test_installer_windows.py",

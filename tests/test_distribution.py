@@ -40,7 +40,7 @@ class DistributionTests(unittest.TestCase):
     def test_extension_ids_and_versions(self):
         chrome = json.loads((ROOT / "chrome-extension/manifest.json").read_text(encoding="utf8"))
         firefox = json.loads((ROOT / "firefox-extension/manifest.json").read_text(encoding="utf8"))
-        self.assertEqual(chrome["version"], "1.2.23")
+        self.assertEqual(chrome["version"], "1.2.24")
         self.assertEqual(firefox["version"], chrome["version"])
         self.assertEqual(firefox["browser_specific_settings"]["gecko"]["id"], "irodori-voice-reader@local")
         for manifest in [chrome, firefox]:
