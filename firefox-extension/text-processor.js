@@ -230,6 +230,23 @@
     return resolution ? resolution.voice : "";
   }
 
+  function configuredDialoguePairs(settings) {
+    const configured = settings && Array.isArray(settings.dialoguePairs)
+      ? settings.dialoguePairs : ["「」", "『』"];
+    return configured.map((value, index) => {
+      const characters = Array.from(String(value || "").trim());
+      return characters.length === 2
+        ? { open: characters[0], close: characters[1], index }
+        : null;
+    }).filter(Boolean);
+  }
+
+  function isConfiguredDialogueToken(match, settings) {
+    const token = String(match && match[0] || "");
+    return configuredDialoguePairs(settings).some((pair) =>
+      token.startsWith(pair.open) && token.endsWith(pair.close) && token.length > pair.open.length + pair.close.length);
+  }
+
   // Resolve the semantic route once, before a segment enters either browser's
   // queue.  Later stages may validate the selected ID against /voices, but
   // they must not reinterpret the segment using the current global Voice.
@@ -259,18 +276,42 @@
         tagResolution: "narration"
       };
     }
-    // An explicit, registered character tag always wins for the entire
-    // stateful segment, not only for text inside dialogue marks.
     if (value.tagged && tag && mappedVoice) {
-      return {
-        voice: mappedVoice,
-        source: "character_tag",
-        tag,
-        mappedVoice,
-        dialogue,
-        narration: false,
-        tagResolution: String(value.tagResolution || (tagResolution && tagResolution.kind) || "")
-      };
+      // The switch is an independent priority rule. With narration enabled,
+      // tagged dialogue falls back to dialogueVoice when priority is OFF.
+      if (settings.characterTagPriority && (!settings.narrationEnabled || dialogue)) {
+        return {
+          voice: mappedVoice,
+          source: "character_tag",
+          tag,
+          mappedVoice,
+          dialogue,
+          narration: false,
+          tagResolution: String(value.tagResolution || (tagResolution && tagResolution.kind) || "")
+        };
+      }
+      if (settings.narrationEnabled && dialogue) {
+        return {
+          voice: String(settings.dialogueVoice || settings.defaultVoice || "").trim(),
+          source: "untagged_dialogue",
+          tag: "",
+          mappedVoice: "",
+          dialogue: true,
+          narration: false,
+          tagResolution: ""
+        };
+      }
+      if (!settings.narrationEnabled) {
+        return {
+          voice: String(settings.defaultVoice || fallbackVoice).trim(),
+          source: "default",
+          tag: "",
+          mappedVoice: "",
+          dialogue: false,
+          narration: false,
+          tagResolution: ""
+        };
+      }
     }
     if (dialogue) {
       return {
@@ -296,7 +337,9 @@
 
   function characterMappingCandidates(voices, mappings) {
     const known = Array.isArray(voices) ? voices.filter((voice) => voice && voice.id) : [];
-    const saved = new Map((Array.isArray(mappings) ? mappings : []).map((item) => [String(item.voice), item]));
+    const entries = (Array.isArray(mappings) ? mappings : []).filter((item) => item && item.tag && item.voice);
+    const saved = new Map(entries.filter((item) => item.manual !== true).map((item) => [String(item.voice), item]));
+    const knownIds = new Set(known.map((voice) => String(voice.id)));
     const candidates = known.map((voice) => {
       const id = String(voice.id);
       const item = saved.get(id);
@@ -309,6 +352,18 @@
         manual: false
       };
     });
+    // A manual tag is an additional alias, not a replacement for the
+    // Voice's automatic display-name tag. Keep it as a separate editable row
+    // even when it points to a Voice already present in /voices.
+    for (const item of entries.filter((value) => value.manual === true)) {
+      candidates.push({
+        ...item,
+        enabled: item.enabled !== false,
+        voiceName: String(known.find((voice) => String(voice.id) === String(item.voice))?.name || item.voice),
+        manual: true,
+        missing: !knownIds.has(String(item.voice))
+      });
+    }
     for (const item of saved.values()) {
       candidates.push({ ...item, enabled: item.enabled !== false, voiceName: String(item.voice), manual: true, missing: true });
     }
@@ -338,16 +393,21 @@
   function classifyApiError(error, status = 0, body = null) {
     const message = String((body && (body.error || body.message)) || (error && error.message) || "");
     const lower = message.toLowerCase();
-    if (!status || /failed to fetch|networkerror|接続/.test(lower)) return { code: "api_unreachable", message: "Irodori APIへ接続できません。" };
-    if (/backend/.test(lower)) return { code: "backend_unreachable", message: "音声生成backendへ接続できません。" };
-    if (/voice.*not found|unknown voice|voice不存在/.test(lower)) return { code: "voice_not_found", message: "指定したVoiceが見つかりません。" };
-    if (/speaker.*(embedding|safetensor).*(load|fail|error)/.test(lower)) return { code: "speaker_embedding", message: "speaker embeddingの読み込みに失敗しました。" };
-    if (/reference.*wav|wav.*reference/.test(lower)) return { code: "reference_wav", message: "参照WAVの読み込みに失敗しました。" };
-    if (/cuda.*out of memory|cuda oom|out of memory/.test(lower)) return { code: "cuda_oom", message: "GPUメモリが不足しています。" };
-    if (/timeout|timed out/.test(lower) || status === 408 || status === 504) return { code: "timeout", message: "音声生成がタイムアウトしました。" };
-    if (/rescue.*exhaust/.test(lower)) return { code: "stable_rescue_exhausted", message: "声質安定化の再試行上限に達しました。" };
-    if (/decode|riff|wave|invalid response/.test(lower)) return { code: "invalid_audio", message: "生成音声の形式が不正です。" };
-    return { code: "tts_failed", message: message || `音声生成に失敗しました（HTTP ${status}）。` };
+    const retryableStatus = status === 408 || status === 425 || status === 429 || status >= 500;
+    if (!status || /failed to fetch|networkerror|接続/.test(lower)) return { code: "api_unreachable", message: "Irodori APIへ接続できません。", retryable: true };
+    if (/backend/.test(lower)) return { code: "backend_unreachable", message: "音声生成backendへ接続できません。", retryable: retryableStatus };
+    if (/voice.*not found|unknown voice|voice不存在/.test(lower)) return { code: "voice_not_found", message: "指定したVoiceが見つかりません。", retryable: false };
+    if (/speaker.*(embedding|safetensor).*(load|fail|error)/.test(lower)) return { code: "speaker_embedding", message: "speaker embeddingの読み込みに失敗しました。", retryable: false };
+    if (/reference.*wav|wav.*reference/.test(lower)) return { code: "reference_wav", message: "参照WAVの読み込みに失敗しました。", retryable: false };
+    if (/cuda.*out of memory|cuda oom|out of memory/.test(lower)) return { code: "cuda_oom", message: "GPUメモリが不足しています。", retryable: false };
+    if (/timeout|timed out/.test(lower) || status === 408 || status === 504) return { code: "timeout", message: "音声生成がタイムアウトしました。", retryable: true };
+    if (/rescue.*exhaust/.test(lower)) return { code: "stable_rescue_exhausted", message: "声質安定化の再試行上限に達しました。", retryable: false };
+    if (/decode|riff|wave|invalid response/.test(lower)) return { code: "invalid_audio", message: "生成音声の形式が不正です。", retryable: false };
+    return {
+      code: "tts_failed",
+      message: message || `音声生成に失敗しました（HTTP ${status}）。`,
+      retryable: retryableStatus
+    };
   }
 
   function apiUrlForEngine(engine) {
@@ -376,6 +436,105 @@
   function engineStoragePatch(engine) {
     const selected = normalizeEngine(engine);
     return { engine: selected, apiUrl: ENGINE_ENDPOINTS[selected] };
+  }
+
+  function stableSettingsValue(value) {
+    if (Array.isArray(value)) return value.map(stableSettingsValue);
+    if (value && typeof value === "object") {
+      return Object.fromEntries(Object.keys(value).sort().map((key) => [key, stableSettingsValue(value[key])]));
+    }
+    return value;
+  }
+
+  function settingsValueEqual(left, right) {
+    return JSON.stringify(stableSettingsValue(left)) === JSON.stringify(stableSettingsValue(right));
+  }
+
+  // Form pages send only fields the user actually changed. The base snapshot
+  // lets the background merge edits made in parallel by the other settings UI.
+  function settingsDelta(value, baseline) {
+    const source = settingsPatchWithoutEngine(value || {});
+    const base = baseline || {};
+    return Object.fromEntries(Object.entries(source).filter(([key, item]) =>
+      item !== undefined && !settingsValueEqual(item, base[key])));
+  }
+
+  function mappingKey(item) {
+    if (!item || typeof item !== "object") return "";
+    const voice = String(item.voice || "").trim();
+    const tag = normalizeCharacterTag(item.tag);
+    if (item.manual === true && tag) return `manual:${tag}:${voice}`;
+    if (voice) return `voice:${voice}`;
+    return tag ? `tag:${tag}` : "";
+  }
+
+  function mergeKeyedRows(currentRows, baseRows, editedRows, keyFor) {
+    if (!Array.isArray(currentRows) || !Array.isArray(baseRows) || !Array.isArray(editedRows)) return editedRows;
+    const toMap = (rows) => {
+      const result = new Map();
+      for (const row of rows) {
+        const key = keyFor(row);
+        if (!key || result.has(key)) return null;
+        result.set(key, row);
+      }
+      return result;
+    };
+    const current = toMap(currentRows);
+    const base = toMap(baseRows);
+    const edited = toMap(editedRows);
+    // Legacy lists with duplicate or unkeyed rows are replaced as a whole
+    // rather than guessed at or partially discarded.
+    if (!current || !base || !edited) return editedRows;
+    const merged = currentRows.map((row) => ({ ...row }));
+    for (const key of new Set([...base.keys(), ...edited.keys()])) {
+      const before = base.get(key);
+      const after = edited.get(key);
+      if (settingsValueEqual(before, after)) continue;
+      const index = merged.findIndex((row) => keyFor(row) === key);
+      if (after === undefined) {
+        if (index >= 0) merged.splice(index, 1);
+      } else if (index >= 0) {
+        merged[index] = { ...after };
+      } else {
+        merged.push({ ...after });
+      }
+    }
+    return merged;
+  }
+
+  function mergeObjectChanges(currentValue, baseValue, editedValue) {
+    if (!currentValue || typeof currentValue !== "object" || Array.isArray(currentValue)
+      || !baseValue || typeof baseValue !== "object" || Array.isArray(baseValue)
+      || !editedValue || typeof editedValue !== "object" || Array.isArray(editedValue)) return editedValue;
+    const merged = { ...currentValue };
+    for (const key of new Set([...Object.keys(baseValue), ...Object.keys(editedValue)])) {
+      const before = baseValue[key];
+      const after = editedValue[key];
+      if (settingsValueEqual(before, after)) continue;
+      if (Object.prototype.hasOwnProperty.call(editedValue, key)) merged[key] = after;
+      else delete merged[key];
+    }
+    return merged;
+  }
+
+  function mergeSettingsPatch(currentValue, patchValue, baseValue = {}) {
+    const patch = settingsPatchWithoutEngine(patchValue || {});
+    const current = currentValue || {};
+    const base = baseValue || {};
+    const merged = { ...current, ...patch };
+    if (Array.isArray(patch.characterMappings) && Array.isArray(base.characterMappings)) {
+      merged.characterMappings = mergeKeyedRows(
+        current.characterMappings || [], base.characterMappings, patch.characterMappings, mappingKey);
+    }
+    for (const key of ["presets", "voiceDisplayNames", "voiceEngineOverrides"]) {
+      if (patch[key] && base[key]) merged[key] = mergeObjectChanges(current[key] || {}, base[key], patch[key]);
+    }
+    return merged;
+  }
+
+  function reconcileSettingsEditor(remoteValue, draftValue, baselineValue) {
+    const patch = settingsDelta(draftValue, baselineValue);
+    return { patch, settings: mergeSettingsPatch(remoteValue, patch, baselineValue) };
   }
 
   function cleanText(input, rawSettings) {
@@ -419,7 +578,7 @@
     const unresolvedTags = new Set();
     for (const match of matches) {
       const tag = normalizeCharacterTag(match[1]);
-      if (!isNarrationTag(tag) && !resolutionFor(tag)) unresolvedTags.add(tag);
+      if (!isNarrationTag(tag) && !resolutionFor(tag) && !isConfiguredDialogueToken(match, settings)) unresolvedTags.add(tag);
     }
     if (unresolvedTags.size && typeof console !== "undefined" && typeof console.warn === "function") {
       for (const tag of unresolvedTags) {
@@ -431,7 +590,8 @@
     // remains part of the prose.
     const controls = matches.filter((match) => {
       const tag = normalizeCharacterTag(match[1]);
-      return isNarrationTag(tag) || Boolean(resolutionFor(tag)) || unknownBehavior !== "keep";
+      return isNarrationTag(tag) || Boolean(resolutionFor(tag))
+        || (unknownBehavior !== "keep" && !isConfiguredDialogueToken(match, settings));
     });
     if (!controls.length) return [{ text, voice: settings.defaultVoice, tagged: false }];
     const output = [];
@@ -489,18 +649,29 @@
 
   function narrationSegments(segment, settings) {
     if (!settings.narrationEnabled) return [segment];
-    const pairs = (settings.dialoguePairs || ["「」", "『』"])
-      .map((pair) => [...String(pair)])
-      .filter((pair) => pair.length >= 2);
+    const pairs = configuredDialoguePairs(settings);
     const explicitSpeaker = Boolean(segment && segment.explicitSpeaker);
     const makePart = (text, dialogue) => {
       if (explicitSpeaker) {
+        if (segment.narration || !dialogue) {
+          return {
+            ...segment,
+            text,
+            voice: settings.narratorVoice || settings.defaultVoice,
+            tag: "",
+            tagged: false,
+            mappedVoice: "",
+            explicitSpeaker: false,
+            narration: true,
+            dialogue: false
+          };
+        }
         return {
           ...segment,
           text,
           voice: segment.voice,
-          narration: Boolean(segment.narration),
-          dialogue
+          narration: false,
+          dialogue: true
         };
       }
       if (dialogue) {
@@ -526,18 +697,19 @@
       };
     };
     if (!pairs.length) return [makePart(String(segment.text || ""), false)];
-    const opener = new Map(pairs.map((pair) => [pair[0], pair[1]]));
     const source = String(segment.text || "");
     const output = [];
     let position = 0;
     while (position < source.length) {
       let nearest = -1;
-      let close = "";
-      for (const [open, ending] of opener) {
-        const at = source.indexOf(open, position);
-        if (at >= 0 && (nearest < 0 || at < nearest)) {
+      let selectedPair = null;
+      for (const pair of pairs) {
+        const at = source.indexOf(pair.open, position);
+        if (at >= 0 && (nearest < 0 || at < nearest
+          || (at === nearest && pair.open.length > selectedPair.open.length)
+          || (at === nearest && pair.open.length === selectedPair.open.length && pair.index < selectedPair.index))) {
           nearest = at;
-          close = ending;
+          selectedPair = pair;
         }
       }
       if (nearest < 0) {
@@ -545,10 +717,16 @@
         break;
       }
       if (nearest > position) output.push(makePart(source.slice(position, nearest), false));
-      const end = source.indexOf(close, nearest + 1);
-      const bodyEnd = end < 0 ? source.length : end;
-      output.push(makePart(source.slice(nearest + 1, bodyEnd), true));
-      position = end < 0 ? source.length : end + 1;
+      const bodyStart = nearest + selectedPair.open.length;
+      const end = source.indexOf(selectedPair.close, bodyStart);
+      if (end < 0) {
+        // An unmatched opener is ordinary prose, not a reason to drop the
+        // opener or classify the rest of the page as dialogue.
+        output.push(makePart(source.slice(nearest), false));
+        break;
+      }
+      output.push(makePart(source.slice(bodyStart, end), true));
+      position = end + selectedPair.close.length;
     }
     return output;
   }
@@ -574,7 +752,7 @@
     return null;
   }
 
-  const api = { ENGINE_ENDPOINTS, ENGINE_ALIASES, DEFAULT_SETTINGS, BUILTIN_PRESETS, normalizeEngine, normalizeApiMode, engineForEndpoint, migrateSettings, mergedSettings, normalizeCharacterTag, isNarrationTag, resolveCharacterTag, mappedVoiceForTag, voiceRouteForSegment, characterMappingCandidates, characterMappingGroups, settingsExport, classifyApiError, apiUrlForEngine, apiUrlForSettings, settingsPatchWithoutEngine, engineStoragePatch, presetSettings, cleanText, processText };
+  const api = { ENGINE_ENDPOINTS, ENGINE_ALIASES, DEFAULT_SETTINGS, BUILTIN_PRESETS, normalizeEngine, normalizeApiMode, engineForEndpoint, migrateSettings, mergedSettings, normalizeCharacterTag, isNarrationTag, resolveCharacterTag, mappedVoiceForTag, voiceRouteForSegment, characterMappingCandidates, characterMappingGroups, settingsExport, classifyApiError, apiUrlForEngine, apiUrlForSettings, settingsPatchWithoutEngine, engineStoragePatch, settingsDelta, mergeSettingsPatch, reconcileSettingsEditor, presetSettings, cleanText, processText };
   root.IrodoriTextProcessor = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

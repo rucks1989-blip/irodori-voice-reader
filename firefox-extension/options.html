@@ -78,7 +78,8 @@
       <div class="grid two"><label>地の文のVoice<select id="narratorVoice" class="voice-select"></select><small class="hint">ナレーションON時、会話括弧の外側に使います。</small></label><label>タグなし会話のVoice<select id="dialogueVoice" class="voice-select"></select><small class="hint">登録タグのない会話に使います。</small></label></div>
       <label>会話として扱う括弧<textarea id="dialoguePairs" rows="3" spellcheck="false"></textarea></label>
       <small class="hint">1行に開始括弧と終了括弧を1組ずつ入力します。例: 「」 / 『』 / （）</small>
-      <p class="hint">例: 【結衣】「やっはろー！」そう彼女は言った。→ 台詞は結衣Voice、後半は地の文のVoice。タグのない台詞はタグなし会話のVoiceを使います。</p>
+      <p class="hint">例: 【結衣】「やっはろー！」そう彼女は言った。→ ナレーションONなら、タグ付き台詞は優先ONで結衣Voice／OFFでタグなし会話Voice、括弧の外は地の文Voiceです。タグのない台詞はタグなし会話Voiceです。</p>
+      <small class="hint">ナレーションOFFでは括弧分割をせず、登録タグから次の登録タグまでを優先ONでキャラクターVoice、OFFでデフォルトVoiceで読みます。</small>
     </section>
     <section>
       <h2>除外ルール</h2>

@@ -2,6 +2,7 @@ import hashlib
 import importlib.util
 import json
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -25,6 +26,16 @@ class DistributionTests(unittest.TestCase):
     def test_extension_shared_code(self):
         for name in ["adapters.js", "muse-watcher.js", "chatgpt-watcher.js", "content.js", "background.js", "text-processor.js", "sidebar.js", "popup.js", "options.js"]:
             self.assertEqual((ROOT / "chrome-extension" / name).read_bytes(), (ROOT / "firefox-extension" / name).read_bytes(), name)
+
+    @unittest.skipUnless(shutil.which("node"), "Node.js is unavailable")
+    def test_text_processor_routing(self):
+        result = subprocess.run(
+            [shutil.which("node"), str(ROOT / "tests" / "test_text_processor.js")],
+            cwd=ROOT, capture_output=True, text=True, encoding="utf-8", errors="replace", check=False,
+        )
+        self.assertEqual(result.returncode, 0, (result.stdout or "") + (result.stderr or ""))
+        self.assertIn('"今日はいい天気" → kurisu', result.stdout)
+        self.assertIn("ON/OFF matrix", result.stdout)
 
     def test_extension_ids_and_versions(self):
         chrome = json.loads((ROOT / "chrome-extension/manifest.json").read_text(encoding="utf8"))

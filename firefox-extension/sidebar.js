@@ -7,9 +7,10 @@ let current = Processor.mergedSettings();
 let voices = [];
 let saveTimer = 0;
 let pendingEngine = null;
-let ignoreChangesUntil = 0;
 let storageSyncSequence = 0;
 let lastEngineStatusRevision = -1;
+let lastSavedSettings = null;
+let settingsEditorReady = false;
 
 function message(text, error = false) {
   $("message").textContent = text || "";
@@ -210,7 +211,7 @@ function render(config, rebuildRows = true) {
   }
 }
 
-function collect() {
+function collect(validate = true) {
   const value = { ...current };
   for (const id of ["chatgptEnabled", "geminiEnabled", "museEnabled", "autoPlay", "wavSaveEnabled", "narrationEnabled", "characterTagPriority", "removeMarkdown", "readUrls", "readCodeBlocks", "longTextEnabled"]) value[id] = $(id).checked;
   value.timingDebug = $("timingDebug").checked;
@@ -231,8 +232,21 @@ function collect() {
     flags: row.querySelector('[data-key="flags"]').value || "gu",
     replacement: row.querySelector('[data-key="replacement"]').value
   })).filter((item) => item.pattern);
-  for (const rule of value.regexRules) new RegExp(rule.pattern, rule.flags);
+  if (validate) for (const rule of value.regexRules) new RegExp(rule.pattern, rule.flags);
   return Processor.mergedSettings(value);
+}
+
+async function syncSettingsEditor() {
+  if (!settingsEditorReady) return;
+  const sequence = ++storageSyncSequence;
+  let draft;
+  try { draft = collect(false); } catch (_) { draft = current; }
+  const remote = Processor.mergedSettings(await api.runtime.sendMessage({ type: "get-settings" }));
+  if (sequence !== storageSyncSequence) return;
+  const reconciled = Processor.reconcileSettingsEditor(remote, draft, lastSavedSettings || current);
+  lastSavedSettings = remote;
+  current = Processor.mergedSettings(reconciled.settings);
+  render(current);
 }
 
 async function saveNow() {
@@ -250,12 +264,15 @@ async function saveNow() {
         $("wavSaveStatus").textContent = `保存先を確認しました: ${checked.path || formValue.wavSaveDirectory}`;
       }
     }
-    const patch = Processor.settingsPatchWithoutEngine(formValue);
-    // engine/apiUrl are controlled only by background.switchEngine().  Keep
-    // the current engine in this page state while persisting ordinary fields.
-    current = Processor.mergedSettings({ ...current, ...patch });
-    ignoreChangesUntil = Date.now() + 500;
-    await api.runtime.sendMessage({ type: "save-settings", patch });
+    const baseline = lastSavedSettings || current;
+    const patch = Processor.settingsDelta(formValue, baseline);
+    const savedDraft = Processor.mergedSettings({ ...baseline, ...patch });
+    // The background stores changed fields only and three-way merges complex
+    // mappings/presets against this page's last-confirmed snapshot.
+    const saved = await api.runtime.sendMessage({ type: "save-settings", patch, base: baseline });
+    const laterEdits = Processor.settingsDelta(collect(false), savedDraft);
+    lastSavedSettings = Processor.mergedSettings(saved || { ...baseline, ...patch });
+    current = Processor.mergedSettings(Processor.mergeSettingsPatch(lastSavedSettings, laterEdits, savedDraft));
     $("saveState").textContent = "保存済み";
     setTimeout(() => { $("saveState").textContent = "設定は自動保存されます"; }, 1200);
   } catch (error) {
@@ -406,6 +423,7 @@ async function exportSettings() {
 
 async function importSettings(file) {
   current = Processor.mergedSettings(await api.runtime.sendMessage({ type: "import-settings", settings: JSON.parse(await file.text()) }));
+  lastSavedSettings = current;
   render(current);
   $("settingsTransferStatus").textContent = "Importしました。";
 }
@@ -576,6 +594,7 @@ $("checkCustomApi").addEventListener("click", async () => {
 $("preset").addEventListener("change", async () => {
   try {
     current = await api.runtime.sendMessage({ type: "apply-preset", preset: $("preset").value });
+    lastSavedSettings = Processor.mergedSettings(current);
     render(current);
     message(`「${$("preset").selectedOptions[0].textContent}」を適用しました。`);
   } catch (error) { message(error.message, true); }
@@ -628,28 +647,28 @@ api.runtime.onMessage.addListener((event) => {
   }
 });
 api.storage.onChanged.addListener(async (changes, area) => {
-  if (area !== "local") return;
-  const engineChanged = Boolean(changes && (changes.engine || changes.apiUrl || changes.apiMode || changes.customApiUrl));
-  if (!engineChanged && Date.now() < ignoreChangesUntil) return;
-  const sequence = ++storageSyncSequence;
-  const stored = await api.runtime.sendMessage({ type: "get-settings" });
-  if (sequence !== storageSyncSequence) return;
-  current = Processor.mergedSettings(stored);
-  render(current);
+  if (area !== "local" || !changes) return;
+  const settingKeys = new Set([...Object.keys(Processor.DEFAULT_SETTINGS), "voiceDisplayNames"]);
+  if (!Object.keys(changes).some((key) => settingKeys.has(key))) return;
+  try { await syncSettingsEditor(); }
+  catch (error) { message(`他画面の設定を読み込めません: ${error.message}`, true); }
 });
 
 (async () => {
   const initialized = await api.runtime.sendMessage({ type: "initialize" });
   current = initialized.settings;
+  lastSavedSettings = Processor.mergedSettings(initialized.settings);
   voices = initialized.voices || current.cachedVoices || [];
   render(current);
+  settingsEditorReady = true;
   if (current.wavSaveEnabled) {
     const checked = await validateWavSaveDirectory(current.wavSaveDirectory);
     if (!checked.valid) {
       current.wavSaveEnabled = false;
       $("wavSaveEnabled").checked = false;
       setToggle("wavSaveEnabled", false);
-      await api.storage.local.set({ wavSaveEnabled: false });
+      const saved = await api.runtime.sendMessage({ type: "save-settings", patch: { wavSaveEnabled: false }, base: lastSavedSettings });
+      lastSavedSettings = Processor.mergedSettings(saved || { ...lastSavedSettings, wavSaveEnabled: false });
       $("wavSaveStatus").textContent = checked.error || "保存先フォルダーが存在しないためWAV保存をOFFにしました。";
       message($("wavSaveStatus").textContent, true);
     }

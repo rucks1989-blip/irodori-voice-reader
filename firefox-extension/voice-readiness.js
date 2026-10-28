@@ -115,8 +115,20 @@
     // Jobs created before voiceRoute was introduced have a tag but no tagged
     // boolean.  Treat that legacy shape as an explicit mapping, while a
     // narration segment is deliberately excluded so its tag cannot leak.
-    const explicitTag = Boolean(tag && value.narration !== true && value.tagged !== false && mappedVoice);
+    const explicitTag = Boolean(tag && value.narration !== true && value.tagged !== false && mappedVoice
+      && (!settings || settings.characterTagPriority !== false));
     if (explicitTag) return { voice: mappedVoice, source: "character_tag", tag, mappedVoice, fallbackVoice: "", dialogue: Boolean(value.dialogue), narration: false, tagResolution: String(tagResolution && tagResolution.kind || "") };
+    if (tag && value.narration !== true && value.tagged !== false && mappedVoice
+      && settings && settings.characterTagPriority === false) {
+      if (value.dialogue) return {
+        voice: normalizeVoiceId(settings.dialogueVoice) || normalizeVoiceId(settings.defaultVoice),
+        source: "untagged_dialogue", tag: "", mappedVoice: "", fallbackVoice: "", dialogue: true, narration: false, tagResolution: ""
+      };
+      return {
+        voice: normalizeVoiceId(settings.defaultVoice) || normalizeVoiceId(value.voice),
+        source: "default", tag: "", mappedVoice: "", fallbackVoice: "", dialogue: false, narration: false, tagResolution: ""
+      };
+    }
     if (value.dialogue) return {
       voice: normalizeVoiceId(settings && settings.dialogueVoice) || normalizeVoiceId(value.voice) || normalizeVoiceId(settings && settings.defaultVoice),
       source: "untagged_dialogue", tag: "", mappedVoice: "", fallbackVoice: "", dialogue: true, narration: false, tagResolution: ""

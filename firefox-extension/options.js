@@ -10,6 +10,8 @@ let disabledAutoVoices = [];
 let editingVoiceId = "";
 let deletingVoice = null;
 let engineStorageSyncSequence = 0;
+let lastSavedSettings = null;
+let settingsEditorReady = false;
 
 const scalarIds = ["unknownTagBehavior", "longTextTargetSeconds", "longTextMaxChars", "wavSaveDirectory"];
 const checkIds = ["chatgptEnabled", "geminiEnabled", "museEnabled", "autoPlay", "wavSaveEnabled", "timingDebug", "narrationEnabled", "characterTagPriority", "removeMarkdown", "readUrls", "readCodeBlocks", "longTextEnabled", "longTextPreserveDialogue", "longTextKeepCharacterTagsSeparate"];
@@ -200,7 +202,7 @@ function lines(id) {
   return $(id).value.split(/\r?\n/).map((value) => value.trim()).filter(Boolean);
 }
 
-function readForm() {
+function readForm(validate = true) {
   const value = { presets: current.presets || {}, currentPreset: current.currentPreset || "builtin:chat" };
   value.apiMode = current.apiMode;
   value.customApiUrl = current.customApiUrl;
@@ -223,8 +225,23 @@ function readForm() {
     flags: row.querySelector('[data-key="flags"]').value || "gu",
     replacement: row.querySelector('[data-key="replacement"]').value
   })).filter((item) => item.pattern);
-  for (const rule of value.regexRules) new RegExp(rule.pattern, rule.flags);
+  if (validate) for (const rule of value.regexRules) new RegExp(rule.pattern, rule.flags);
   return Processor.mergedSettings(value);
+}
+
+async function syncSettingsEditor() {
+  if (!settingsEditorReady) return;
+  const sequence = ++engineStorageSyncSequence;
+  let draft;
+  try { draft = readForm(false); } catch (_) { draft = current; }
+  const stored = await api.runtime.sendMessage({ type: "get-settings" });
+  if (sequence !== engineStorageSyncSequence) return;
+  const remote = Processor.mergedSettings(stored);
+  const reconciled = Processor.reconcileSettingsEditor(remote, draft, lastSavedSettings || current);
+  lastSavedSettings = remote;
+  current = Processor.mergedSettings(reconciled.settings);
+  render(current);
+  setResult(current.apiMode === "custom" ? "既存Irodori-TTS APIを使用中" : `${current.engine === "voice_stable" ? "声質安定版" : "通常版"}を使用中`, true);
 }
 
 async function selectEngine(engine) {
@@ -280,11 +297,16 @@ async function selectApiMode(mode, customApiUrl = $("customApiUrl").value) {
 async function save() {
   try {
     const formValue = await validateWavSaveSetting(readForm());
-    const patch = Processor.settingsPatchWithoutEngine(formValue);
+    const baseline = lastSavedSettings || current;
+    const patch = Processor.settingsDelta(formValue, baseline);
+    const savedDraft = Processor.mergedSettings({ ...baseline, ...patch });
     // The engine is switched by background.switchEngine() only.  Saving this
     // page must not replay an older radio-button/apiUrl snapshot.
-    current = Processor.mergedSettings({ ...current, ...patch });
-    await api.runtime.sendMessage({ type: "save-settings", patch });
+    const saved = await api.runtime.sendMessage({ type: "save-settings", patch, base: baseline });
+    const after = readForm(false);
+    const laterEdits = Processor.settingsDelta(after, savedDraft);
+    lastSavedSettings = Processor.mergedSettings(saved || { ...baseline, ...patch });
+    current = Processor.mergedSettings(Processor.mergeSettingsPatch(lastSavedSettings, laterEdits, savedDraft));
     $("saveState").textContent = "保存しました";
     setTimeout(() => { $("saveState").textContent = ""; }, 2500);
   } catch (error) {
@@ -296,14 +318,7 @@ async function refreshVoices() {
   try {
     const body = await api.runtime.sendMessage({ type: "voices" });
     voices = body.voices || [];
-    const ids = voices.map((voice) => voice.id);
-    const selected = ids.includes(current.defaultVoice) ? current.defaultVoice : (ids.includes("yui") ? "yui" : ids[0]);
-    const updates = { cachedVoices: voices };
-    if (selected) {
-      current.defaultVoice = selected;
-      updates.defaultVoice = selected;
-    }
-    await api.storage.local.set(updates);
+    await api.storage.local.set({ cachedVoices: voices });
     fillVoiceSelects();
     await refreshVoiceState();
     renderVoiceCards();
@@ -316,12 +331,16 @@ async function refreshVoiceState() {
     const result = await api.runtime.sendMessage({ type: "native-control", command: "voice_state" });
     configuredVoices = new Map((result.voices || []).map((voice) => [voice.id, voice]));
     disabledAutoVoices = Array.isArray(result.disabledAutoVoices) ? result.disabledAutoVoices : [];
-    const voiceDisplayNames = { ...(current.voiceDisplayNames || {}) };
+    const latest = Processor.mergedSettings(await api.runtime.sendMessage({ type: "get-settings" }));
+    const voiceDisplayNames = { ...(latest.voiceDisplayNames || {}) };
     for (const voice of result.voices || []) {
       if (voice && voice.id && voice.name) voiceDisplayNames[String(voice.id)] = String(voice.name);
     }
+    const patch = Processor.settingsDelta({ voiceDisplayNames }, latest);
+    if (Object.keys(patch).length) {
+      await api.runtime.sendMessage({ type: "save-settings", patch, base: latest });
+    }
     current.voiceDisplayNames = voiceDisplayNames;
-    await api.storage.local.set({ voiceDisplayNames });
   } catch (_) {
     configuredVoices = new Map();
     disabledAutoVoices = [];
@@ -401,10 +420,11 @@ async function registerVoice() {
   const id = $("voiceId").value.trim();
   const name = $("voiceName").value.trim();
   const file = $("voiceFile").files[0];
+  let operation;
   if (!name || !id) throw new Error("表示名とVoice IDを入力してください。");
   if (!/^[0-9A-Za-z][0-9A-Za-z_-]{0,63}$/.test(id)) throw new Error("Voice IDは半角英数字で始まる64文字以内（英数字・_・-）にしてください。");
   if (editingVoiceId && !file) {
-    await api.runtime.sendMessage({ type: "native-control", command: "voice_update", id, name });
+    operation = await api.runtime.sendMessage({ type: "native-control", command: "voice_update", id, name });
   } else {
     if (!file) throw new Error("Voiceファイルを選択してください。");
     if (file.size > 64 * 1024 * 1024) throw new Error("Voiceファイルは64MB以下にしてください。");
@@ -413,11 +433,12 @@ async function registerVoice() {
     if (voiceType === "reference_wav" && !lower.endsWith(".wav")) throw new Error("Reference WAVには.wavを選択してください。");
     if (voiceType === "speaker_embedding" && !lower.endsWith(".speaker.safetensors")) throw new Error("Speaker Embeddingには.speaker.safetensorsを選択してください。");
     if (voiceType === "safetensors" && (!lower.endsWith(".safetensors") || lower.endsWith(".speaker.safetensors"))) throw new Error("Safetensorsには通常の.safetensorsを選択してください。");
-    await api.runtime.sendMessage({ type: "native-control", command: "voice_import", id, name, voiceType, fileName: file.name, dataBase64: await fileAsBase64(file) });
+    operation = await api.runtime.sendMessage({ type: "native-control", command: "voice_import", id, name, voiceType, fileName: file.name, dataBase64: await fileAsBase64(file) });
   }
   $("voiceForm").hidden = true;
   await refreshVoices();
-  setResult(`Voice「${name} / ${id}」を反映しました。`, true);
+  const reloadNote = operation?.apiReload?.status === "stopped" ? " API停止中のため、次回起動時に反映されます。" : "";
+  setResult(`Voice「${name} / ${id}」を反映しました。${reloadNote}`, true);
 }
 
 function voiceReferences(id) {
@@ -457,17 +478,25 @@ async function confirmDeleteVoice() {
     ? `「${voice.name} / ${voice.id}」は ${references.join("、")} から参照されています。一覧から外しますか？`
     : `「${voice.name} / ${voice.id}」は ${references.join("、")} から参照されています。それでもVoice登録を削除しますか？`;
   if (references.length && !window.confirm(confirmation)) return;
+  let operation;
   if (voice.source === "auto") {
-    await api.runtime.sendMessage({ type: "native-control", command: "voice_delete", id: voice.id, source: "auto", disableAuto: true });
+    operation = await api.runtime.sendMessage({ type: "native-control", command: "voice_delete", id: voice.id, source: "auto", disableAuto: true });
   } else {
-    await api.runtime.sendMessage({ type: "native-control", command: "voice_delete", id: voice.id, source: "config", deleteManagedFile: configVoice?.managed && $("deleteManagedFile").checked });
+    operation = await api.runtime.sendMessage({ type: "native-control", command: "voice_delete", id: voice.id, source: "config", deleteManagedFile: configVoice?.managed && $("deleteManagedFile").checked });
   }
   deletingVoice = null;
   $("deleteVoicePanel").hidden = true;
-  current.characterMappings = (current.characterMappings || []).filter((item) => item.voice !== voice.id);
-  await api.runtime.sendMessage({ type: "save-settings", patch: { characterMappings: current.characterMappings } });
+  const base = Processor.mergedSettings(await api.runtime.sendMessage({ type: "get-settings" }));
+  const patch = { characterMappings: (base.characterMappings || []).filter((item) => item.voice !== voice.id) };
+  const saved = await api.runtime.sendMessage({ type: "save-settings", patch, base });
+  lastSavedSettings = Processor.mergedSettings(saved || { ...base, ...patch });
+  current = Processor.mergedSettings(lastSavedSettings);
   await refreshVoices();
-  setResult(voice.source === "auto" ? `Voice「${voice.name} / ${voice.id}」を一覧から外しました。元ファイルは削除していません。` : `Voice「${voice.name} / ${voice.id}」の登録を削除しました。`, true);
+  const reloadNote = operation?.apiReload?.status === "stopped" ? " API停止中のため、次回起動時に反映されます。" : "";
+  const fileNote = operation?.retainedManagedFiles?.length
+    ? " 管理Voiceファイルの削除に失敗し、ファイルは残っています。"
+    : operation?.deletedManagedFile ? " 管理対象ファイルも削除しました。" : "";
+  setResult((voice.source === "auto" ? `Voice「${voice.name} / ${voice.id}」を一覧から外しました。元ファイルは削除していません。` : `Voice「${voice.name} / ${voice.id}」の登録を削除しました。`) + fileNote + reloadNote, !operation?.retainedManagedFiles?.length);
 }
 
 async function restoreAutoVoices() {
@@ -529,6 +558,7 @@ async function exportSettings() {
 async function importSettings(file) {
   const value = JSON.parse(await file.text());
   current = Processor.mergedSettings(await api.runtime.sendMessage({ type: "import-settings", settings: value }));
+  lastSavedSettings = current;
   render(current);
   $("settingsTransferStatus").textContent = "設定をImportしました。既存設定は世代バックアップ済みです。";
 }
@@ -625,8 +655,11 @@ $("savePreset").addEventListener("click", async () => {
   const value = readForm();
   const { presets, ...withoutPresets } = value;
   const presetValue = Processor.settingsPatchWithoutEngine(withoutPresets);
-  current.presets = { ...(current.presets || {}), [name]: presetValue };
-  await api.storage.local.set({ presets: current.presets });
+  const base = Processor.mergedSettings(await api.runtime.sendMessage({ type: "get-settings" }));
+  const patch = { presets: { ...(base.presets || {}), [name]: presetValue } };
+  const saved = await api.runtime.sendMessage({ type: "save-settings", patch, base });
+  lastSavedSettings = Processor.mergedSettings(saved || { ...base, ...patch });
+  current = Processor.mergedSettings({ ...current, presets: lastSavedSettings.presets });
   renderPresetList();
   $("preset").value = `custom:${name}`;
   setResult(`プリセット「${name}」を保存しました。`, true);
@@ -634,8 +667,13 @@ $("savePreset").addEventListener("click", async () => {
 $("deletePreset").addEventListener("click", async () => {
   const [kind, name] = $("preset").value.split(":");
   if (kind !== "custom") { setResult("組み込みプリセットは削除できません。", false); return; }
-  delete current.presets[name];
-  await api.storage.local.set({ presets: current.presets });
+  const base = Processor.mergedSettings(await api.runtime.sendMessage({ type: "get-settings" }));
+  const presets = { ...(base.presets || {}) };
+  delete presets[name];
+  const patch = { presets };
+  const saved = await api.runtime.sendMessage({ type: "save-settings", patch, base });
+  lastSavedSettings = Processor.mergedSettings(saved || { ...base, ...patch });
+  current = Processor.mergedSettings({ ...current, presets: lastSavedSettings.presets });
   renderPresetList();
   setResult(`プリセット「${name}」を削除しました。`, true);
 });
@@ -644,28 +682,26 @@ api.runtime.onMessage.addListener((event) => {
   if (event && event.type === "timing-log-updated") renderTimingLogStatus(event);
 });
 
-api.storage.onChanged.addListener(async (changes, area) => {
-  if (area !== "local" || !changes || (!changes.engine && !changes.apiUrl && !changes.apiMode && !changes.customApiUrl)) return;
-  const sequence = ++engineStorageSyncSequence;
-  const stored = await api.storage.local.get({ ...Processor.DEFAULT_SETTINGS, cachedVoices: [] });
-  if (sequence !== engineStorageSyncSequence) return;
-  current = Processor.mergedSettings(stored);
-  renderApiMode();
-  $("apiUrl").value = Processor.apiUrlForSettings(current);
-  setResult(current.apiMode === "custom" ? "既存Irodori-TTS APIを使用中" : `${current.engine === "voice_stable" ? "声質安定版" : "通常版"}を使用中`, true);
+api.storage.onChanged.addListener((changes, area) => {
+  if (area !== "local" || !changes) return;
+  const settingKeys = new Set([...Object.keys(Processor.DEFAULT_SETTINGS), "voiceDisplayNames"]);
+  if (!Object.keys(changes).some((key) => settingKeys.has(key))) return;
+  syncSettingsEditor().catch((error) => setResult(`他画面の設定を読み込めません: ${error.message}`, false));
 });
 
 (async () => {
   $("extensionVersion").textContent = api.runtime.getManifest().version;
   const stored = await api.storage.local.get({ ...Processor.DEFAULT_SETTINGS, cachedVoices: [] });
   voices = stored.cachedVoices || [];
+  lastSavedSettings = Processor.mergedSettings(stored);
   render(stored);
+  settingsEditorReady = true;
   if (current.wavSaveEnabled) {
     const checked = await validateWavSaveDirectory(current.wavSaveDirectory);
     if (!checked.valid) {
       current.wavSaveEnabled = false;
       $("wavSaveEnabled").checked = false;
-      await api.storage.local.set({ wavSaveEnabled: false });
+      await api.runtime.sendMessage({ type: "save-settings", patch: { wavSaveEnabled: false }, base: lastSavedSettings });
       $("wavSaveStatus").textContent = checked.error || "保存先フォルダーが存在しないためWAV保存をOFFにしました。";
       setResult($("wavSaveStatus").textContent, false);
     }

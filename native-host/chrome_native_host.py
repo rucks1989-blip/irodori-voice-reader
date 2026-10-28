@@ -99,19 +99,22 @@ def _log_voice_import_post_state(config: dict, message: dict, response: dict | N
         _diagnostic(f"voice_import_voices_json_update success=False path=config/voices.json exists={voices_path.is_file()} error={ascii(str(error))}")
 
 
-def _reload_api_with_diagnostics(config: dict) -> None:
-    try:
-        url = config["health_url"].rsplit("/", 1)[0] + "/v1/reload"
-        request = urllib.request.Request(url, data=b"{}", headers={"Content-Type": "application/json"}, method="POST")
-        with urllib.request.urlopen(request, timeout=5) as response:
-            _diagnostic(f"voice_import_reload success=True endpoint=/v1/reload status={getattr(response, 'status', None)}")
-    except (OSError, urllib.error.URLError) as error:
-        _diagnostic(f"voice_import_reload success=False endpoint=/v1/reload error={ascii(str(error))}")
-
-
 def _install_voice_import_diagnostics() -> None:
     original_read_message = firefox_host.read_message
     original_handle = firefox_host.handle
+    original_reload_api = firefox_host._reload_api
+
+    def reload_api_with_diagnostics(config: dict) -> dict:
+        try:
+            result = original_reload_api(config)
+            _diagnostic(
+                "voice_import_reload success=True "
+                f"status={result.get('status')} applied={result.get('applied')}"
+            )
+            return result
+        except Exception as error:
+            _diagnostic(f"voice_import_reload success=False error={ascii(str(error))}")
+            raise
 
     def read_message_with_diagnostics() -> dict | None:
         message = original_read_message()
@@ -124,7 +127,7 @@ def _install_voice_import_diagnostics() -> None:
             return original_handle(message, config)
         _, relative = _voice_import_target(config, message)
         _diagnostic(f"voice_import_save_destination path={ascii(relative)}")
-        firefox_host._reload_api = _reload_api_with_diagnostics
+        firefox_host._reload_api = reload_api_with_diagnostics
         try:
             response = original_handle(message, config)
         except Exception as error:

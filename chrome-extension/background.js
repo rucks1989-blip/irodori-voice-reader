@@ -71,6 +71,9 @@ const SETTINGS_RECOVERY_KEY = "irodoriSettingsRecovery";
 const VOICE_REFRESH_ATTEMPTS = 3;
 const VOICE_REFRESH_DELAY_MS = 80;
 const VOICE_RETRY_BASE_DELAY_MS = 250;
+const MAX_TTS_RETRIES = 2;
+const TTS_RETRY_BASE_DELAY_MS = 1000;
+let settingsWriteQueue = Promise.resolve();
 let apiStartupMonitor = null;
 
 function settingsShapeIsValid(value) {
@@ -81,19 +84,25 @@ function settingsShapeIsValid(value) {
   return true;
 }
 
-async function persistSettingsPatch(patch) {
+function persistSettingsPatch(patch, baseSnapshot = {}) {
   const cleanPatch = Processor.settingsPatchWithoutEngine(patch || {});
-  const stored = await browserApi.storage.local.get(null);
-  const current = Processor.mergedSettings(stored);
-  const candidate = Processor.mergedSettings({ ...current, ...cleanPatch });
-  if (!settingsShapeIsValid(candidate)) throw new Error("設定データの形式が正しくありません。保存しませんでした。");
-  await browserApi.storage.local.set({
-    [SETTINGS_BACKUP_KEY]: { savedAt: new Date().toISOString(), settings: Processor.settingsExport(current) },
-    ...cleanPatch,
-    schemaVersion: Processor.DEFAULT_SETTINGS.schemaVersion,
-    settingsVersion: Processor.DEFAULT_SETTINGS.settingsVersion
+  const operation = settingsWriteQueue.then(async () => {
+    const stored = await browserApi.storage.local.get(null);
+    const current = Processor.mergedSettings(stored);
+    if (!Object.keys(cleanPatch).length) return current;
+    const candidate = Processor.mergedSettings(Processor.mergeSettingsPatch(current, cleanPatch, baseSnapshot));
+    if (!settingsShapeIsValid(candidate)) throw new Error("設定データの形式が正しくありません。保存しませんでした。");
+    const updates = Object.fromEntries(Object.keys(cleanPatch).map((key) => [key, candidate[key]]));
+    await browserApi.storage.local.set({
+      [SETTINGS_BACKUP_KEY]: { savedAt: new Date().toISOString(), settings: Processor.settingsExport(current) },
+      ...updates,
+      schemaVersion: Processor.DEFAULT_SETTINGS.schemaVersion,
+      settingsVersion: Processor.DEFAULT_SETTINGS.settingsVersion
+    });
+    return Processor.mergedSettings(await browserApi.storage.local.get(null));
   });
-  return candidate;
+  settingsWriteQueue = operation.catch(() => {});
+  return operation;
 }
 
 async function settings() {
@@ -820,7 +829,7 @@ async function importSettings(settingsValue) {
   const requestedEngine = Processor.normalizeEngine(migrated.engine, before.engine);
   delete migrated.engine;
   delete migrated.apiUrl;
-  await persistSettingsPatch(migrated);
+  await persistSettingsPatch(migrated, before);
   if (before.apiMode !== "custom" && requestedEngine !== before.engine) {
     await switchEngine(requestedEngine);
   }
@@ -1300,7 +1309,10 @@ async function requestTts(job, suppliedController = null) {
   } catch (error) {
     if (error.name === "AbortError") throw error;
     const classified = Processor.classifyApiError(error, 0);
-    throw new Error(`${classified.message} ${endpoint}（${error.message}）`);
+    const failure = new Error(`${classified.message} ${endpoint}（${error.message}）`);
+    failure.retryable = Boolean(classified.retryable);
+    failure.httpStatus = 0;
+    throw failure;
   } finally {
     state.abortController = null;
   }
@@ -1322,9 +1334,18 @@ async function requestTts(job, suppliedController = null) {
       detail = errorBody.message || errorBody.error || detail;
     } catch (_) {}
     const classified = Processor.classifyApiError(new Error(detail), response.status, errorBody);
-    throw new Error(`${classified.message}（${detail}）`);
+    const failure = new Error(`${classified.message}（${detail}）`);
+    failure.retryable = Boolean(classified.retryable);
+    failure.httpStatus = response.status;
+    throw failure;
   }
-  const blob = await response.blob();
+  let blob;
+  try {
+    blob = await response.blob();
+  } catch (error) {
+    error.retryable = true;
+    throw error;
+  }
   timingLog("tts_blob_complete", {
     message_id: job.messageId,
     chunk_index: job.chunkIndex + 1,
@@ -1495,6 +1516,7 @@ function addJob(record, text, voice, source, tabId, chunkIndex, segment = null, 
     chunkIndex,
     engineEpoch: state.engineEpoch,
     status: "queued",
+    ttsRetryAttempts: 0,
     blob: null,
     controller: null,
     generatedLogged: false,
@@ -1797,6 +1819,7 @@ async function generateJob(job) {
     const blob = await requestTts(job, controller);
     job.blob = blob;
     job.status = "generated";
+    job.ttsRetryAttempts = 0;
     job.nextAttemptAt = 0;
     job.voiceResolutionAttempts = 0;
     record.state = "generated";
@@ -1828,11 +1851,30 @@ async function generateJob(job) {
       scheduleVoiceRetry(job, error);
     } else if (error.name === "AbortError" && state.paused) {
       job.status = "queued";
+      record.state = "queued";
+    } else if (error.retryable && job.ttsRetryAttempts < MAX_TTS_RETRIES) {
+      job.ttsRetryAttempts += 1;
+      const delay = TTS_RETRY_BASE_DELAY_MS * (2 ** (job.ttsRetryAttempts - 1));
+      job.nextAttemptAt = Date.now() + delay;
+      job.status = "queued";
+      record.state = "queued";
+      state.lastError = `音声生成を再試行します（区間${job.chunkIndex + 1}、${job.ttsRetryAttempts}/${MAX_TTS_RETRIES}回目）: ${error.message}`;
+      console.warn("[Irodori] tts-retry-scheduled", {
+        message_id: job.messageId,
+        chunk_index: job.chunkIndex + 1,
+        retry: job.ttsRetryAttempts,
+        max_retries: MAX_TTS_RETRIES,
+        delay_ms: delay,
+        http_status: error.httpStatus || 0
+      });
+      setTimeout(() => {
+        if (state.queue.includes(job) && job.status === "queued") runSchedulers();
+      }, delay);
     } else {
       job.status = "failed";
       record.state = "failed";
-      state.lastError = error.message;
-      if (!error.cancelled) await visibleError(error.message, job.tabId);
+      state.lastError = `区間${job.chunkIndex + 1}の音声生成に失敗しました。残りの区間を完了扱いにはしません: ${error.message}`;
+      if (!error.cancelled) await visibleError(state.lastError, job.tabId);
     }
   } finally {
     job.controller = null;
@@ -2304,7 +2346,7 @@ browserApi.runtime.onMessage.addListener((message, sender) => {
   const type = message && message.type;
   if (type === "initialize") return ensureInitialized();
   if (type === "get-settings") return settings();
-  if (type === "save-settings") return persistSettingsPatch(message.patch || {});
+  if (type === "save-settings") return persistSettingsPatch(message.patch || {}, message.base || {});
   if (type === "export-settings") return settings().then(async (value) => {
     let voices = Array.isArray(value.cachedVoices) ? value.cachedVoices : [];
     try { voices = (await nativeControl("voice_state")).voices || voices; } catch (_) {}
@@ -2331,8 +2373,7 @@ browserApi.runtime.onMessage.addListener((message, sender) => {
     return settings().then(async (config) => {
       const preset = Processor.presetSettings(message.preset, config.presets);
       if (!preset) throw new Error("プリセットが見つかりません。");
-      await browserApi.storage.local.set({ ...Processor.settingsPatchWithoutEngine(preset), currentPreset: message.preset });
-      return settings();
+      return persistSettingsPatch({ ...preset, currentPreset: message.preset }, config);
     });
   }
   if (type === "enqueue") {

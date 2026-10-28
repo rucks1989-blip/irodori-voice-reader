@@ -43,6 +43,17 @@ ENGINE_LABELS = {
     "standard": "通常版",
     "voice_stable": "声質安定版",
 }
+TRUSTED_CHROME_EXTENSION_ID = "aeaichhflmacmifblidbpojgfemjijlb"
+TRUSTED_CHROME_ORIGIN = f"chrome-extension://{TRUSTED_CHROME_EXTENSION_ID}"
+
+
+def trusted_extension_origin(origin):
+    value = str(origin or "").strip()
+    if value == TRUSTED_CHROME_ORIGIN:
+        return True
+    # Firefox assigns a per-profile UUID as a moz-extension origin. The UUID
+    # has no path/port and cannot be forged by an ordinary web page.
+    return bool(re.fullmatch(r"moz-extension://[0-9a-f-]{16,64}", value, re.IGNORECASE))
 
 
 def _read_json(path, fallback=None):
@@ -380,7 +391,7 @@ class Handler(BaseHTTPRequestHandler):
 
     def end_headers(self):
         origin = self.headers.get("Origin", "")
-        if re.match(r"^(?:moz|chrome)-extension://[0-9a-z\-]+$", origin, re.I):
+        if trusted_extension_origin(origin):
             self.send_header("Access-Control-Allow-Origin", origin)
             self.send_header("Vary", "Origin")
         self.send_header(
@@ -392,7 +403,37 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Access-Control-Max-Age", "86400")
         super().end_headers()
 
+    def _authorize_local_request(self, require_extension_origin=False):
+        expected_port = int(STATE.api["port"])
+        host = str(self.headers.get("Host", "")).strip().lower()
+        allowed_hosts = {f"127.0.0.1:{expected_port}", f"localhost:{expected_port}"}
+        if host not in allowed_hosts:
+            self._send_json(403, {"error": "host_forbidden"})
+            return False
+        origin = self.headers.get("Origin", "")
+        if origin and not trusted_extension_origin(origin):
+            self._send_json(403, {"error": "origin_forbidden"})
+            return False
+        if require_extension_origin and not trusted_extension_origin(origin):
+            self._send_json(403, {"error": "extension_origin_required"})
+            return False
+        return True
+
     def do_OPTIONS(self):
+        if not self._authorize_local_request(require_extension_origin=True):
+            return
+        requested_method = str(self.headers.get("Access-Control-Request-Method", "")).upper()
+        if requested_method not in {"GET", "POST"}:
+            self._send_json(403, {"error": "preflight_method_forbidden"})
+            return
+        requested_headers = {
+            item.strip().lower()
+            for item in str(self.headers.get("Access-Control-Request-Headers", "")).split(",")
+            if item.strip()
+        }
+        if not requested_headers.issubset({"content-type"}):
+            self._send_json(403, {"error": "preflight_header_forbidden"})
+            return
         self.send_response(204)
         self.send_header("Content-Length", "0")
         self.end_headers()
@@ -434,6 +475,8 @@ class Handler(BaseHTTPRequestHandler):
         return normalize_engine(value)
 
     def do_GET(self):
+        if not self._authorize_local_request():
+            return
         parsed = urlparse(self.path)
         path = parsed.path.rstrip("/") or "/"
         query = parse_qs(parsed.query)
@@ -488,14 +531,15 @@ class Handler(BaseHTTPRequestHandler):
             self._send_json(500, {"error": str(exc)})
 
     def do_POST(self):
+        # Require a browser-extension Origin for every POST, not just Voice
+        # administration. This covers synthesis, reload and shutdown alike.
+        # Host validation also prevents DNS-rebinding requests from web pages.
+        if not self._authorize_local_request(require_extension_origin=True):
+            return
         path = urlparse(self.path).path.rstrip("/")
         try:
             payload = self._request_json()
             if path == "/shutdown" or path in {"/voices/import", "/voices/update", "/voices/delete"}:
-                origin = self.headers.get("Origin", "")
-                if origin and not re.match(r"^(?:moz|chrome)-extension://[0-9a-z\-]+$", origin, re.I):
-                    self._send_json(403, {"error": "origin_forbidden"})
-                    return
                 if path == "/shutdown":
                     stop_api(self)
                 else:

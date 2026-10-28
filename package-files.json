@@ -78,7 +78,7 @@
     },
     {
       "path": "chrome-extension/background.js",
-      "sha256": "6b4aa0f210db92e2ef19f955befdd7d5a754b0e154d2d157d70b50e6ba76bec4"
+      "sha256": "abd55cd2b0e8594a87914b2994745e09db3f315389656a40967b19b3e4a10a4a"
     },
     {
       "path": "chrome-extension/character-mapping.css",
@@ -130,11 +130,11 @@
     },
     {
       "path": "chrome-extension/options.html",
-      "sha256": "f27c8994d1091908df801c6f5aadb3846e68daf332df29e358c609d42addfcde"
+      "sha256": "b9adf90c7880fe91d41a219601c614bd03faec6bd7876d793b3ba65c8ddd00b0"
     },
     {
       "path": "chrome-extension/options.js",
-      "sha256": "a479aa4f8887d99241ddfb5284bbfe369c7317b8bfddaba79873854a12dd02b2"
+      "sha256": "bb9c97d041a0653e47478e524e34d6c2c0a1e459e19c9d3613ebe451318cfecb"
     },
     {
       "path": "chrome-extension/popup.css",
@@ -158,15 +158,15 @@
     },
     {
       "path": "chrome-extension/sidebar.html",
-      "sha256": "3ed96d17f4ca0d9b1b07c03c4a9d28e97f5dbd4e8770b97c531e35bfc96356d6"
+      "sha256": "f428baae6f835efab457ead8cdc9e339947025dbc034c00270a6859e3e205153"
     },
     {
       "path": "chrome-extension/sidebar.js",
-      "sha256": "5ed5c892594d6fccb24d755fcf9a7bde78a6d871dc4609ff3ff07589c20c50e2"
+      "sha256": "8287eab019e9bf7707329c5318ff4b088d8abfa657b062e7dcc3e87be68b02b0"
     },
     {
       "path": "chrome-extension/text-processor.js",
-      "sha256": "c1ab546bb690c73579e4f77b6034085fc1fc4fa39b503e9fbb82e2808a8bf4b1"
+      "sha256": "a0a35dcb8be60a9c9ce289283f616735e84e8b70d967034be2a1780e39736554"
     },
     {
       "path": "chrome-extension/voice-management.css",
@@ -174,7 +174,7 @@
     },
     {
       "path": "chrome-extension/voice-readiness.js",
-      "sha256": "328761eac27eb7fb4b48be9b9f76645a7bdcc1f81bb2b612644183da1375930b"
+      "sha256": "622956c08c8a5f247361f62ec270d2837322fbc29f67bdccd5cc06e3ecf2f91c"
     },
     {
       "path": "distribution.json",
@@ -202,7 +202,7 @@
     },
     {
       "path": "firefox-extension/background.js",
-      "sha256": "6b4aa0f210db92e2ef19f955befdd7d5a754b0e154d2d157d70b50e6ba76bec4"
+      "sha256": "abd55cd2b0e8594a87914b2994745e09db3f315389656a40967b19b3e4a10a4a"
     },
     {
       "path": "firefox-extension/character-mapping.css",
@@ -238,11 +238,11 @@
     },
     {
       "path": "firefox-extension/options.html",
-      "sha256": "72e7d9b1eb0a157022b9be24ddee9912c87bd6d90f75fc3ac2c7ddab3ebce5aa"
+      "sha256": "1d4bcd97df08805f7f29c4215a7daf21965a7d104fd07154dc9b225645344ff6"
     },
     {
       "path": "firefox-extension/options.js",
-      "sha256": "a479aa4f8887d99241ddfb5284bbfe369c7317b8bfddaba79873854a12dd02b2"
+      "sha256": "bb9c97d041a0653e47478e524e34d6c2c0a1e459e19c9d3613ebe451318cfecb"
     },
     {
       "path": "firefox-extension/popup.css",
@@ -262,15 +262,15 @@
     },
     {
       "path": "firefox-extension/sidebar.html",
-      "sha256": "b28d686196f04f48e37c9d8f466bb596560d104ad0ae845d5c46657256f9bc30"
+      "sha256": "8ef7fd78e3ce0c66ef4e87f3128e01add09d086eee2dca7a54dbbcb6a8a5ac5a"
     },
     {
       "path": "firefox-extension/sidebar.js",
-      "sha256": "5ed5c892594d6fccb24d755fcf9a7bde78a6d871dc4609ff3ff07589c20c50e2"
+      "sha256": "8287eab019e9bf7707329c5318ff4b088d8abfa657b062e7dcc3e87be68b02b0"
     },
     {
       "path": "firefox-extension/text-processor.js",
-      "sha256": "c1ab546bb690c73579e4f77b6034085fc1fc4fa39b503e9fbb82e2808a8bf4b1"
+      "sha256": "a0a35dcb8be60a9c9ce289283f616735e84e8b70d967034be2a1780e39736554"
     },
     {
       "path": "firefox-extension/voice-management.css",
@@ -278,7 +278,7 @@
     },
     {
       "path": "firefox-extension/voice-readiness.js",
-      "sha256": "328761eac27eb7fb4b48be9b9f76645a7bdcc1f81bb2b612644183da1375930b"
+      "sha256": "622956c08c8a5f247361f62ec270d2837322fbc29f67bdccd5cc06e3ecf2f91c"
     },
     {
       "path": "irodori-api/config/audio_cpp_server.shared.example.json",
@@ -354,7 +354,7 @@
     },
     {
       "path": "irodori-api/kurisu_voice_api.py",
-      "sha256": "ee8cc7fdf01314263d60cd7fed437adc8c8f3b84d261cf73ac0a78277535cb0a"
+      "sha256": "47e45593d71101eb676e7b6a1c29886f7addd18b44d915b7ac01a3508d5d10af"
     },
     {
       "path": "irodori-api/kurisu_voice_stable_api.py",
@@ -409,6 +409,10 @@
       "sha256": "e75e8f393c85a78759aa2bd5938f5f67c4f16f38b335a3686ac6238f533c2790"
     },
     {
+      "path": "irodori-api/tests/test_api_request_security.py",
+      "sha256": "9343ae4b67edb430df6ff834410d9e6aecc4b06a0a4280aa1f8d80f801e590cd"
+    },
+    {
       "path": "irodori-api/tests/test_planner_boundaries.py",
       "sha256": "981bae25c9dbdb6a676a5349329b2a1f5e98931dbcbb6936ee8f61d942b59289"
     },
@@ -430,11 +434,11 @@
     },
     {
       "path": "native-host/chrome_native_host.py",
-      "sha256": "de660ddaaff29b963ed53c3e810873d8a5fab4c0c72d3f8f99122d134a3f5e02"
+      "sha256": "09a4278293022c2dab9f43c51c82dec31e5ca209d8f35486e4618e45b25d3136"
     },
     {
       "path": "native-host/irodori_native_host.py",
-      "sha256": "5535a1b00f6dd0f7a375bd4942112aa781153cc81e454f64470da4aa24c3fd4e"
+      "sha256": "b7ba30b65000e6baba0c19fd9802ee40facc5c3973a6f91faad9bb814ebe46a8"
     },
     {
       "path": "provenance.json",
@@ -498,11 +502,19 @@
     },
     {
       "path": "tests/test_distribution.py",
-      "sha256": "1193954fd1ca2a1c9af0f0c6d1e5a03b54afc66f073385580c0dad7bf8c48c1a"
+      "sha256": "bc91347a21f20a1731f35b53347ea3c55f7af14ea4d3a3e906374f29c3d57168"
     },
     {
       "path": "tests/test_installer_windows.py",
       "sha256": "af4a7330790497429f9dc80af3c5ad0cda7e4b80013efe547fbbb890338c9bf4"
+    },
+    {
+      "path": "tests/test_native_host_safety.py",
+      "sha256": "caf72160cab5d95610c3ce870c321f6119c80b021a6ec0b5ad08d6dd2cc6c298"
+    },
+    {
+      "path": "tests/test_text_processor.js",
+      "sha256": "58c221161c164f878b8eb4f1bd11302cf18385c8f86a197a16b125df52105676"
     },
     {
       "path": "THIRD_PARTY_NOTICES.md",

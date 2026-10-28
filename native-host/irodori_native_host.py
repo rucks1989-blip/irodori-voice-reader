@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import base64
+import errno
 from contextlib import contextmanager
 from datetime import datetime
 import os
@@ -16,6 +17,7 @@ import uuid
 import urllib.error
 import urllib.request
 from pathlib import Path
+from urllib.parse import urlsplit
 
 HOST_VERSION = "1.3.0"
 EXPECTED_EXTENSION_ID = "irodori-voice-reader@local"
@@ -1449,14 +1451,60 @@ def _save_voices(config: dict, value: dict) -> None:
     os.replace(temporary, path)
 
 
-def _reload_api(config: dict) -> None:
+def _connection_refused(error: BaseException) -> bool:
+    reason = getattr(error, "reason", error)
+    return (
+        isinstance(reason, ConnectionRefusedError)
+        or getattr(reason, "errno", None) == errno.ECONNREFUSED
+        or getattr(reason, "winerror", None) == 10061
+    )
+
+
+def _reload_api(config: dict) -> dict:
+    """Report saved-vs-live state; never hide a failed reload of a running API."""
     try:
-        url = config["health_url"].rsplit("/", 1)[0] + "/v1/reload"
-        request = urllib.request.Request(url, data=b"{}", headers={"Content-Type": "application/json"}, method="POST")
-        with urllib.request.urlopen(request, timeout=5):
-            pass
-    except (OSError, urllib.error.URLError):
-        pass
+        parsed = urlsplit(str(config.get("health_url") or ""))
+        if parsed.scheme != "http" or parsed.hostname not in {"127.0.0.1", "localhost"} or parsed.username or parsed.password:
+            raise ValueError("health_url must refer to a local HTTP API")
+        base = f"http://{parsed.netloc}"
+        probe = urllib.request.Request(base + "/capabilities", headers={"Accept": "application/json"})
+        try:
+            with urllib.request.urlopen(probe, timeout=3) as response:
+                capabilities = json.loads(response.read().decode("utf-8"))
+        except urllib.error.HTTPError as error:
+            raise RuntimeError(f"API capability check returned HTTP {error.code}") from error
+        except urllib.error.URLError as error:
+            if _connection_refused(error):
+                return {"status": "stopped", "applied": False}
+            raise RuntimeError(f"API status is uncertain: {error}") from error
+        if not isinstance(capabilities, dict) or capabilities.get("protocol") != "irodori_voice":
+            raise RuntimeError("The service on the configured port is not the Irodori Voice API")
+
+        request = urllib.request.Request(
+            base + "/v1/reload",
+            data=b"{}",
+            headers={
+                "Content-Type": "application/json",
+                "Origin": "chrome-extension://aeaichhflmacmifblidbpojgfemjijlb",
+            },
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(request, timeout=8) as response:
+                body = json.loads(response.read().decode("utf-8"))
+                if response.status != 200 or body.get("status") != "reloaded":
+                    raise RuntimeError(f"Unexpected reload response (HTTP {response.status})")
+                return {"status": "reloaded", "applied": True, "httpStatus": response.status}
+        except Exception as error:
+            raise RuntimeError(
+                f"Voice設定は保存済みですが、起動中APIへの再読み込みに失敗しました。APIを再起動してください。({error})"
+            ) from error
+    except Exception as error:
+        if "Voice設定は保存済み" in str(error):
+            raise
+        raise RuntimeError(
+            f"Voice設定は保存済みですが、API状態を確認できず再読み込みできませんでした。APIを再起動してください。({error})"
+        ) from error
 
 
 def _valid_voice_id(value: object) -> str:
@@ -1464,6 +1512,45 @@ def _valid_voice_id(value: object) -> str:
     if not re.fullmatch(r"[0-9A-Za-z][0-9A-Za-z_-]{0,63}", voice_id):
         raise ValueError("Voice IDは半角英数字で始まる64文字以内（英数字・_・-）にしてください。")
     return voice_id
+
+
+def _managed_voice_files(config: dict, voice_id: str, record: dict) -> list[Path]:
+    """Return only exact app-owned files; never infer ownership from a folder."""
+    root = Path(config["root"]).resolve()
+    app_voice_root = root / "IrodoriVoiceReader"
+    managed_root_path = app_voice_root / "voices"
+    is_link = lambda path: path.is_symlink() or bool(getattr(path, "is_junction", lambda: False)())
+    if is_link(app_voice_root) or is_link(managed_root_path):
+        raise ValueError("Voice管理領域にシンボリックリンクがあります。ファイルは削除しません。")
+    managed_root = managed_root_path.resolve()
+    voice_folder_path = managed_root / voice_id
+    if is_link(voice_folder_path):
+        raise ValueError("Voiceフォルダーがリンクです。ファイルは削除しません。")
+    voice_folder = voice_folder_path.resolve()
+    if not voice_folder.is_relative_to(managed_root):
+        raise ValueError("Voice管理フォルダーが管理領域の外を指しています。ファイルは削除しません。")
+    allowed = {
+        "reference_wav": ("reference_wav", "reference.wav"),
+        "speaker_embedding": ("speaker_embedding", "speaker.safetensors"),
+        "safetensors": ("safetensors", "model.safetensors"),
+    }
+    files = []
+    for field, filename in allowed.values():
+        raw = record.get(field)
+        if not raw:
+            continue
+        relative = Path(str(raw))
+        expected_relative = Path("IrodoriVoiceReader") / "voices" / voice_id / filename
+        target = (root / relative).resolve()
+        expected = (managed_root / voice_id / filename).resolve()
+        if relative.is_absolute() or relative.as_posix() != expected_relative.as_posix() or target != expected:
+            raise ValueError("Voiceファイルの所有パスを検証できません。登録解除のみ行ってください。")
+        candidate = root / expected_relative
+        if is_link(candidate) or (candidate.exists() and not candidate.is_file()):
+            raise ValueError("Voiceファイルが通常ファイルではありません。削除を中止しました。")
+        if candidate.is_file():
+            files.append(candidate)
+    return files
 
 
 def _valid_auto_voice_id(value: object) -> str:
@@ -1506,8 +1593,8 @@ def disable_auto_voice(message: dict, config: dict) -> dict:
         disabled.append(voice_id)
     value["disabled_auto_voices"] = disabled
     _save_voices(config, value)
-    _reload_api(config)
-    return {"ok": True, "message": "自動検出Voiceを一覧から外しました。元ファイルは削除していません。", "disabledAutoVoices": disabled}
+    api_reload = _reload_api(config)
+    return {"ok": True, "message": "自動検出Voiceを一覧から外しました。元ファイルは削除していません。", "disabledAutoVoices": disabled, "apiReload": api_reload}
 
 
 def restore_auto_voices(message: dict, config: dict) -> dict:
@@ -1521,8 +1608,8 @@ def restore_auto_voices(message: dict, config: dict) -> dict:
         disabled = []
     value["disabled_auto_voices"] = disabled
     _save_voices(config, value)
-    _reload_api(config)
-    return {"ok": True, "message": "自動検出Voiceを再表示しました。", "disabledAutoVoices": disabled}
+    api_reload = _reload_api(config)
+    return {"ok": True, "message": "自動検出Voiceを再表示しました。", "disabledAutoVoices": disabled, "apiReload": api_reload}
 
 
 def import_voice(message: dict, config: dict) -> dict:
@@ -1566,8 +1653,8 @@ def import_voice(message: dict, config: dict) -> dict:
         existing.clear()
         existing.update(record)
     _save_voices(config, value)
-    _reload_api(config)
-    return {"ok": True, "message": f"Voice「{name} / {voice_id}」を登録しました。", "voice": record}
+    api_reload = _reload_api(config)
+    return {"ok": True, "message": f"Voice「{name} / {voice_id}」を登録しました。", "voice": record, "apiReload": api_reload}
 
 
 def delete_voice(message: dict, config: dict) -> dict:
@@ -1582,17 +1669,29 @@ def delete_voice(message: dict, config: dict) -> dict:
         raise ValueError("削除するVoice登録が見つかりません。")
     if bool(message.get("deleteManagedFile")) and record.get("managed_by") != "irodori-voice-reader":
         raise ValueError("元から存在するファイルは削除できません。Voice登録だけ削除してください。")
+    owned_files = _managed_voice_files(config, voice_id, record) if bool(message.get("deleteManagedFile")) else []
     value["voices"].remove(record)
     _save_voices(config, value)
-    deleted_file = False
-    if bool(message.get("deleteManagedFile")):
-        managed_root = (config["root"] / "IrodoriVoiceReader" / "voices").resolve()
-        folder = (managed_root / voice_id).resolve()
-        if folder.is_relative_to(managed_root) and folder.is_dir():
-            shutil.rmtree(folder)
-            deleted_file = True
-    _reload_api(config)
-    return {"ok": True, "message": "Voice登録を削除しました。", "deletedManagedFile": deleted_file}
+    deleted_files = []
+    retained_files = []
+    for path in owned_files:
+        try:
+            path.unlink()
+            deleted_files.append(path.name)
+        except OSError:
+            retained_files.append(path.name)
+    api_reload = _reload_api(config)
+    message_text = "Voice登録を削除しました。"
+    if retained_files:
+        message_text += " 管理対象ファイルの一部は削除できず、登録解除のみ完了しました。"
+    return {
+        "ok": True,
+        "message": message_text,
+        "deletedManagedFile": bool(deleted_files),
+        "deletedManagedFiles": deleted_files,
+        "retainedManagedFiles": retained_files,
+        "apiReload": api_reload,
+    }
 
 
 def update_voice(message: dict, config: dict) -> dict:
@@ -1604,8 +1703,8 @@ def update_voice(message: dict, config: dict) -> dict:
         raise ValueError("変更するVoice登録が見つかりません。")
     record["name"] = name
     _save_voices(config, value)
-    _reload_api(config)
-    return {"ok": True, "message": f"Voice「{name} / {voice_id}」を変更しました。"}
+    api_reload = _reload_api(config)
+    return {"ok": True, "message": f"Voice「{name} / {voice_id}」を変更しました。", "apiReload": api_reload}
 
 
 def _dataset_base_dir(message: dict) -> Path:
