@@ -1,0 +1,13 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -1086,3 +1086,9 @@
+ if (ENGINE_ENABLE_OPENMP)
+     target_link_libraries(irodori_tts_invest_warm_bench PRIVATE OpenMP::OpenMP_CXX)
+ endif()
++
++add_executable(speaker_embedding_dump tests/irodori_tts/speaker_embedding_dump.cpp)
++target_link_libraries(speaker_embedding_dump PRIVATE irodori_tts_invest_runtime ggml)
++if (ENGINE_ENABLE_OPENMP)
++    target_link_libraries(speaker_embedding_dump PRIVATE OpenMP::OpenMP_CXX)
++endif()

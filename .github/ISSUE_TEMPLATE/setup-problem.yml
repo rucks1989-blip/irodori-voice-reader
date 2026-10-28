@@ -1,0 +1,27 @@
+name: 導入試験の報告
+description: 個人情報を含めずに導入結果を報告します
+body:
+  - type: markdown
+    attributes:
+      value: |
+        生ログ、個人Voice、会話、認証情報は添付しないでください。
+        まずREADMEの対処を確認し、必要ならAI-support.batの匿名化した相談文を使ってください。
+  - type: textarea
+    id: result
+    attributes:
+      label: どこまで進みましたか？
+      description: CPU/GPU方式と、停止した工程を記載してください。
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: 匿名化した診断文
+      description: 貼り付ける前に個人情報が含まれていないか確認してください。
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: 送信前の確認
+      options:
+        - label: 個人情報、秘密値、会話本文、個人Voiceを含めていません
+          required: true

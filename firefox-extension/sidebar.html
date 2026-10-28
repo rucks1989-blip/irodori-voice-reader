@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Irodori Voice Reader</title>
+  <link rel="stylesheet" href="sidebar.css">
+  <link rel="stylesheet" href="engine-picker.css">
+  <link rel="stylesheet" href="voice-management.css">
+  <link rel="stylesheet" href="character-mapping.css">
+</head>
+<body>
+  <header>
+    <img src="icons/irodori.svg" width="36" height="36" alt="">
+    <div><h1>Irodori Voice Reader</h1><p>いつものFirefoxで使う音声サイドバー</p></div>
+  </header>
+
+  <main>
+    <section id="apiCard" class="card api checking">
+      <div class="title-line"><span class="dot"></span><strong id="apiState">API確認中</strong><span id="nativeState" class="sub">ヘルパー確認中</span></div>
+      <small id="apiUrl">接続先確認中</small>
+      <fieldset class="api-mode-picker">
+        <legend>API利用方法</legend>
+        <label><input type="radio" name="apiMode" value="managed">Voice ReaderでAPIを管理</label>
+        <div id="managedApiControls" class="api-mode-children">
+          <fieldset class="engine-picker"><legend>生成エンジン</legend>
+            <label><input type="radio" name="engine" value="standard">通常版</label>
+            <label><input type="radio" name="engine" value="voice_stable">声質安定版</label>
+          </fieldset>
+        </div>
+        <label><input type="radio" name="apiMode" value="custom">既存のIrodori-TTS APIを使用</label>
+        <div id="customApiControls" class="api-mode-children">
+          <label><span>API URL</span><input id="customApiUrl" type="url" spellcheck="false" placeholder="http://127.0.0.1:8765"></label>
+          <button id="checkCustomApi" class="voice-manage" type="button">接続確認</button>
+          <small class="hint">Irodori互換の /health /voices /v1/plan /tts を使用します。</small>
+        </div>
+      </fieldset>
+      <div class="button-row three"><button id="apiStart" class="accent">▶ API起動</button><button id="apiStop">■ API停止</button><button id="apiRefresh">↻ 状態更新</button></div>
+      <div class="button-row two"><small id="standardHealth">通常版: 確認前</small><small id="stableHealth">声質安定版: 確認前</small></div>
+      <label class="check"><input id="timingDebug" type="checkbox"> 計測ログを有効にする</label>
+      <div class="button-row two"><span id="timingLogStatus" class="hint">計測ログ: 未開始</span><button id="openTimingLogFolder" class="voice-manage" type="button">計測ログフォルダーを開く</button></div>
+      <p id="apiGuide" class="guide"></p>
+    </section>
+
+    <nav class="tabs" aria-label="設定カテゴリ">
+      <button class="active" data-tab="main">操作</button>
+      <button data-tab="characters">キャラクター</button>
+      <button data-tab="filters">除外・長文</button>
+    </nav>
+
+    <div id="tab-main" class="tab active">
+      <section class="card">
+        <h2>自動読み上げ</h2>
+        <label class="switch-row"><span>ChatGPT</span><input id="chatgptEnabled" type="checkbox"><i></i><b>OFF</b></label>
+        <label class="switch-row"><span>Gemini</span><input id="geminiEnabled" type="checkbox"><i></i><b>OFF</b></label>
+        <label class="switch-row"><span>Muse</span><input id="museEnabled" type="checkbox"><i></i><b>OFF</b></label>
+        <label class="switch-row"><span>音声を自動再生</span><input id="autoPlay" type="checkbox"><i></i><b>ON</b></label>
+      </section>
+      <section class="card">
+        <h2>設定バックアップ</h2>
+        <div class="button-row two"><button id="exportSettings" type="button">Export</button><label class="voice-manage">Import<input id="importSettings" type="file" accept="application/json,.json" hidden></label></div>
+        <small id="settingsTransferStatus">Voice実体は含みません。</small>
+      </section>
+
+      <section class="card grid-two">
+        <label><span>Voice</span><select id="defaultVoice" class="voice-select"></select></label>
+        <label><span>プリセット</span><select id="preset"></select></label>
+        <button id="manageVoices" class="voice-manage">⚙ Voice管理</button>
+        <span id="longTextStatus" class="split-status">長文分割: ON</span>
+      </section>
+
+      <section class="card">
+        <h2>WAVを保存</h2>
+        <label class="switch-row"><span>WAVを保存</span><input id="wavSaveEnabled" type="checkbox"><i></i><b>OFF</b></label>
+        <label><span>保存先フォルダー</span><input id="wavSaveDirectory" type="text" spellcheck="false" readonly placeholder="参照ボタンで選択"></label>
+        <div class="button-row two"><button id="chooseWavSaveDirectory" class="voice-manage" type="button">参照</button><button id="validateWavSaveDirectory" class="voice-manage" type="button">保存先を確認</button></div>
+        <small id="wavSaveStatus" class="hint">保存先を指定して確認してください。</small>
+      </section>
+
+      <button id="readSelection" class="wide primary">▶ 選択範囲を読む</button>
+
+      <section class="card playback">
+        <div class="title-line"><strong id="playState">待機中</strong><span id="queueCount" class="pill">キュー: 0</span></div>
+        <p id="now">再生待ちの音声はありません</p>
+        <small id="generatingVoice">生成中: なし</small><small id="playingVoice">再生中: なし</small>
+        <small id="timingSummary" hidden></small>
+        <div class="button-row four"><button id="stop">■<span>停止</span></button><button id="resume">▶<span>再開</span></button><button id="skip">>|<span>次へ</span></button><button id="clear">×<span>全消去</span></button></div>
+      </section>
+
+      <section class="card">
+        <h2>ナレーション</h2>
+        <label class="check"><input id="narrationEnabled" type="checkbox"> ナレーションを使う</label>
+        <div class="grid-two">
+          <label><span>地の文のVoice</span><select id="narratorVoice" class="voice-select"></select></label>
+          <label><span>タグなし会話のVoice</span><select id="dialogueVoice" class="voice-select"></select></label>
+        </div>
+        <label class="check"><input id="characterTagPriority" type="checkbox"> タグ付き会話はキャラクターVoiceを使う</label>
+        <small class="hint">ナレーションON時、会話括弧の外側は地の文のVoice、登録タグのない台詞はタグなし会話のVoiceを使います。</small>
+      </section>
+    </div>
+
+    <div id="tab-characters" class="tab">
+      <section class="card settings-fold character-settings">
+        <div class="character-settings-head"><div><h2>キャラクター切替</h2><small>Voice管理のVoiceを自動表示します。初期状態はOFFです。本文では【結衣】のように記述し、タグ名は自由に変更できます。【】は入力不要です。</small></div><button id="toggleCharacterMappings" type="button" class="collapse-toggle" aria-expanded="true">▲ 閉じる</button></div>
+        <div id="characterMappingsPanel">
+          <div id="mappingRows" class="mapping-groups"><div class="mapping-group"><div class="mapping-group-title"><strong>使用中 <span id="activeMappingCount" class="count-badge">0</span></strong><small>現在有効なVoice</small></div><p id="activeMappingEmpty" class="hint mapping-empty" hidden>使用中のキャラクターはありません。</p><div id="activeMappingRows" class="rows"></div></div>
+          <div class="mapping-group inactive-group"><button id="toggleInactiveMappings" type="button" class="inactive-toggle" aria-expanded="false">▶ 未使用のVoice <span id="inactiveMappingCount" class="count-badge">0</span></button><div id="inactiveMappingRows" class="rows" hidden></div></div>
+          </div>
+          <div class="mapping-advanced"><small>手動タグはVoice管理にない特殊なタグを追加する上級者向け機能です。</small><button id="addMapping" type="button">＋ 手動タグを追加</button></div>
+        </div>
+        <label><span>未登録キャラクタータグの扱い</span><select id="unknownTagBehavior"><option value="keep">普通の文章として読む</option><option value="read">タグ名も読んで本文を読む</option><option value="skip">未登録キャラクターの本文をスキップ</option></select></label>
+        <small>【結衣】など、Voiceを割り当てていない【タグ】が出た場合の動作です。</small>
+        <small>通常（未登録タグを普通の文章として読む設定）では、登録済みタグは次の登録済みタグが現れるまで有効です。</small>
+      </section>
+      <section class="card">
+        <h2>会話として扱う括弧</h2>
+        <textarea id="dialoguePairs" rows="4" placeholder="「」&#10;『』"></textarea>
+        <small>1行に開始括弧と終了括弧を1組ずつ入力します。例: 「」 / 『』 / （）</small>
+        <small>例: 【結衣】「やっはろー！」そう彼女は言った。→ 台詞は結衣Voice、後半は地の文のVoice。タグのない台詞はタグなし会話のVoiceを使います。</small>
+      </section>
+    </div>
+
+    <div id="tab-filters" class="tab">
+      <section class="card">
+        <h2>読み上げ前処理</h2>
+        <label class="check"><input id="removeMarkdown" type="checkbox"> Markdown記号を除去</label>
+        <label class="check"><input id="readUrls" type="checkbox"> URLを読む</label>
+        <label class="check"><input id="readCodeBlocks" type="checkbox"> コードブロックを読む</label>
+        <label><span>読まない文字列（1行1件）</span><textarea id="excludedStrings" rows="5"></textarea></label>
+        <label><span>不要なUI文字（1行1件）</span><textarea id="unwantedUiStrings" rows="5"></textarea></label>
+      </section>
+      <section class="card">
+        <div class="title-line"><h2>正規表現</h2><button id="addRegex">＋追加</button></div>
+        <div id="regexRows" class="rows"></div>
+      </section>
+      <section class="card">
+        <h2>長文分割</h2>
+        <label class="check"><input id="longTextEnabled" type="checkbox"> Irodori側で自動分割する</label>
+        <small id="longTextSummary">目安25秒 / 120文字。詳しい変更は詳細設定から行えます。</small>
+      </section>
+    </div>
+
+    <p id="message" role="status" aria-live="polite"></p>
+    <footer><span id="saveState">設定は自動保存されます</span><button id="openOptions">別タブで詳細設定</button></footer>
+  </main>
+
+  <template id="mappingTemplate"><div class="mapping-item"><div class="mapping-summary"><input data-key="enabled" type="checkbox" aria-label="有効"><span data-view="tag"></span><span data-view="voice"></span><button data-action="toggle-details" type="button" aria-expanded="false">›</button></div><div class="mapping-details" hidden><label><span>タグ名</span><input data-key="tag" placeholder="タグ名（例: 結衣）" aria-label="タグ名"></label><label><span>使用するVoice</span><select data-key="voice" aria-label="使用するVoice"></select></label><button data-action="remove" type="button" class="danger" aria-label="削除">削除</button></div></div></template>
+  <template id="regexTemplate"><div class="regex-row"><input data-key="enabled" type="checkbox" aria-label="有効"><input data-key="pattern" placeholder="正規表現"><input data-key="flags" value="gu" aria-label="フラグ"><input data-key="replacement" placeholder="置換後（空欄で削除）"><button data-action="remove" class="danger" aria-label="削除">×</button></div></template>
+  <script src="api-state.js"></script><script src="text-processor.js"></script>
+  <script src="sidebar.js"></script>
+</body>
+</html>

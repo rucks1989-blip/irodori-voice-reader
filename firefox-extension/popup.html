@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Irodori Voice Reader</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <header>
+    <img src="icons/irodori.svg" alt="" width="42" height="42">
+    <div><h1>Irodori Voice Reader</h1><p>audio.cpp local voice</p></div>
+  </header>
+  <main>
+    <section id="apiCard" class="api-card checking">
+      <div><span class="status-dot" aria-hidden="true"></span><strong id="apiState">API接続確認中</strong></div>
+      <small id="apiUrl">接続先確認中</small>
+      <p id="apiGuide" hidden>APIを起動してから再接続してください。</p>
+      <button id="reconnect" class="mini">再接続</button>
+    </section>
+
+    <section class="panel">
+      <h2>自動読み上げ</h2>
+      <label class="switch-row"><span>ChatGPT</span><input id="chatgptEnabled" type="checkbox"><span class="switch"><span></span></span><b data-for="chatgptEnabled">OFF</b></label>
+      <label class="switch-row"><span>Gemini</span><input id="geminiEnabled" type="checkbox"><span class="switch"><span></span></span><b data-for="geminiEnabled">OFF</b></label>
+      <label class="switch-row"><span>Muse</span><input id="museEnabled" type="checkbox"><span class="switch"><span></span></span><b data-for="museEnabled">OFF</b></label>
+    </section>
+
+    <section class="panel compact">
+      <label class="field"><span>Voice</span><select id="voice" aria-label="デフォルトvoice"><option>読込中…</option></select></label>
+      <label class="field"><span>モード</span><select id="mode" aria-label="プリセット"></select></label>
+    </section>
+
+    <button id="read" class="primary"><span>▶</span> 選択範囲を読む</button>
+
+    <section class="playback">
+      <div class="playback-status"><strong id="playState">待機中</strong><span id="queueCount">キュー: 0</span></div>
+      <p id="now">再生待ちの音声はありません</p>
+      <div class="controls">
+        <button id="stop">■<span>停止</span></button>
+        <button id="resume">▶<span>再開</span></button>
+        <button id="skip">>|<span>次へ</span></button>
+        <button id="clear">×<span>全消去</span></button>
+      </div>
+    </section>
+    <p id="message" role="status" aria-live="polite"></p>
+  </main>
+  <footer><button id="options">⚙ 詳細設定</button></footer>
+  <script src="text-processor.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>

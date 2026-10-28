@@ -1,0 +1,26 @@
+{
+  "host": "127.0.0.1",
+  "port": 8091,
+  "backend": "cpu",
+  "device": 0,
+  "threads": 4,
+  "lazy_load": false,
+  "models": [
+    {
+      "id": "irodori-500m-v3-q8",
+      "family": "irodori_tts",
+      "path": "../models/irodori-tts-500m-v3-q8_0.gguf",
+      "task": "tts",
+      "mode": "offline",
+      "session_options": {"irodori_tts.mem_saver": "true", "irodori_tts.reference_cache_slots": "1"}
+    },
+    {
+      "id": "irodori-500m-v3-q8-voice-stable-speaker",
+      "family": "irodori_tts",
+      "path": "../models/irodori-tts-500m-v3-q8_0.gguf",
+      "task": "tts",
+      "mode": "offline",
+      "session_options": {"irodori_tts.mem_saver": "true", "irodori_tts.reference_cache_slots": "1"}
+    }
+  ]
+}

@@ -1,0 +1,78 @@
+{
+  "manifest_version": 2,
+  "name": "Irodori Voice Reader",
+  "version": "1.2.23",
+  "description": "ChatGPT・Gemini・Muse・選択文章をローカルIrodori-TTSで読み上げます。",
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "irodori-voice-reader@local",
+      "data_collection_permissions": {
+        "required": [
+          "none"
+        ]
+      },
+      "strict_min_version": "142.0"
+    }
+  },
+  "permissions": [
+    "storage",
+    "menus",
+    "notifications",
+    "activeTab",
+    "tabs",
+    "nativeMessaging",
+    "http://127.0.0.1/*",
+    "http://localhost/*"
+  ],
+  "background": {
+    "scripts": [
+      "api-state.js",
+      "text-processor.js",
+      "voice-readiness.js",
+      "background.js"
+    ],
+    "persistent": true
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "adapters.js",
+        "muse-watcher.js",
+        "chatgpt-watcher.js",
+        "content.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "browser_action": {
+    "default_title": "Irodori Voice Reader",
+    "default_icon": "icons/irodori.svg"
+  },
+  "sidebar_action": {
+    "default_title": "Irodori Voice Reader",
+    "default_icon": "icons/irodori.svg",
+    "default_panel": "sidebar.html",
+    "open_at_install": true
+  },
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": true
+  },
+  "commands": {
+    "read-selection": {
+      "suggested_key": {
+        "default": "Alt+Shift+I"
+      },
+      "description": "\u9078\u629e\u7bc4\u56f2\u3092Irodori\u3067\u8aad\u307f\u4e0a\u3052"
+    },
+    "stop-reading": {
+      "suggested_key": {
+        "default": "Alt+Shift+S"
+      },
+      "description": "\u8aad\u307f\u4e0a\u3052\u3092\u505c\u6b62"
+    }
+  }
+}

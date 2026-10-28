@@ -1,0 +1,3083 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 52d510c..c902677 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -10,6 +10,10 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
+ set(CMAKE_CXX_EXTENSIONS OFF)
+ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+ 
++if (MSVC)
++    add_compile_options($<$<COMPILE_LANGUAGE:CXX>:/utf-8>)
++endif()
++
+ option(AUDIOCPP_DEPLOYMENT_BUILD
+     "Compile model package specs into the runtime for self-contained deployments"
+     OFF)
+@@ -92,6 +96,9 @@ if (ENGINE_ENABLE_CUDA)
+     endif()
+ endif()
+ if (ENGINE_ENABLE_OPENMP)
++    if (MSVC)
++        set(OpenMP_CXX_FLAGS "/openmp:experimental" CACHE STRING "MSVC OpenMP flags" FORCE)
++    endif()
+     find_package(OpenMP REQUIRED COMPONENTS CXX)
+ endif()
+ 
+@@ -339,6 +346,7 @@ add_library(engine_runtime STATIC
+     src/models/higgs_audio_stt/session.cpp
+     src/models/higgs_audio_stt/loader.cpp
+     src/models/irodori_tts/assets.cpp
++    src/models/irodori_tts/audio_quality.cpp
+     src/models/irodori_tts/codec.cpp
+     src/models/irodori_tts/condition_encoder.cpp
+     src/models/irodori_tts/duration.cpp
+@@ -756,6 +764,19 @@ if (ENGINE_BUILD_TESTS)
+         COMMAND audio_chunking_test
+     )
+ 
++    add_executable(irodori_audio_quality_test
++        tests/unittests/test_irodori_audio_quality.cpp
++        src/models/irodori_tts/audio_quality.cpp
++    )
++    target_include_directories(irodori_audio_quality_test PRIVATE
++        ${CMAKE_CURRENT_SOURCE_DIR}/include
++    )
++
++    add_test(
++        NAME irodori_audio_quality_test
++        COMMAND irodori_audio_quality_test
++    )
++
+     add_engine_unittest(subtitle_formatter_test tests/unittests/test_subtitle_formatter.cpp)
+ 
+     add_test(
+@@ -910,3 +931,158 @@ if (ENGINE_BUILD_EXAMPLES)
+ 
+     target_link_libraries(ggml_simple_inference PRIVATE ggml)
+ endif()
++
++# irodori_tts investigation target
++add_library(irodori_tts_invest_runtime STATIC
++    src/framework/runtime/invest_registry_impl.cpp
++    src/framework/runtime/invest_registry.cpp
++    src/framework/assets/resource_bundle.cpp
++    src/framework/assets/model_package.cpp
++    src/framework/assets/tensor_source.cpp
++    src/framework/assets/torch_bin.cpp
++    src/framework/core/module.cpp
++    src/framework/core/backend.cpp
++    src/framework/core/deferred_tensor_writer.cpp
++    src/framework/core/execution_context.cpp
++    src/framework/runtime/model.cpp
++    src/framework/runtime/session.cpp
++    src/framework/runtime/artifacts.cpp
++    src/framework/runtime/cache.cpp
++    src/framework/runtime/graph_executor.cpp
++    src/framework/runtime/graph_optimizer.cpp
++    src/framework/runtime/host_ops.cpp
++    src/framework/runtime/kv_cache.cpp
++    src/framework/runtime/options.cpp
++    src/framework/runtime/session_base.cpp
++    src/framework/runtime/workspace.cpp
++    src/framework/io/filesystem.cpp
++    src/framework/io/config.cpp
++    src/framework/io/json.cpp
++    src/framework/io/text.cpp
++    src/framework/text/chunking.cpp
++    src/framework/text/subtitle.cpp
++    src/framework/io/yaml.cpp
++    src/framework/io/binary.cpp
++    src/framework/io/safetensors.cpp
++    src/framework/debug/trace.cpp
++    src/framework/debug/profiler.cpp
++    src/framework/decoders/tdt_decoder_runner.cpp
++    src/framework/decoders/tdt_decoder_greedy_customized.cpp
++    src/framework/decoders/tdt_decoder_greedy_duration_loop.cpp
++    src/framework/decoders/tdt_decoder_greedy_separate_heads.cpp
++    src/framework/modules/linear_module.cpp
++    src/framework/modules/primitive_modules.cpp
++    src/framework/modules/activation_modules.cpp
++    src/framework/modules/norm_modules.cpp
++    src/framework/modules/lookup_modules.cpp
++    src/framework/modules/structural_modules.cpp
++    src/framework/modules/asr_helpers.cpp
++    src/framework/modules/conv_modules.cpp
++    src/framework/modules/whisper_embedding.cpp
++    src/framework/modules/campplus_encoder.cpp
++    src/framework/modules/bigvgan_vocoder.cpp
++    src/framework/modules/hift_vocoder.cpp
++    src/framework/modules/hubert_encoder.cpp
++    src/framework/modules/wavlm_encoder.cpp
++    src/framework/modules/optimizations/fast_conv_modules.cpp
++    src/framework/modules/optimizations/fast_projection_modules.cpp
++    src/framework/modules/recurrent_modules.cpp
++    src/framework/modules/streaming_conv_modules.cpp
++    src/framework/modules/attention/positional_encoding.cpp
++    src/framework/modules/attention/feed_forward.cpp
++    src/framework/modules/attention/self_attention.cpp
++    src/framework/modules/attention/longformer_attention.cpp
++    src/framework/modules/attention/longformer_attention_gpu.cpp
++    src/framework/modules/attention/common_relative_attention.cpp
++    src/framework/modules/attention/relative_attention.cpp
++    src/framework/modules/attention/scaled_dot_product_attention.cpp
++    src/framework/modules/attention/qwen_decoder.cpp
++    src/framework/modules/attention/qwen_causal_decoder.cpp
++    src/framework/modules/attention/cross_attention.cpp
++    src/framework/modules/attention/transformer_blocks.cpp
++    src/framework/modules/conditioning_modules.cpp
++    src/framework/modules/conformer_modules.cpp
++    src/framework/modules/predictor_modules.cpp
++    src/framework/modules/positional_modules.cpp
++    src/framework/modules/text_encoders/t5_base_encoder.cpp
++    src/framework/modules/text_encoders/t5_gemma_encoder.cpp
++    src/framework/modules/optimizations/fast_kv_modules.cpp
++    src/framework/tokenizers/hf_tokenizer_json.cpp
++    src/framework/tokenizers/llama_bpe.cpp
++    src/framework/tokenizers/sentencepiece.cpp
++    src/framework/audio/fft.cpp
++    src/framework/audio/activity.cpp
++    src/framework/audio/chunking.cpp
++    src/framework/audio/conversion.cpp
++    src/framework/audio/deepfilternet2.cpp
++    src/framework/audio/dsp.cpp
++    src/framework/audio/flashsr.cpp
++    src/framework/audio/istft_graph.cpp
++    src/framework/audio/mixing.cpp
++    src/framework/audio/resampling.cpp
++    src/framework/audio/output.cpp
++    src/framework/audio/rnnoise.cpp
++    src/framework/audio/utility_api.cpp
++    src/framework/audio/waveform_ops.cpp
++    src/framework/audio/wav_reader.cpp
++    src/framework/audio/wav_writer.cpp
++    src/framework/audio/zipenhancer.cpp
++    src/framework/modules/ecapa_tdnn_runtime.cpp
++    src/framework/modules/titanet_runtime.cpp
++    src/framework/codecs/neural_audio.cpp
++    src/framework/sampling/decode_modules.cpp
++    src/framework/sampling/diffusion_math.cpp
++    src/framework/sampling/noise.cpp
++    src/framework/sampling/torch_random.cpp
++    external/llama_tokenizer/bpe-core.cpp
++    external/llama_tokenizer/unicode.cpp
++    external/llama_tokenizer/unicode-data.cpp
++    src/models/irodori_tts/assets.cpp
++    src/models/irodori_tts/audio_quality.cpp
++    src/models/irodori_tts/codec.cpp
++    src/models/irodori_tts/condition_encoder.cpp
++    src/models/irodori_tts/duration.cpp
++    src/models/irodori_tts/loader.cpp
++    src/models/irodori_tts/rf_dit.cpp
++    src/models/irodori_tts/session.cpp
++    src/models/irodori_tts/tokenizer_text.cpp
++)
++
++target_include_directories(irodori_tts_invest_runtime PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include")
++target_include_directories(irodori_tts_invest_runtime PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/generated")
++target_include_directories(irodori_tts_invest_runtime PRIVATE
++    "${CMAKE_CURRENT_SOURCE_DIR}/external/sentencepiece/src"
++    "${CMAKE_CURRENT_SOURCE_DIR}/external/llama_tokenizer"
++)
++
++target_link_libraries(irodori_tts_invest_runtime PUBLIC ggml)
++target_link_libraries(irodori_tts_invest_runtime PRIVATE sentencepiece cjson_vendor yaml_vendor)
++if (ENGINE_ENABLE_OPENMP)
++    target_link_libraries(irodori_tts_invest_runtime PRIVATE OpenMP::OpenMP_CXX)
++endif()
++
++if (MSVC)
++    target_compile_options(irodori_tts_invest_runtime PRIVATE $<$<COMPILE_LANGUAGE:CXX>:/openmp:experimental>)
++    target_compile_options(irodori_tts_invest_runtime PRIVATE $<$<COMPILE_LANGUAGE:CXX>:/utf-8>)
++endif()
++
++if (ENGINE_ENABLE_CUDA)
++    target_sources(irodori_tts_invest_runtime PRIVATE
++        src/framework/audio/istft_cuda_runtime.cu
++        src/framework/sampling/torch_random_cuda_runtime.cu
++    )
++    set_target_properties(irodori_tts_invest_runtime PROPERTIES CUDA_STANDARD 17 CUDA_STANDARD_REQUIRED ON)
++    if (CMAKE_CUDA_ARCHITECTURES)
++        set_target_properties(irodori_tts_invest_runtime PROPERTIES CUDA_ARCHITECTURES "${CMAKE_CUDA_ARCHITECTURES}")
++    else()
++        set_target_properties(irodori_tts_invest_runtime PROPERTIES CUDA_ARCHITECTURES native)
++    endif()
++    target_compile_definitions(irodori_tts_invest_runtime PUBLIC ENGINE_HAS_CUDA_ISTFT=1 ENGINE_HAS_CUDA_TORCH_RANDOM=1)
++    target_link_libraries(irodori_tts_invest_runtime PRIVATE CUDA::cudart CUDA::cufft)
++endif()
++
++add_executable(irodori_tts_invest_warm_bench tests/irodori_tts/irodori_tts_invest_warm_bench.cpp)
++target_link_libraries(irodori_tts_invest_warm_bench PRIVATE irodori_tts_invest_runtime ggml)
++if (ENGINE_ENABLE_OPENMP)
++    target_link_libraries(irodori_tts_invest_warm_bench PRIVATE OpenMP::OpenMP_CXX)
++endif()
+diff --git a/external/ggml/src/ggml-cuda/fattn-common.cuh b/external/ggml/src/ggml-cuda/fattn-common.cuh
+index a1bdcca..361b018 100644
+--- a/external/ggml/src/ggml-cuda/fattn-common.cuh
++++ b/external/ggml/src/ggml-cuda/fattn-common.cuh
+@@ -624,8 +624,8 @@ constexpr __device__ dequantize_V_t get_dequantize_V() {
+ template <int ncols1>
+ __launch_bounds__(FATTN_KQ_STRIDE/2, 1)
+ static __global__ void flash_attn_mask_to_KV_max(
+-        const half2 * __restrict__ mask, int * __restrict__ KV_max, const int ne30, const int s31, const int s33) {
+-    const int ne31     = gridDim.x;
++        const half2 * __restrict__ mask, int * __restrict__ KV_max, const int ne30, const int ne31, const int s31, const int s33) {
++    const int ntiles_x  = gridDim.x;
+     const int tid      = threadIdx.x;
+     const int sequence = blockIdx.y;
+     const int jt       = blockIdx.x;
+@@ -644,8 +644,10 @@ static __global__ void flash_attn_mask_to_KV_max(
+ 
+ #pragma unroll
+         for (int j = 0; j < ncols1; ++j) {
+-            const float2 tmp = __half22float2(mask[j*s31 + KV_max_sj/2 + tid]);
+-            all_inf = all_inf && int(isinf(tmp.x)) && int(isinf(tmp.y));
++            if (jt*ncols1 + j < ne31) {
++                const float2 tmp = __half22float2(mask[j*s31 + KV_max_sj/2 + tid]);
++                all_inf = all_inf && int(isinf(tmp.x)) && int(isinf(tmp.y));
++            }
+         }
+ 
+         all_inf = warp_reduce_all(all_inf);
+@@ -671,7 +673,7 @@ static __global__ void flash_attn_mask_to_KV_max(
+         return;
+     }
+ 
+-    KV_max[sequence*ne31 + jt] = KV_max_sj;
++    KV_max[sequence*ntiles_x + jt] = KV_max_sj;
+ }
+ 
+ template<int D, int ncols1, int ncols2> // D == head size
+@@ -1044,7 +1046,7 @@ void launch_fattn(
+ 
+         KV_max.alloc(ne_KV_max);
+         flash_attn_mask_to_KV_max<ncols1><<<blocks_num_KV_max, block_dim_KV_max, 0, main_stream>>>
+-            ((const half2 *) mask->data, KV_max.ptr, iter_k, s31, s33);
++            ((const half2 *) mask->data, KV_max.ptr, iter_k, Q->ne[1], s31, s33);
+         CUDA_CHECK(cudaGetLastError());
+     }
+ 
+diff --git a/include/engine/models/irodori_tts/condition_encoder.h b/include/engine/models/irodori_tts/condition_encoder.h
+index db95a8a..a64e3a0 100644
+--- a/include/engine/models/irodori_tts/condition_encoder.h
++++ b/include/engine/models/irodori_tts/condition_encoder.h
+@@ -140,7 +140,8 @@ core::TensorValue build_irodori_duration_predictor(
+     const core::TensorValue &caption_state,
+     const core::TensorValue &caption_mask, const core::TensorValue &has_caption,
+     const IrodoriConditionEncoderWeights &weights,
+-    const IrodoriModelConfig &config);
++    const IrodoriModelConfig &config,
++    std::vector<core::TensorValue> *diagnostic_modulations = nullptr);
+ 
+ class IrodoriConditionEncoder {
+ public:
+diff --git a/include/engine/models/irodori_tts/rf_dit.h b/include/engine/models/irodori_tts/rf_dit.h
+index 4ca84ed..83a5b6b 100644
+--- a/include/engine/models/irodori_tts/rf_dit.h
++++ b/include/engine/models/irodori_tts/rf_dit.h
+@@ -71,6 +71,18 @@ struct IrodoriRfDitWeights {
+ struct IrodoriLayerContextKV {
+   core::TensorValue k_context;
+   core::TensorValue v_context;
++  core::TensorValue k_speaker;
++  core::TensorValue v_speaker;
++};
++
++struct IrodoriRfStepDiagnostics {
++  std::vector<float> cond;
++  std::vector<float> text_diff;
++  std::vector<float> speaker_diff;
++  std::vector<float> caption_diff;
++  std::vector<float> guided;
++  std::vector<std::vector<float>> layer_hidden;
++  std::vector<std::vector<float>> layer_attention_hidden;
+ };
+ 
+ struct IrodoriAdaLNModulation {
+@@ -108,7 +120,13 @@ core::TensorValue build_irodori_rf_dit(
+     const core::TensorValue &attention_mask, const core::TensorValue &positions,
+     const IrodoriRfDitWeights &weights, const IrodoriModelConfig &config,
+     const std::vector<IrodoriLayerContextKV> *context_kv_cache = nullptr,
+-    const std::vector<IrodoriLayerAdaLNModulation> *modulation_cache = nullptr);
++    const std::vector<IrodoriLayerAdaLNModulation> *modulation_cache = nullptr,
++    std::vector<core::TensorValue> *layer_diagnostic_tensors = nullptr,
++    std::vector<core::TensorValue> *layer_attention_diagnostic_tensors =
++        nullptr,
++    const core::TensorValue *speaker_biased_attention_mask = nullptr,
++    int64_t speaker_bias_layer_start = 0,
++    int64_t speaker_bias_layer_end = -1);
+ 
+ class IrodoriRfSampler {
+ public:
+@@ -148,7 +166,12 @@ public:
+                                    const IrodoriSpeakerCondition &speaker,
+                                    bool text_cfg_enabled,
+                                    bool speaker_cfg_enabled,
+-                                   bool caption_cfg_enabled);
++                                   bool caption_cfg_enabled,
++                                   float speaker_attention_bias = 0.0F,
++                                   int64_t speaker_bias_layer_start = 0,
++                                   int64_t speaker_bias_layer_end = -1,
++                                   int64_t speaker_bias_step_start = 1,
++                                   int64_t speaker_bias_step_end = -1);
+   ModulationCache build_modulation_cache(const std::vector<float> &timesteps);
+   void run_step(const std::vector<float> &x_t, int64_t step,
+                 const ModulationCache &modulation_cache,
+@@ -156,7 +179,8 @@ public:
+                 bool speaker_cfg_enabled, bool caption_cfg_enabled,
+                 float text_guidance_scale, float speaker_guidance_scale,
+                 float caption_guidance_scale, int64_t latent_steps,
+-                std::vector<float> &velocity);
++                std::vector<float> &velocity,
++                IrodoriRfStepDiagnostics *diagnostics = nullptr);
+   void release_graphs();
+   int64_t context_graph_rebuilds() const noexcept;
+   int64_t step_graph_rebuilds() const noexcept;
+diff --git a/include/engine/models/irodori_tts/session.h b/include/engine/models/irodori_tts/session.h
+index 0b63b08..62b8d6d 100644
+--- a/include/engine/models/irodori_tts/session.h
++++ b/include/engine/models/irodori_tts/session.h
+@@ -2,7 +2,9 @@
+ 
+ #include "engine/framework/runtime/cache_slots.h"
+ #include "engine/framework/runtime/session_base.h"
++#include "engine/framework/runtime/session.h"
+ #include "engine/models/irodori_tts/assets.h"
++#include "engine/models/irodori_tts/condition_encoder.h"
+ #include "engine/models/irodori_tts/tokenizer_text.h"
+ #include "engine/models/irodori_tts/types.h"
+ 
+@@ -10,8 +12,11 @@
+ #include <cstdint>
+ #include <memory>
+ #include <string>
++#include <unordered_map>
+ #include <vector>
+ 
++namespace engine::runtime { struct AudioBuffer; }
++
+ namespace engine::models::irodori_tts {
+ 
+ class IrodoriCodec;
+@@ -30,6 +35,7 @@ public:
+   runtime::RunMode run_mode() const override;
+   void prepare(const runtime::SessionPreparationRequest &request) override;
+   runtime::TaskResult run(const runtime::TaskRequest &request) override;
++  IrodoriSpeakerCondition extract_speaker_condition(const engine::runtime::AudioBuffer &audio);
+ 
+ private:
+   IrodoriRequest make_request(const runtime::TaskRequest &request) const;
+@@ -53,6 +59,15 @@ private:
+     bool has_speaker = false;
+   };
+ 
++  struct SimulationSnapshot {
++    int64_t step = 0;
++    std::vector<float> latent;
++  };
++
++  struct SimulationTrajectory {
++    std::vector<SimulationSnapshot> snapshots;
++  };
++
+   runtime::TaskSpec task_;
+   std::shared_ptr<const IrodoriTTSAssets> assets_;
+   IrodoriTextTokenizer tokenizer_;
+@@ -73,6 +88,8 @@ private:
+   runtime::CacheSlots<ReferenceAudioCacheKey, ReferenceSpeakerCacheEntry,
+                       ReferenceAudioCacheKeyEqual>
+       reference_speaker_cache_;
++  std::unordered_map<std::string, SimulationTrajectory>
++      speaker_sim_trajectories_;
+ };
+ 
+ } // namespace engine::models::irodori_tts
+diff --git a/include/engine/models/irodori_tts/types.h b/include/engine/models/irodori_tts/types.h
+index 38fd926..18194f2 100644
+--- a/include/engine/models/irodori_tts/types.h
++++ b/include/engine/models/irodori_tts/types.h
+@@ -12,12 +12,29 @@ struct IrodoriGenerationOptions {
+   float text_guidance_scale = 3.0F;
+   float caption_guidance_scale = 3.0F;
+   float speaker_guidance_scale = 5.0F;
++  bool speaker_guidance_adaptive = false;
++  float speaker_guidance_target_ratio = 0.45F;
++  float speaker_attention_bias = 0.0F;
++  int64_t speaker_attention_bias_layer_start = 0;
++  int64_t speaker_attention_bias_layer_end = -1;
++  int64_t speaker_attention_bias_step_start = 1;
++  int64_t speaker_attention_bias_step_end = -1;
++  bool speaker_rescue_enabled = false;
++  float speaker_rescue_threshold = 0.15F;
++  int64_t speaker_rescue_probe_step = 10;
++  int64_t speaker_rescue_max_retries = 1;
++  uint32_t speaker_rescue_seed_stride = 1;
++  bool audio_quality_rescue_enabled = false;
++  float audio_quality_rescue_max_jump = 0.4F;
++  int64_t audio_quality_rescue_max_retries = 2;
++  uint32_t audio_quality_rescue_seed_stride = 1;
+   std::string guidance_mode = "independent";
+   float guidance_min_t = 0.5F;
+   float guidance_max_t = 1.0F;
+   uint32_t seed = 0;
+   bool seed_specified = false;
+   float duration_scale = 1.0F;
++  float duration_offset_seconds = 0.0F;
+   float min_seconds = 0.5F;
+   float max_seconds = 30.0F;
+   float duration_seconds = 0.0F;
+@@ -27,6 +44,12 @@ struct IrodoriGenerationOptions {
+   int64_t tail_window_size = 20;
+   float tail_std_threshold = 0.05F;
+   float tail_mean_threshold = 0.1F;
++  std::string speaker_sim_variant;
++  std::string speaker_sim_scope = "both";
++  std::string speaker_sim_label;
++  std::string speaker_sim_group;
++  std::string speaker_sim_cfg_mode = "normal";
++  bool speaker_sim_skip_decode = false;
+ };
+ 
+ struct IrodoriRequest {
+diff --git a/scripts/build_windows.ps1 b/scripts/build_windows.ps1
+index c584975..32d0164 100644
+--- a/scripts/build_windows.ps1
++++ b/scripts/build_windows.ps1
+@@ -13,6 +13,7 @@ param(
+     [ValidateSet("ON", "OFF")]
+     [string]$Llamafile = $null,
+     [switch]$DeploymentBuild,
++    [switch]$Warmbench,
+     [string]$VsInstall = ""
+ )
+ 
+@@ -495,6 +496,9 @@ $configureArgs = @(
+     "-DAUDIOCPP_DEPLOYMENT_BUILD=$deploymentBuildValue"
+ )
+ $configureArgs += $cpuArchSettings.CMakeArgs
++if ($Warmbench) {
++    $configureArgs += "-DENGINE_BUILD_WARMBENCH=ON"
++}
+ if ($settings.CFlagsDebug -ne "") {
+     $configureArgs += "-DCMAKE_C_FLAGS_DEBUG=$($settings.CFlagsDebug)"
+ }
+diff --git a/src/models/irodori_tts/condition_encoder.cpp b/src/models/irodori_tts/condition_encoder.cpp
+index a1c643a..12c1355 100644
+--- a/src/models/irodori_tts/condition_encoder.cpp
++++ b/src/models/irodori_tts/condition_encoder.cpp
+@@ -11,8 +11,10 @@
+ 
+ #include <ggml.h>
+ 
++#include <algorithm>
+ #include <cmath>
+ #include <limits>
++#include <sstream>
+ #include <stdexcept>
+ #include <string>
+ #include <utility>
+@@ -25,6 +27,27 @@ namespace binding = modules::binding;
+ constexpr size_t kConditionEncoderWeightContextBytes =
+     512ull * 1024ull * 1024ull;
+ 
++std::string condition_vector_stats(const std::vector<float> &values) {
++  if (values.empty()) {
++    return "n=0";
++  }
++  double sum = 0.0;
++  double sum_squared = 0.0;
++  float minimum = std::numeric_limits<float>::infinity();
++  float maximum = -std::numeric_limits<float>::infinity();
++  for (const float value : values) {
++    sum += value;
++    sum_squared += static_cast<double>(value) * value;
++    minimum = std::min(minimum, value);
++    maximum = std::max(maximum, value);
++  }
++  std::ostringstream out;
++  out << "n=" << values.size() << ",min=" << minimum << ",max=" << maximum
++      << ",mean=" << sum / values.size()
++      << ",rms=" << std::sqrt(sum_squared / values.size());
++  return out.str();
++}
++
+ int64_t text_ffn_dim(const IrodoriModelConfig &config) {
+   return static_cast<int64_t>(static_cast<double>(config.text_dim) *
+                               static_cast<double>(config.text_mlp_ratio));
+@@ -551,7 +574,8 @@ core::TensorValue build_irodori_duration_predictor(
+     const core::TensorValue &caption_state,
+     const core::TensorValue &caption_mask, const core::TensorValue &has_caption,
+     const IrodoriConditionEncoderWeights &weights,
+-    const IrodoriModelConfig &config) {
++    const IrodoriModelConfig &config,
++    std::vector<core::TensorValue> *diagnostic_modulations) {
+   auto speaker_vec = select_speaker_vec(ctx, speaker_state, has_speaker,
+                                         weights.duration.null_speaker);
+   core::TensorValue caption_vec;
+@@ -604,6 +628,11 @@ core::TensorValue build_irodori_duration_predictor(
+               {1, 2 * config.duration_hidden_dim, config.duration_hidden_dim})
+               .build(ctx, caption_modulation));
+     }
++    if (diagnostic_modulations != nullptr) {
++      diagnostic_modulations->push_back(shift);
++      diagnostic_modulations->push_back(scale);
++      diagnostic_modulations->push_back(gate);
++    }
+     auto shift_seq = core::reshape_tensor(
+         ctx, shift,
+         core::TensorShape::from_dims(
+@@ -994,7 +1023,8 @@ private:
+       }
+       auto duration = build_irodori_duration_predictor(
+           build_ctx, output_text_, text_mask_, speaker_state_, has_speaker_,
+-          output_caption_, caption_mask_, has_caption_, owner.weights_, config);
++          output_caption_, caption_mask_, has_caption_, owner.weights_, config,
++          &duration_diagnostic_tensors_);
+       output_duration_ =
+           core::ensure_backend_addressable_layout(build_ctx, duration);
+       ggml_set_output(output_text_.tensor);
+@@ -1002,12 +1032,18 @@ private:
+         ggml_set_output(output_caption_.tensor);
+       }
+       ggml_set_output(output_duration_.tensor);
++      for (const auto &tensor : duration_diagnostic_tensors_) {
++        ggml_set_output(tensor.tensor);
++      }
+       graph_ = ggml_new_graph_custom(ctx_.get(), 65536, false);
+       ggml_build_forward_expand(graph_, output_text_.tensor);
+       if (config.use_caption_condition) {
+         ggml_build_forward_expand(graph_, output_caption_.tensor);
+       }
+       ggml_build_forward_expand(graph_, output_duration_.tensor);
++      for (const auto &tensor : duration_diagnostic_tensors_) {
++        ggml_build_forward_expand(graph_, tensor.tensor);
++      }
+       gallocr_ = ggml_gallocr_new(
+           ggml_backend_get_default_buffer_type(owner.backend_));
+       if (gallocr_ == nullptr || !ggml_gallocr_reserve(gallocr_, graph_) ||
+@@ -1084,6 +1120,18 @@ private:
+       }
+       const auto duration = core::read_tensor_f32(output_duration_.tensor);
+       output.predicted_log_frames = duration.empty() ? 0.0F : duration.front();
++      for (size_t index = 0; index < duration_diagnostic_tensors_.size();
++           ++index) {
++        const auto values =
++            core::read_tensor_f32(duration_diagnostic_tensors_[index].tensor);
++        const size_t block = index / 3;
++        const size_t field = index % 3;
++        const char *names[] = {"shift", "scale", "gate"};
++        debug::trace_log_scalar(
++            "irodori_tts.condition.duration.block" + std::to_string(block) +
++                "." + names[field] + "_stats",
++            condition_vector_stats(values));
++      }
+       return output;
+     }
+ 
+@@ -1105,6 +1153,7 @@ private:
+     core::TensorValue output_text_;
+     core::TensorValue output_caption_;
+     core::TensorValue output_duration_;
++    std::vector<core::TensorValue> duration_diagnostic_tensors_;
+     ggml_cgraph *graph_ = nullptr;
+     ggml_gallocr_t gallocr_ = nullptr;
+   };
+diff --git a/src/models/irodori_tts/loader.cpp b/src/models/irodori_tts/loader.cpp
+index 825e285..3d8eb55 100644
+--- a/src/models/irodori_tts/loader.cpp
++++ b/src/models/irodori_tts/loader.cpp
+@@ -40,11 +40,28 @@ runtime::ModelCliInterface cli(const IrodoriTTSAssets &) {
+         {"num_inference_steps", "n", "RF diffusion steps."},
+         {"duration_seconds", "seconds", "Explicit output duration."},
+         {"duration_scale", "float", "Predicted-duration multiplier."},
++        {"duration_offset_seconds", "seconds", "Additive offset applied to predicted duration after scaling."},
+         {"text_chunk_mode", "japanese|endline", "Text chunking mode; default endline."},
+         {"min_seconds", "seconds", "Minimum generated duration."},
+         {"max_seconds", "seconds", "Maximum generated duration."},
+         {"text_guidance_scale", "float", "Text classifier-free guidance scale."},
+         {"speaker_guidance_scale", "float", "Speaker classifier-free guidance scale."},
++        {"speaker_guidance_adaptive", "bool", "Cap speaker guidance by its RMS ratio to the non-speaker guided velocity."},
++        {"speaker_guidance_target_ratio", "float", "Maximum speaker guidance RMS divided by non-speaker guided RMS."},
++        {"speaker_attention_bias", "float", "Additive attention-logit bias applied to valid speaker tokens."},
++        {"speaker_attention_bias_layer_start", "n", "First zero-based RF layer receiving speaker attention bias."},
++        {"speaker_attention_bias_layer_end", "n", "Last zero-based RF layer receiving speaker attention bias; -1 means final layer."},
++        {"speaker_attention_bias_step_start", "n", "First one-based RF step receiving speaker attention bias."},
++        {"speaker_attention_bias_step_end", "n", "Last one-based RF step receiving speaker attention bias; -1 means final step."},
++        {"speaker_rescue_enabled", "bool", "Retry with a deterministic seed offset when the speaker branch is weak at the probe step."},
++        {"speaker_rescue_threshold", "float", "Minimum speaker-branch output RMS accepted at the rescue probe step."},
++        {"speaker_rescue_probe_step", "n", "One-based RF step used for speaker rescue detection."},
++        {"speaker_rescue_max_retries", "n", "Maximum deterministic speaker rescue retries."},
++        {"speaker_rescue_seed_stride", "n", "Unsigned seed increment used for each speaker rescue retry."},
++        {"audio_quality_rescue_enabled", "bool", "Retry a generated chunk when decoded waveform quality checks fail."},
++        {"audio_quality_rescue_max_jump", "float", "Maximum accepted absolute jump between adjacent decoded samples."},
++        {"audio_quality_rescue_max_retries", "n", "Maximum deterministic decoded-audio quality retries."},
++        {"audio_quality_rescue_seed_stride", "n", "Unsigned seed increment used for each decoded-audio quality retry."},
+         {"caption_guidance_scale", "float", "Caption classifier-free guidance scale."},
+         {"guidance_mode", "independent", "Classifier-free guidance combination mode."},
+         {"guidance_min_t", "float", "Minimum diffusion time for guidance."},
+diff --git a/src/models/irodori_tts/rf_dit.cpp b/src/models/irodori_tts/rf_dit.cpp
+index 5fe4c0b..5624316 100644
+--- a/src/models/irodori_tts/rf_dit.cpp
++++ b/src/models/irodori_tts/rf_dit.cpp
+@@ -15,6 +15,8 @@
+ #include <algorithm>
+ #include <cmath>
+ #include <cstddef>
++#include <limits>
++#include <sstream>
+ #include <stdexcept>
+ #include <string>
+ #include <utility>
+@@ -389,6 +391,14 @@ core::TensorValue scalar_like(core::ModuleBuildContext &ctx,
+   return modules::RepeatModule({shape}).build(ctx, reshaped);
+ }
+ 
++core::TensorValue diagnostic_copy(core::ModuleBuildContext &ctx,
++                                  const core::TensorValue &value) {
++  return core::wrap_tensor(
++      ggml_dup(ctx.ggml,
++               core::ensure_backend_addressable_layout(ctx, value).tensor),
++      value.shape, value.type);
++}
++
+ core::TensorValue select_modulation_step(core::ModuleBuildContext &ctx,
+                                          const core::TensorValue &cache,
+                                          const core::TensorValue &step_index,
+@@ -485,6 +495,8 @@ build_layer_context_kv(core::ModuleBuildContext &ctx,
+                     weights.k_norm, config.norm_eps));
+   v_speaker = core::ensure_backend_addressable_layout(
+       ctx, reshape_heads(ctx, v_speaker, config.num_heads, dim));
++  out.k_speaker = k_speaker;
++  out.v_speaker = v_speaker;
+ 
+   core::TensorValue k_caption;
+   core::TensorValue v_caption;
+@@ -638,7 +650,8 @@ core::TensorValue build_block(
+     const IrodoriDiffusionBlockWeights &weights,
+     const IrodoriModelConfig &config, int64_t layer_index,
+     const IrodoriLayerContextKV *context_kv,
+-    const IrodoriLayerAdaLNModulation *modulation) {
++    const IrodoriLayerAdaLNModulation *modulation,
++    core::TensorValue *attention_hidden_diagnostic) {
+   auto attn_adaln =
+       modulation == nullptr
+           ? low_rank_adaln(ctx, x, cond_embed, weights.attention_adaln, config)
+@@ -652,6 +665,9 @@ core::TensorValue build_block(
+                         attn.shape, GGML_TYPE_F32);
+   auto hidden = core::wrap_tensor(
+       ggml_add(ctx.ggml, x.tensor, gated_attn.tensor), x.shape, GGML_TYPE_F32);
++  if (attention_hidden_diagnostic != nullptr) {
++    *attention_hidden_diagnostic = hidden;
++  }
+   auto mlp_adaln =
+       modulation == nullptr
+           ? low_rank_adaln(ctx, hidden, cond_embed, weights.mlp_adaln, config)
+@@ -749,7 +765,11 @@ core::TensorValue build_irodori_rf_dit(
+     const core::TensorValue &attention_mask, const core::TensorValue &positions,
+     const IrodoriRfDitWeights &weights, const IrodoriModelConfig &config,
+     const std::vector<IrodoriLayerContextKV> *context_kv_cache,
+-    const std::vector<IrodoriLayerAdaLNModulation> *modulation_cache) {
++    const std::vector<IrodoriLayerAdaLNModulation> *modulation_cache,
++    std::vector<core::TensorValue> *layer_diagnostic_tensors,
++    std::vector<core::TensorValue> *layer_attention_diagnostic_tensors,
++    const core::TensorValue *speaker_biased_attention_mask,
++    int64_t speaker_bias_layer_start, int64_t speaker_bias_layer_end) {
+   if (context_kv_cache != nullptr &&
+       context_kv_cache->size() != weights.blocks.size()) {
+     throw std::runtime_error(
+@@ -768,15 +788,41 @@ core::TensorValue build_irodori_rf_dit(
+       modules::LinearModule(binding::linear_config(config.patched_latent_dim(),
+                                                    config.model_dim, true))
+           .build(ctx, x_t, weights.in_proj);
++  if (layer_diagnostic_tensors != nullptr) {
++    layer_diagnostic_tensors->clear();
++    layer_diagnostic_tensors->push_back(diagnostic_copy(ctx, hidden));
++  }
++  if (layer_attention_diagnostic_tensors != nullptr) {
++    layer_attention_diagnostic_tensors->clear();
++  }
+   for (size_t layer = 0; layer < weights.blocks.size(); ++layer) {
++    const int64_t layer_index = static_cast<int64_t>(layer);
++    const bool use_speaker_biased_mask =
++        speaker_biased_attention_mask != nullptr &&
++        layer_index >= speaker_bias_layer_start &&
++        (speaker_bias_layer_end < 0 ||
++         layer_index <= speaker_bias_layer_end);
++    const auto &layer_attention_mask =
++        use_speaker_biased_mask ? *speaker_biased_attention_mask
++                                : attention_mask;
+     const IrodoriLayerContextKV *context_kv =
+         context_kv_cache == nullptr ? nullptr : &(*context_kv_cache)[layer];
+     const IrodoriLayerAdaLNModulation *modulation =
+         modulation_cache == nullptr ? nullptr : &(*modulation_cache)[layer];
+-    hidden = build_block(ctx, hidden, cond_embed, text_state, speaker_state,
+-                         caption_state, attention_mask, positions,
+-                         weights.blocks[layer], config,
+-                         static_cast<int64_t>(layer), context_kv, modulation);
++    core::TensorValue attention_hidden;
++    hidden = build_block(
++        ctx, hidden, cond_embed, text_state, speaker_state, caption_state,
++        layer_attention_mask, positions, weights.blocks[layer], config,
++        layer_index, context_kv, modulation,
++        layer_attention_diagnostic_tensors != nullptr ? &attention_hidden
++                                                      : nullptr);
++    if (layer_attention_diagnostic_tensors != nullptr) {
++      layer_attention_diagnostic_tensors->push_back(
++          diagnostic_copy(ctx, attention_hidden));
++    }
++    if (layer_diagnostic_tensors != nullptr) {
++      layer_diagnostic_tensors->push_back(diagnostic_copy(ctx, hidden));
++    }
+   }
+   hidden =
+       modules::RMSNormModule({config.model_dim, config.norm_eps, true, false})
+@@ -787,18 +833,267 @@ core::TensorValue build_irodori_rf_dit(
+       .build(ctx, hidden, weights.out_proj);
+ }
+ 
++template <typename T>
++std::string rf_vector_stats(const std::vector<T> &values) {
++  if (values.empty()) {
++    return "n=0";
++  }
++  double minimum = std::numeric_limits<double>::infinity();
++  double maximum = -std::numeric_limits<double>::infinity();
++  long double sum = 0.0L;
++  long double sum_squared = 0.0L;
++  size_t finite = 0;
++  for (const T value : values) {
++    const double converted = static_cast<double>(value);
++    if (!std::isfinite(converted)) {
++      continue;
++    }
++    minimum = std::min(minimum, converted);
++    maximum = std::max(maximum, converted);
++    sum += converted;
++    sum_squared += static_cast<long double>(converted) * converted;
++    ++finite;
++  }
++  if (finite == 0) {
++    return "n=" + std::to_string(values.size()) + ",finite=0";
++  }
++  std::ostringstream out;
++  out << "n=" << values.size() << ",finite=" << finite
++      << ",min=" << minimum << ",max=" << maximum
++      << ",mean=" << static_cast<double>(sum / finite)
++      << ",rms=" << std::sqrt(static_cast<double>(sum_squared / finite));
++  return out.str();
++}
++
++double rf_cosine(const std::vector<float> &lhs, const std::vector<float> &rhs) {
++  if (lhs.size() != rhs.size() || lhs.empty()) {
++    return 0.0;
++  }
++  long double dot = 0.0L;
++  long double lhs_norm = 0.0L;
++  long double rhs_norm = 0.0L;
++  for (size_t index = 0; index < lhs.size(); ++index) {
++    dot += static_cast<long double>(lhs[index]) * rhs[index];
++    lhs_norm += static_cast<long double>(lhs[index]) * lhs[index];
++    rhs_norm += static_cast<long double>(rhs[index]) * rhs[index];
++  }
++  if (lhs_norm <= 0.0L || rhs_norm <= 0.0L) {
++    return 0.0;
++  }
++  return static_cast<double>(dot / std::sqrt(lhs_norm * rhs_norm));
++}
++
++void log_guidance_branches(const std::string &prefix,
++                           const std::vector<std::vector<float>> &branches,
++                           bool text_cfg_enabled, bool speaker_cfg_enabled) {
++  std::vector<std::string> names{"cond"};
++  if (text_cfg_enabled) {
++    names.emplace_back("text_diff");
++  }
++  if (speaker_cfg_enabled) {
++    names.emplace_back("speaker_diff");
++  }
++  names.emplace_back("guided");
++  for (size_t index = 0; index < branches.size() && index < 5; ++index) {
++    debug::trace_log_scalar(prefix + names[index] + "_stats",
++                            rf_vector_stats(branches[index]));
++  }
++  if (text_cfg_enabled && speaker_cfg_enabled && branches.size() >= 3) {
++    debug::trace_log_scalar(
++        prefix + "text_speaker_diff_cosine",
++        std::to_string(rf_cosine(branches[1], branches[2])));
++  }
++}
++
++void log_speaker_cfg_analysis(
++    int64_t step,
++    const std::vector<std::vector<float>> &branches,
++    bool text_cfg_enabled, bool speaker_cfg_enabled,
++    float text_scale, float spk_scale) {
++  if (!text_cfg_enabled || !speaker_cfg_enabled || branches.size() < 3) {
++    debug::trace_log_scalar("SPK_CFG_ANALYSIS", std::string_view("Skipped: CFG branches missing"));
++    return;
++  }
++  if (!std::isfinite(text_scale) || !std::isfinite(spk_scale)) {
++    debug::trace_log_scalar("SPK_CFG_ANALYSIS", std::string_view("Skipped: scale is not finite"));
++    return;
++  }
++  const auto &cond = branches[0];
++  const auto &text_diff = branches[1];
++  const auto &speaker_diff = branches[2];
++  size_t n = cond.size();
++  if (n == 0) {
++    debug::trace_log_scalar("SPK_CFG_ANALYSIS", std::string_view("Skipped: n is 0"));
++    return;
++  }
++  if (text_diff.size() != n || speaker_diff.size() != n) {
++    debug::trace_log_scalar("SPK_CFG_ANALYSIS", std::string_view("Skipped: Vector length mismatch"));
++    return;
++  }
++  auto check_finite = [](const std::vector<float>& v) {
++    for (float f : v) {
++      if (!std::isfinite(f)) return false;
++    }
++    return true;
++  };
++  if (!check_finite(cond) || !check_finite(text_diff) || !check_finite(speaker_diff)) {
++    debug::trace_log_scalar("SPK_CFG_ANALYSIS", std::string_view("Skipped: NaN or Inf detected"));
++    return;
++  }
++
++  const double epsilon = 1e-6;
++  const double effect_epsilon = 1e-5;
++
++  auto calc_rms = [](const std::vector<float>& v) {
++    double sum = 0.0;
++    for (float f : v) { sum += static_cast<double>(f) * static_cast<double>(f); }
++    return std::sqrt(sum / static_cast<double>(v.size()));
++  };
++
++  std::vector<float> v_text(n);
++  for (size_t i = 0; i < n; ++i) {
++    v_text[i] = cond[i] + text_scale * text_diff[i];
++  }
++  double v_text_rms = calc_rms(v_text);
++  double spk_diff_rms = calc_rms(speaker_diff);
++
++  double cosine = 0.0;
++  double proj = 0.0;
++  double parallel_rms = 0.0;
++  double antiparallel_rms = 0.0;
++  double ortho_rms = spk_diff_rms;
++  double axial_rms = 0.0;
++  double decomp_abs_error = 0.0;
++  double decomp_rel_error = 0.0;
++
++  if (v_text_rms >= epsilon && spk_diff_rms >= epsilon) {
++    double dot_vtext_spk = 0.0;
++    for (size_t i = 0; i < n; ++i) {
++      dot_vtext_spk += static_cast<double>(v_text[i]) * static_cast<double>(speaker_diff[i]);
++    }
++    cosine = dot_vtext_spk / (static_cast<double>(n) * v_text_rms * spk_diff_rms);
++    proj = dot_vtext_spk / (static_cast<double>(n) * v_text_rms * v_text_rms);
++
++    std::vector<float> d_parallel(n);
++    std::vector<float> d_ortho(n);
++    for (size_t i = 0; i < n; ++i) {
++      d_parallel[i] = static_cast<float>(proj * static_cast<double>(v_text[i]));
++      d_ortho[i] = speaker_diff[i] - d_parallel[i];
++    }
++    axial_rms = calc_rms(d_parallel);
++    ortho_rms = calc_rms(d_ortho);
++
++    if (proj > 0.0) {
++      parallel_rms = axial_rms;
++    } else {
++      antiparallel_rms = axial_rms;
++    }
++
++    double lhs = spk_diff_rms * spk_diff_rms;
++    double rhs = axial_rms * axial_rms + ortho_rms * ortho_rms;
++    decomp_abs_error = std::abs(lhs - rhs);
++    decomp_rel_error = decomp_abs_error / std::max(lhs, epsilon);
++  }
++
++  std::vector<float> v_final(n);
++  for (size_t i = 0; i < n; ++i) {
++    v_final[i] = v_text[i] + spk_scale * speaker_diff[i];
++  }
++  double final_rms = calc_rms(v_final);
++  double rms_delta = final_rms - v_text_rms;
++  
++  if (!std::isfinite(rms_delta)) {
++    debug::trace_log_scalar("SPK_CFG_ANALYSIS", std::string_view("Skipped: rms_delta is not finite"));
++    return;
++  }
++
++  std::string effect;
++  if (rms_delta > effect_epsilon) { effect = "Amplified"; }
++  else if (rms_delta < -effect_epsilon) { effect = "Attenuated"; }
++  else { effect = "Neutral"; }
++
++  std::string rms_ratio_str;
++  if (v_text_rms >= epsilon) {
++    char buf[32];
++    std::snprintf(buf, sizeof(buf), "%.3f", final_rms / v_text_rms);
++    rms_ratio_str = buf;
++  } else {
++    rms_ratio_str = "N/A";
++  }
++
++  char log_buf[512];
++  if (v_text_rms >= epsilon && spk_diff_rms >= epsilon) {
++    std::snprintf(log_buf, sizeof(log_buf),
++        "step:%d eps:1e-06 text_scale:%.3f spk_scale:%.3f "
++        "v_text_rms:%.3f spk_diff_rms:%.3f cos:%.3f proj:%.3f "
++        "parallel_rms:%.3f antiparallel_rms:%.3f ortho_rms:%.3f "
++        "final_rms:%.3f rms_delta:%.3f rms_ratio:%s effect:%s "
++        "abs_err:%.1e rel_err:%.1e",
++        static_cast<int>(step + 1), text_scale, spk_scale,
++        v_text_rms, spk_diff_rms, cosine, proj,
++        parallel_rms, antiparallel_rms, ortho_rms,
++        final_rms, rms_delta, rms_ratio_str.c_str(), effect.c_str(),
++        decomp_abs_error, decomp_rel_error);
++  } else {
++    std::snprintf(log_buf, sizeof(log_buf),
++        "step:%d eps:1e-06 text_scale:%.3f spk_scale:%.3f "
++        "v_text_rms:%.3f spk_diff_rms:%.3f cos:N/A proj:N/A "
++        "parallel_rms:N/A antiparallel_rms:N/A ortho_rms:%.3f "
++        "final_rms:%.3f rms_delta:%.3f rms_ratio:%s effect:%s "
++        "abs_err:N/A rel_err:N/A",
++        static_cast<int>(step + 1), text_scale, spk_scale,
++        v_text_rms, spk_diff_rms, ortho_rms,
++        final_rms, rms_delta, rms_ratio_str.c_str(), effect.c_str());
++  }
++  debug::trace_log_scalar("SPK_CFG_ANALYSIS ", std::string_view(log_buf));
++}
++
++void copy_guidance_diagnostics(
++    const std::vector<std::vector<float>> &branches, bool text_cfg_enabled,
++    bool speaker_cfg_enabled, bool caption_cfg_enabled,
++    IrodoriRfStepDiagnostics &diagnostics) {
++  diagnostics = {};
++  if (branches.empty()) {
++    return;
++  }
++  size_t index = 0;
++  diagnostics.cond = branches[index++];
++  if (text_cfg_enabled && index < branches.size()) {
++    diagnostics.text_diff = branches[index++];
++  }
++  if (speaker_cfg_enabled && index < branches.size()) {
++    diagnostics.speaker_diff = branches[index++];
++  }
++  if (caption_cfg_enabled && index < branches.size()) {
++    diagnostics.caption_diff = branches[index++];
++  }
++  if (index < branches.size()) {
++    diagnostics.guided = branches[index];
++  } else {
++    diagnostics.guided = diagnostics.cond;
++  }
++}
++
+ core::TensorValue build_guided_velocity(
+     core::ModuleBuildContext &ctx, const core::TensorValue &raw_output,
+     const core::TensorValue &text_guidance,
+     const core::TensorValue &speaker_guidance,
+     const core::TensorValue &caption_guidance, bool text_cfg_enabled,
+-    bool speaker_cfg_enabled, bool caption_cfg_enabled) {
++    bool speaker_cfg_enabled, bool caption_cfg_enabled,
++    std::vector<core::TensorValue> *diagnostic_tensors) {
+   const auto cond = modules::SliceModule({0, 0, 1}).build(ctx, raw_output);
+   auto velocity = cond;
++  if (diagnostic_tensors != nullptr) {
++    diagnostic_tensors->clear();
++    diagnostic_tensors->push_back(diagnostic_copy(ctx, cond));
++  }
+   int64_t branch = 1;
+   auto add_branch = [&](const core::TensorValue &guidance) {
+     auto uncond = modules::SliceModule({0, branch, 1}).build(ctx, raw_output);
+     auto diff = sub_tensor(ctx, cond, uncond);
++    if (diagnostic_tensors != nullptr) {
++      diagnostic_tensors->push_back(diagnostic_copy(ctx, diff));
++    }
+     auto scaled = modules::MulModule{}.build(
+         ctx, diff, scalar_like(ctx, guidance, diff.shape));
+     velocity = modules::AddModule{}.build(ctx, velocity, scaled);
+@@ -813,6 +1108,9 @@ core::TensorValue build_guided_velocity(
+   if (caption_cfg_enabled) {
+     add_branch(caption_guidance);
+   }
++  if (diagnostic_tensors != nullptr) {
++    diagnostic_tensors->push_back(diagnostic_copy(ctx, velocity));
++  }
+   return velocity;
+ }
+ 
+@@ -831,7 +1129,8 @@ make_rf_attention_mask(const std::vector<uint8_t> &text_mask,
+                        const std::vector<uint8_t> &speaker_mask,
+                        const std::vector<uint8_t> &caption_mask, int64_t batch,
+                        int64_t latent_steps, int64_t text_tokens,
+-                       int64_t speaker_tokens, int64_t caption_tokens) {
++                       int64_t speaker_tokens, int64_t caption_tokens,
++                       float speaker_attention_bias) {
+   const int64_t keys =
+       latent_steps + text_tokens + speaker_tokens + caption_tokens;
+   std::vector<float> out(static_cast<size_t>(batch * latent_steps * keys),
+@@ -857,8 +1156,13 @@ make_rf_attention_mask(const std::vector<uint8_t> &text_mask,
+                      b * caption_tokens +
+                      (k - latent_steps - text_tokens - speaker_tokens))] != 0;
+         }
++        float mask_value = keep ? 0.0F : -INFINITY;
++        if (keep && k >= latent_steps + text_tokens &&
++            k < latent_steps + text_tokens + speaker_tokens) {
++          mask_value = speaker_attention_bias;
++        }
+         out[static_cast<size_t>((b * latent_steps + q) * keys + k)] =
+-            keep ? 0.0F : -INFINITY;
++            mask_value;
+       }
+     }
+   }
+@@ -892,6 +1196,11 @@ public:
+     int64_t batch = 0;
+     int64_t speaker_tokens = 0;
+     int64_t caption_tokens = 0;
++    float speaker_attention_bias = 0.0F;
++    int64_t speaker_bias_layer_start = 0;
++    int64_t speaker_bias_layer_end = -1;
++    int64_t speaker_bias_step_start = 1;
++    int64_t speaker_bias_step_end = -1;
+     std::vector<uint8_t> text_mask;
+     std::vector<uint8_t> speaker_mask;
+     std::vector<uint8_t> caption_mask;
+@@ -930,7 +1239,12 @@ public:
+                                    const IrodoriSpeakerCondition &speaker,
+                                    bool text_cfg_enabled,
+                                    bool speaker_cfg_enabled,
+-                                   bool caption_cfg_enabled) {
++                                   bool caption_cfg_enabled,
++                                   float speaker_attention_bias,
++                                   int64_t speaker_bias_layer_start,
++                                   int64_t speaker_bias_layer_end,
++                                   int64_t speaker_bias_step_start,
++                                   int64_t speaker_bias_step_end) {
+     const auto &config = assets_->config;
+     const int64_t batch = 1 + (text_cfg_enabled ? 1 : 0) +
+                           (speaker_cfg_enabled ? 1 : 0) +
+@@ -959,6 +1273,11 @@ public:
+     cache.batch = batch;
+     cache.speaker_tokens = speaker.tokens;
+     cache.caption_tokens = caption_tokens;
++    cache.speaker_attention_bias = speaker_attention_bias;
++    cache.speaker_bias_layer_start = speaker_bias_layer_start;
++    cache.speaker_bias_layer_end = speaker_bias_layer_end;
++    cache.speaker_bias_step_start = speaker_bias_step_start;
++    cache.speaker_bias_step_end = speaker_bias_step_end;
+ 
+     const int64_t text_elems = config.max_text_len * config.text_dim;
+     std::vector<float> text_state(static_cast<size_t>(batch * text_elems),
+@@ -1108,7 +1427,8 @@ public:
+                 bool speaker_cfg_enabled, bool caption_cfg_enabled,
+                 float text_guidance_scale, float speaker_guidance_scale,
+                 float caption_guidance_scale, int64_t latent_steps,
+-                std::vector<float> &velocity) {
++                std::vector<float> &velocity,
++                IrodoriRfStepDiagnostics *diagnostics) {
+     const int64_t batch = 1 + (text_cfg_enabled ? 1 : 0) +
+                           (speaker_cfg_enabled ? 1 : 0) +
+                           (caption_cfg_enabled ? 1 : 0);
+@@ -1126,18 +1446,24 @@ public:
+           graph->modulation_steps() != modulation_cache.steps ||
+           graph->text_cfg_enabled() != text_cfg_enabled ||
+           graph->speaker_cfg_enabled() != speaker_cfg_enabled ||
+-          graph->caption_cfg_enabled() != caption_cfg_enabled) {
++          graph->caption_cfg_enabled() != caption_cfg_enabled ||
++          graph->speaker_bias_layer_start() !=
++              context_cache.speaker_bias_layer_start ||
++          graph->speaker_bias_layer_end() !=
++              context_cache.speaker_bias_layer_end) {
+         ++step_graph_rebuilds_;
+         graph.reset();
+         graph = std::make_unique<MemSaverGraph>(
+             *this, latent_steps, context_cache.speaker_tokens, caption_tokens,
+             batch, modulation_cache.steps, text_cfg_enabled,
+-            speaker_cfg_enabled, caption_cfg_enabled, graph_arena_bytes_);
++            speaker_cfg_enabled, caption_cfg_enabled,
++            context_cache.speaker_bias_layer_start,
++            context_cache.speaker_bias_layer_end, graph_arena_bytes_);
+       }
+       graph->set_context(context_cache);
+       graph->run(x_t, step, modulation_cache, context_cache,
+                  text_guidance_scale, speaker_guidance_scale,
+-                 caption_guidance_scale, velocity);
++                 caption_guidance_scale, velocity, diagnostics);
+       return;
+     }
+     std::unique_ptr<Graph> &graph = batch == 1 ? cond_graph_ : cfg_graph_;
+@@ -1149,17 +1475,23 @@ public:
+         graph->modulation_steps() != modulation_cache.steps ||
+         graph->text_cfg_enabled() != text_cfg_enabled ||
+         graph->speaker_cfg_enabled() != speaker_cfg_enabled ||
+-        graph->caption_cfg_enabled() != caption_cfg_enabled) {
++        graph->caption_cfg_enabled() != caption_cfg_enabled ||
++        graph->speaker_bias_layer_start() !=
++            context_cache.speaker_bias_layer_start ||
++        graph->speaker_bias_layer_end() !=
++            context_cache.speaker_bias_layer_end) {
+       ++step_graph_rebuilds_;
+       graph.reset();
+       graph = std::make_unique<Graph>(
+           *this, latent_steps, context_cache.speaker_tokens, caption_tokens,
+           batch, modulation_cache.steps, text_cfg_enabled, speaker_cfg_enabled,
+-          caption_cfg_enabled, graph_arena_bytes_);
++          caption_cfg_enabled, context_cache.speaker_bias_layer_start,
++          context_cache.speaker_bias_layer_end, graph_arena_bytes_);
+     }
+     graph->set_context(context_cache);
+     graph->run(x_t, step, modulation_cache, context_cache, text_guidance_scale,
+-               speaker_guidance_scale, caption_guidance_scale, velocity);
++               speaker_guidance_scale, caption_guidance_scale, velocity,
++               diagnostics);
+   }
+ 
+   void release_graphs() {
+@@ -1232,11 +1564,15 @@ private:
+       for (auto &layer : outputs_) {
+         ggml_set_output(layer.k_context.tensor);
+         ggml_set_output(layer.v_context.tensor);
++        ggml_set_output(layer.k_speaker.tensor);
++        ggml_set_output(layer.v_speaker.tensor);
+       }
+       graph_ = ggml_new_graph_custom(ctx_.get(), 131072, false);
+       for (auto &layer : outputs_) {
+         ggml_build_forward_expand(graph_, layer.k_context.tensor);
+         ggml_build_forward_expand(graph_, layer.v_context.tensor);
++        ggml_build_forward_expand(graph_, layer.k_speaker.tensor);
++        ggml_build_forward_expand(graph_, layer.v_speaker.tensor);
+       }
+       buffer_ = ggml_backend_alloc_ctx_tensors(ctx_.get(), owner.backend_);
+       if (buffer_ == nullptr) {
+@@ -1289,6 +1625,14 @@ private:
+       if (status != GGML_STATUS_SUCCESS) {
+         throw std::runtime_error("Irodori-TTS RF context graph compute failed");
+       }
++      if (!outputs_.empty()) {
++        debug::trace_log_scalar("irodori_tts.rf.context.layer0.speaker_k_stats",
++                                rf_vector_stats(core::read_tensor_f32(
++                                    outputs_.front().k_speaker.tensor)));
++        debug::trace_log_scalar("irodori_tts.rf.context.layer0.speaker_v_stats",
++                                rf_vector_stats(core::read_tensor_f32(
++                                    outputs_.front().v_speaker.tensor)));
++      }
+       cache.backend_kv = &outputs_;
+       cache.first_branch_backend_kv =
+           batch_ > 1 ? &first_branch_outputs_ : &outputs_;
+@@ -1399,13 +1743,17 @@ private:
+           int64_t speaker_tokens, int64_t caption_tokens, int64_t batch,
+           int64_t modulation_steps, bool text_cfg_enabled,
+           bool speaker_cfg_enabled, bool caption_cfg_enabled,
++          int64_t speaker_bias_layer_start,
++          int64_t speaker_bias_layer_end,
+           size_t graph_arena_bytes)
+         : owner_(&owner), latent_steps_(latent_steps),
+           speaker_tokens_(speaker_tokens), caption_tokens_(caption_tokens),
+           batch_(batch), modulation_steps_(modulation_steps),
+           text_cfg_enabled_(text_cfg_enabled),
+           speaker_cfg_enabled_(speaker_cfg_enabled),
+-          caption_cfg_enabled_(caption_cfg_enabled) {
++          caption_cfg_enabled_(caption_cfg_enabled),
++          speaker_bias_layer_start_(speaker_bias_layer_start),
++          speaker_bias_layer_end_(speaker_bias_layer_end) {
+       const auto &config = owner.assets_->config;
+       ggml_init_params params{graph_arena_bytes, nullptr, true};
+       ctx_.reset(ggml_init(params));
+@@ -1464,12 +1812,19 @@ private:
+                                 {batch_, 1, latent_steps_,
+                                  latent_steps_ + config.max_text_len +
+                                      speaker_tokens_ + caption_tokens_}));
++      speaker_biased_attention_mask_ =
++          core::make_tensor(build_ctx, GGML_TYPE_F16,
++                            core::TensorShape::from_dims(
++                                {batch_, 1, latent_steps_,
++                                 latent_steps_ + config.max_text_len +
++                                     speaker_tokens_ + caption_tokens_}));
+       positions_ =
+           core::make_tensor(build_ctx, GGML_TYPE_I32,
+                             core::TensorShape::from_dims({latent_steps_}));
+       ggml_set_input(x_t_.tensor);
+       ggml_set_input(step_index_.tensor);
+       ggml_set_input(attention_mask_.tensor);
++      ggml_set_input(speaker_biased_attention_mask_.tensor);
+       ggml_set_input(positions_.tensor);
+       if (batch_ > 1) {
+         text_guidance_ = core::make_tensor(build_ctx, GGML_TYPE_F32,
+@@ -1489,17 +1844,40 @@ private:
+       }
+       auto output = build_irodori_rf_dit(
+           build_ctx, x_t_, {}, {}, {}, {}, attention_mask_, positions_,
+-          owner.weights_, config, &context_kv_inputs_, &modulation_inputs_);
++          owner.weights_, config, &context_kv_inputs_, &modulation_inputs_,
++          batch_ > 1 ? &layer_diagnostic_tensors_ : nullptr,
++          batch_ > 1 ? &layer_attention_diagnostic_tensors_ : nullptr,
++          &speaker_biased_attention_mask_, speaker_bias_layer_start_,
++          speaker_bias_layer_end_);
+       if (batch_ > 1) {
+         output = build_guided_velocity(build_ctx, output, text_guidance_,
+                                        speaker_guidance_, caption_guidance_,
+                                        text_cfg_enabled_, speaker_cfg_enabled_,
+-                                       caption_cfg_enabled_);
++                                       caption_cfg_enabled_,
++                                       &guidance_diagnostic_tensors_);
+       }
+       output_ = core::ensure_backend_addressable_layout(build_ctx, output);
+       ggml_set_output(output_.tensor);
++      for (const auto &tensor : guidance_diagnostic_tensors_) {
++        ggml_set_output(tensor.tensor);
++      }
++      for (const auto &tensor : layer_diagnostic_tensors_) {
++        ggml_set_output(tensor.tensor);
++      }
++      for (const auto &tensor : layer_attention_diagnostic_tensors_) {
++        ggml_set_output(tensor.tensor);
++      }
+       graph_ = ggml_new_graph_custom(ctx_.get(), 262144, false);
+       ggml_build_forward_expand(graph_, output_.tensor);
++      for (const auto &tensor : guidance_diagnostic_tensors_) {
++        ggml_build_forward_expand(graph_, tensor.tensor);
++      }
++      for (const auto &tensor : layer_diagnostic_tensors_) {
++        ggml_build_forward_expand(graph_, tensor.tensor);
++      }
++      for (const auto &tensor : layer_attention_diagnostic_tensors_) {
++        ggml_build_forward_expand(graph_, tensor.tensor);
++      }
+       buffer_ = ggml_backend_alloc_ctx_tensors(ctx_.get(), owner.backend_);
+       if (buffer_ == nullptr) {
+         throw std::runtime_error("failed to allocate Irodori-TTS RF graph");
+@@ -1530,6 +1908,14 @@ private:
+ 
+     bool caption_cfg_enabled() const noexcept { return caption_cfg_enabled_; }
+ 
++    int64_t speaker_bias_layer_start() const noexcept {
++      return speaker_bias_layer_start_;
++    }
++
++    int64_t speaker_bias_layer_end() const noexcept {
++      return speaker_bias_layer_end_;
++    }
++
+     void set_context(const ContextCache &cache) {
+       if (loaded_context_id_ == cache.id) {
+         return;
+@@ -1589,8 +1975,16 @@ private:
+       }
+       const auto attention_mask_values = make_rf_attention_mask(
+           cache.text_mask, cache.speaker_mask, cache.caption_mask, batch_,
+-          latent_steps_, config.max_text_len, speaker_tokens_, caption_tokens_);
++          latent_steps_, config.max_text_len, speaker_tokens_, caption_tokens_,
++          0.0F);
++      speaker_biased_attention_mask_values_ = make_rf_attention_mask(
++          cache.text_mask, cache.speaker_mask, cache.caption_mask, batch_,
++          latent_steps_, config.max_text_len, speaker_tokens_, caption_tokens_,
++          cache.speaker_attention_bias);
+       core::write_tensor_f16(attention_mask_, attention_mask_values);
++      core::write_tensor_f16(speaker_biased_attention_mask_,
++                             speaker_biased_attention_mask_values_);
++      speaker_bias_active_ = true;
+       loaded_context_id_ = cache.id;
+     }
+ 
+@@ -1628,7 +2022,8 @@ private:
+              const ModulationCache &modulation_cache,
+              const ContextCache &context_cache, float text_guidance_scale,
+              float speaker_guidance_scale, float caption_guidance_scale,
+-             std::vector<float> &velocity) {
++             std::vector<float> &velocity,
++             IrodoriRfStepDiagnostics *diagnostics) {
+       const auto &config = owner_->assets_->config;
+       const int64_t x_elems = latent_steps_ * config.patched_latent_dim();
+       const bool use_first_branch = context_cache.batch != batch_ &&
+@@ -1653,6 +2048,26 @@ private:
+         throw std::runtime_error("Irodori-TTS RF modulation cache mismatch");
+       }
+       set_modulation(modulation_cache);
++      const int64_t one_based_step = step + 1;
++      const bool speaker_bias_active =
++          context_cache.speaker_attention_bias != 0.0F &&
++          one_based_step >= context_cache.speaker_bias_step_start &&
++          (context_cache.speaker_bias_step_end < 0 ||
++           one_based_step <= context_cache.speaker_bias_step_end);
++      if (speaker_bias_active != speaker_bias_active_) {
++        if (speaker_bias_active) {
++          core::write_tensor_f16(speaker_biased_attention_mask_,
++                                 speaker_biased_attention_mask_values_);
++        } else {
++          const auto attention_mask_values = make_rf_attention_mask(
++              context_cache.text_mask, context_cache.speaker_mask,
++              context_cache.caption_mask, batch_, latent_steps_,
++              config.max_text_len, speaker_tokens_, caption_tokens_, 0.0F);
++          core::write_tensor_f16(speaker_biased_attention_mask_,
++                                 attention_mask_values);
++        }
++        speaker_bias_active_ = speaker_bias_active;
++      }
+       const int32_t step_value = static_cast<int32_t>(step);
+       core::write_tensor_i32(step_index_, &step_value, 1);
+       if (batch_ > 1) {
+@@ -1681,6 +2096,36 @@ private:
+         throw std::runtime_error("Irodori-TTS RF graph compute failed");
+       }
+       core::read_tensor_f32_into(output_.tensor, output_scratch_);
++      if (diagnostics != nullptr) {
++        std::vector<std::vector<float>> guidance_branches;
++        for (const auto &tensor : guidance_diagnostic_tensors_) {
++          std::vector<float> values;
++          core::read_tensor_f32_into(tensor.tensor, values);
++          guidance_branches.push_back(std::move(values));
++        }
++        log_guidance_branches(
++            "irodori_tts.rf.step." + std::to_string(step + 1) + ".",
++            guidance_branches, text_cfg_enabled_, speaker_cfg_enabled_);
++        log_speaker_cfg_analysis(step, guidance_branches, text_cfg_enabled_, speaker_cfg_enabled_, text_guidance_scale, speaker_guidance_scale);
++        copy_guidance_diagnostics(
++            guidance_branches, text_cfg_enabled_, speaker_cfg_enabled_,
++            caption_cfg_enabled_, *diagnostics);
++        diagnostics->layer_hidden.clear();
++        diagnostics->layer_hidden.reserve(layer_diagnostic_tensors_.size());
++        for (const auto &tensor : layer_diagnostic_tensors_) {
++          std::vector<float> values;
++          core::read_tensor_f32_into(tensor.tensor, values);
++          diagnostics->layer_hidden.push_back(std::move(values));
++        }
++        diagnostics->layer_attention_hidden.clear();
++        diagnostics->layer_attention_hidden.reserve(
++            layer_attention_diagnostic_tensors_.size());
++        for (const auto &tensor : layer_attention_diagnostic_tensors_) {
++          std::vector<float> values;
++          core::read_tensor_f32_into(tensor.tensor, values);
++          diagnostics->layer_attention_hidden.push_back(std::move(values));
++        }
++      }
+       velocity.resize(static_cast<size_t>(x_elems));
+       std::copy(output_scratch_.begin(),
+                 output_scratch_.begin() + static_cast<std::ptrdiff_t>(x_elems),
+@@ -1697,12 +2142,15 @@ private:
+     bool text_cfg_enabled_ = false;
+     bool speaker_cfg_enabled_ = false;
+     bool caption_cfg_enabled_ = false;
++    int64_t speaker_bias_layer_start_ = 0;
++    int64_t speaker_bias_layer_end_ = -1;
+     std::unique_ptr<ggml_context, GgmlContextDeleter> ctx_;
+     core::TensorValue x_t_;
+     std::vector<IrodoriLayerContextKV> context_kv_inputs_;
+     std::vector<IrodoriLayerAdaLNModulation> modulation_cache_inputs_;
+     std::vector<IrodoriLayerAdaLNModulation> modulation_inputs_;
+     core::TensorValue attention_mask_;
++    core::TensorValue speaker_biased_attention_mask_;
+     core::TensorValue positions_;
+     core::TensorValue step_index_;
+     core::TensorValue text_guidance_;
+@@ -1711,6 +2159,11 @@ private:
+     core::TensorValue output_;
+     std::vector<float> x_batch_scratch_;
+     std::vector<float> output_scratch_;
++    std::vector<core::TensorValue> guidance_diagnostic_tensors_;
++    std::vector<core::TensorValue> layer_diagnostic_tensors_;
++    std::vector<core::TensorValue> layer_attention_diagnostic_tensors_;
++    std::vector<float> speaker_biased_attention_mask_values_;
++    bool speaker_bias_active_ = false;
+     uint64_t loaded_context_id_ = 0;
+     uint64_t loaded_modulation_id_ = 0;
+     ggml_cgraph *graph_ = nullptr;
+@@ -1758,11 +2211,15 @@ private:
+       for (auto &layer : outputs_) {
+         ggml_set_output(layer.k_context.tensor);
+         ggml_set_output(layer.v_context.tensor);
++        ggml_set_output(layer.k_speaker.tensor);
++        ggml_set_output(layer.v_speaker.tensor);
+       }
+       graph_ = ggml_new_graph_custom(ctx_.get(), 131072, false);
+       for (auto &layer : outputs_) {
+         ggml_build_forward_expand(graph_, layer.k_context.tensor);
+         ggml_build_forward_expand(graph_, layer.v_context.tensor);
++        ggml_build_forward_expand(graph_, layer.k_speaker.tensor);
++        ggml_build_forward_expand(graph_, layer.v_speaker.tensor);
+       }
+       gallocr_ =
+           ggml_gallocr_new(ggml_backend_get_default_buffer_type(owner.backend_));
+@@ -1817,6 +2274,14 @@ private:
+       if (status != GGML_STATUS_SUCCESS) {
+         throw std::runtime_error("Irodori-TTS RF context graph compute failed");
+       }
++      if (!outputs_.empty()) {
++        debug::trace_log_scalar("irodori_tts.rf.context.layer0.speaker_k_stats",
++                                rf_vector_stats(core::read_tensor_f32(
++                                    outputs_.front().k_speaker.tensor)));
++        debug::trace_log_scalar("irodori_tts.rf.context.layer0.speaker_v_stats",
++                                rf_vector_stats(core::read_tensor_f32(
++                                    outputs_.front().v_speaker.tensor)));
++      }
+       cache.backend_kv = &outputs_;
+       cache.first_branch_backend_kv = nullptr;
+     }
+@@ -1927,13 +2392,18 @@ private:
+                   int64_t speaker_tokens, int64_t caption_tokens,
+                   int64_t batch, int64_t modulation_steps,
+                   bool text_cfg_enabled, bool speaker_cfg_enabled,
+-                  bool caption_cfg_enabled, size_t graph_arena_bytes)
++                  bool caption_cfg_enabled,
++                  int64_t speaker_bias_layer_start,
++                  int64_t speaker_bias_layer_end,
++                  size_t graph_arena_bytes)
+         : owner_(&owner), latent_steps_(latent_steps),
+           speaker_tokens_(speaker_tokens), caption_tokens_(caption_tokens),
+           batch_(batch), modulation_steps_(modulation_steps),
+           text_cfg_enabled_(text_cfg_enabled),
+           speaker_cfg_enabled_(speaker_cfg_enabled),
+-          caption_cfg_enabled_(caption_cfg_enabled) {
++          caption_cfg_enabled_(caption_cfg_enabled),
++          speaker_bias_layer_start_(speaker_bias_layer_start),
++          speaker_bias_layer_end_(speaker_bias_layer_end) {
+       const auto &config = owner.assets_->config;
+       ggml_init_params params{graph_arena_bytes, nullptr, true};
+       ctx_.reset(ggml_init(params));
+@@ -2001,12 +2471,19 @@ private:
+                                 {batch_, 1, latent_steps_,
+                                  latent_steps_ + config.max_text_len +
+                                      speaker_tokens_ + caption_tokens_}));
++      speaker_biased_attention_mask_ =
++          core::make_tensor(io_build_ctx, GGML_TYPE_F16,
++                            core::TensorShape::from_dims(
++                                {batch_, 1, latent_steps_,
++                                 latent_steps_ + config.max_text_len +
++                                     speaker_tokens_ + caption_tokens_}));
+       positions_ =
+           core::make_tensor(io_build_ctx, GGML_TYPE_I32,
+                             core::TensorShape::from_dims({latent_steps_}));
+       ggml_set_input(x_t_.tensor);
+       ggml_set_input(step_index_.tensor);
+       ggml_set_input(attention_mask_.tensor);
++      ggml_set_input(speaker_biased_attention_mask_.tensor);
+       ggml_set_input(positions_.tensor);
+       if (batch_ > 1) {
+         text_guidance_ = core::make_tensor(io_build_ctx, GGML_TYPE_F32,
+@@ -2026,17 +2503,26 @@ private:
+       }
+       auto output = build_irodori_rf_dit(
+           build_ctx, x_t_, {}, {}, {}, {}, attention_mask_, positions_,
+-          owner.weights_, config, &context_kv_inputs_, &modulation_inputs_);
++          owner.weights_, config, &context_kv_inputs_, &modulation_inputs_,
++          nullptr, nullptr, &speaker_biased_attention_mask_,
++          speaker_bias_layer_start_, speaker_bias_layer_end_);
+       if (batch_ > 1) {
+         output = build_guided_velocity(build_ctx, output, text_guidance_,
+                                        speaker_guidance_, caption_guidance_,
+                                        text_cfg_enabled_, speaker_cfg_enabled_,
+-                                       caption_cfg_enabled_);
++                                       caption_cfg_enabled_,
++                                       &guidance_diagnostic_tensors_);
+       }
+       output_ = core::ensure_backend_addressable_layout(build_ctx, output);
+       ggml_set_output(output_.tensor);
++      for (const auto &tensor : guidance_diagnostic_tensors_) {
++        ggml_set_output(tensor.tensor);
++      }
+       graph_ = ggml_new_graph_custom(ctx_.get(), 262144, false);
+       ggml_build_forward_expand(graph_, output_.tensor);
++      for (const auto &tensor : guidance_diagnostic_tensors_) {
++        ggml_build_forward_expand(graph_, tensor.tensor);
++      }
+       io_buffer_ = ggml_backend_alloc_ctx_tensors(io_ctx_.get(),
+                                                   owner.backend_);
+       if (io_buffer_ == nullptr) {
+@@ -2078,6 +2564,14 @@ private:
+ 
+     bool caption_cfg_enabled() const noexcept { return caption_cfg_enabled_; }
+ 
++    int64_t speaker_bias_layer_start() const noexcept {
++      return speaker_bias_layer_start_;
++    }
++
++    int64_t speaker_bias_layer_end() const noexcept {
++      return speaker_bias_layer_end_;
++    }
++
+     void set_context(const ContextCache &cache) {
+       if (loaded_context_id_ == cache.id) {
+         return;
+@@ -2139,8 +2633,16 @@ private:
+       }
+       const auto attention_mask_values = make_rf_attention_mask(
+           cache.text_mask, cache.speaker_mask, cache.caption_mask, batch_,
+-          latent_steps_, config.max_text_len, speaker_tokens_, caption_tokens_);
++          latent_steps_, config.max_text_len, speaker_tokens_, caption_tokens_,
++          0.0F);
++      speaker_biased_attention_mask_values_ = make_rf_attention_mask(
++          cache.text_mask, cache.speaker_mask, cache.caption_mask, batch_,
++          latent_steps_, config.max_text_len, speaker_tokens_, caption_tokens_,
++          cache.speaker_attention_bias);
+       core::write_tensor_f16(attention_mask_, attention_mask_values);
++      core::write_tensor_f16(speaker_biased_attention_mask_,
++                             speaker_biased_attention_mask_values_);
++      speaker_bias_active_ = true;
+       loaded_context_id_ = cache.id;
+     }
+ 
+@@ -2178,7 +2680,8 @@ private:
+              const ModulationCache &modulation_cache,
+              const ContextCache &context_cache, float text_guidance_scale,
+              float speaker_guidance_scale, float caption_guidance_scale,
+-             std::vector<float> &velocity) {
++             std::vector<float> &velocity,
++             IrodoriRfStepDiagnostics *diagnostics) {
+       const auto &config = owner_->assets_->config;
+       const int64_t x_elems = latent_steps_ * config.patched_latent_dim();
+       const bool use_first_branch = context_cache.batch != batch_ &&
+@@ -2203,6 +2706,26 @@ private:
+         throw std::runtime_error("Irodori-TTS RF modulation cache mismatch");
+       }
+       set_modulation(modulation_cache);
++      const int64_t one_based_step = step + 1;
++      const bool speaker_bias_active =
++          context_cache.speaker_attention_bias != 0.0F &&
++          one_based_step >= context_cache.speaker_bias_step_start &&
++          (context_cache.speaker_bias_step_end < 0 ||
++           one_based_step <= context_cache.speaker_bias_step_end);
++      if (speaker_bias_active != speaker_bias_active_) {
++        if (speaker_bias_active) {
++          core::write_tensor_f16(speaker_biased_attention_mask_,
++                                 speaker_biased_attention_mask_values_);
++        } else {
++          const auto attention_mask_values = make_rf_attention_mask(
++              context_cache.text_mask, context_cache.speaker_mask,
++              context_cache.caption_mask, batch_, latent_steps_,
++              config.max_text_len, speaker_tokens_, caption_tokens_, 0.0F);
++          core::write_tensor_f16(speaker_biased_attention_mask_,
++                                 attention_mask_values);
++        }
++        speaker_bias_active_ = speaker_bias_active;
++      }
+       const int32_t step_value = static_cast<int32_t>(step);
+       core::write_tensor_i32(step_index_, &step_value, 1);
+       if (batch_ > 1) {
+@@ -2231,6 +2754,21 @@ private:
+         throw std::runtime_error("Irodori-TTS RF graph compute failed");
+       }
+       core::read_tensor_f32_into(output_.tensor, output_scratch_);
++      if (diagnostics != nullptr) {
++        std::vector<std::vector<float>> guidance_branches;
++        for (const auto &tensor : guidance_diagnostic_tensors_) {
++          std::vector<float> values;
++          core::read_tensor_f32_into(tensor.tensor, values);
++          guidance_branches.push_back(std::move(values));
++        }
++        log_guidance_branches(
++            "irodori_tts.rf.step." + std::to_string(step + 1) + ".",
++            guidance_branches, text_cfg_enabled_, speaker_cfg_enabled_);
++        log_speaker_cfg_analysis(step, guidance_branches, text_cfg_enabled_, speaker_cfg_enabled_, text_guidance_scale, speaker_guidance_scale);
++        copy_guidance_diagnostics(
++            guidance_branches, text_cfg_enabled_, speaker_cfg_enabled_,
++            caption_cfg_enabled_, *diagnostics);
++      }
+       velocity.resize(static_cast<size_t>(x_elems));
+       std::copy(output_scratch_.begin(),
+                 output_scratch_.begin() + static_cast<std::ptrdiff_t>(x_elems),
+@@ -2247,6 +2785,8 @@ private:
+     bool text_cfg_enabled_ = false;
+     bool speaker_cfg_enabled_ = false;
+     bool caption_cfg_enabled_ = false;
++    int64_t speaker_bias_layer_start_ = 0;
++    int64_t speaker_bias_layer_end_ = -1;
+     std::unique_ptr<ggml_context, GgmlContextDeleter> io_ctx_;
+     std::unique_ptr<ggml_context, GgmlContextDeleter> ctx_;
+     core::TensorValue x_t_;
+@@ -2254,6 +2794,7 @@ private:
+     std::vector<IrodoriLayerAdaLNModulation> modulation_cache_inputs_;
+     std::vector<IrodoriLayerAdaLNModulation> modulation_inputs_;
+     core::TensorValue attention_mask_;
++    core::TensorValue speaker_biased_attention_mask_;
+     core::TensorValue positions_;
+     core::TensorValue step_index_;
+     core::TensorValue text_guidance_;
+@@ -2262,7 +2803,10 @@ private:
+     core::TensorValue output_;
+     std::vector<float> x_batch_scratch_;
+     std::vector<float> output_scratch_;
++    std::vector<core::TensorValue> guidance_diagnostic_tensors_;
+     std::vector<float> context_first_branch_scratch_;
++    std::vector<float> speaker_biased_attention_mask_values_;
++    bool speaker_bias_active_ = false;
+     uint64_t loaded_context_id_ = 0;
+     uint64_t loaded_modulation_id_ = 0;
+     ggml_cgraph *graph_ = nullptr;
+@@ -2330,12 +2874,18 @@ IrodoriRfSampler::ContextCache IrodoriRfSampler::build_context_cache(
+     const std::vector<float> &caption_state_cond,
+     const IrodoriCaptionCondition &caption,
+     const IrodoriSpeakerCondition &speaker, bool text_cfg_enabled,
+-    bool speaker_cfg_enabled, bool caption_cfg_enabled) {
++    bool speaker_cfg_enabled, bool caption_cfg_enabled,
++    float speaker_attention_bias, int64_t speaker_bias_layer_start,
++    int64_t speaker_bias_layer_end, int64_t speaker_bias_step_start,
++    int64_t speaker_bias_step_end) {
+   IrodoriRfSampler::ContextCache out;
+   out.state_ = std::make_shared<IrodoriRfSampler::ContextCache::State>(
+       impl_->build_context_cache(
+           text_state_cond, text_mask_cond, caption_state_cond, caption, speaker,
+-          text_cfg_enabled, speaker_cfg_enabled, caption_cfg_enabled));
++          text_cfg_enabled, speaker_cfg_enabled, caption_cfg_enabled,
++          speaker_attention_bias, speaker_bias_layer_start,
++          speaker_bias_layer_end, speaker_bias_step_start,
++          speaker_bias_step_end));
+   return out;
+ }
+ 
+@@ -2354,7 +2904,7 @@ void IrodoriRfSampler::run_step(
+     bool speaker_cfg_enabled, bool caption_cfg_enabled,
+     float text_guidance_scale, float speaker_guidance_scale,
+     float caption_guidance_scale, int64_t latent_steps,
+-    std::vector<float> &velocity) {
++    std::vector<float> &velocity, IrodoriRfStepDiagnostics *diagnostics) {
+   if (modulation_cache.state_ == nullptr || context_cache.state_ == nullptr) {
+     throw std::runtime_error("Irodori-TTS RF cache is not initialized");
+   }
+@@ -2362,7 +2912,7 @@ void IrodoriRfSampler::run_step(
+                   context_cache.state_->cache, text_cfg_enabled,
+                   speaker_cfg_enabled, caption_cfg_enabled, text_guidance_scale,
+                   speaker_guidance_scale, caption_guidance_scale, latent_steps,
+-                  velocity);
++                  velocity, diagnostics);
+ }
+ 
+ void IrodoriRfSampler::release_graphs() { impl_->release_graphs(); }
+diff --git a/src/models/irodori_tts/session.cpp b/src/models/irodori_tts/session.cpp
+index 4530003..8b06742 100644
+--- a/src/models/irodori_tts/session.cpp
++++ b/src/models/irodori_tts/session.cpp
+@@ -4,6 +4,7 @@
+ #include "engine/framework/runtime/options.h"
+ #include "engine/framework/sampling/torch_random.h"
+ #include "engine/framework/text/chunking.h"
++#include "engine/models/irodori_tts/audio_quality.h"
+ #include "engine/models/irodori_tts/codec.h"
+ #include "engine/models/irodori_tts/condition_encoder.h"
+ #include "engine/models/irodori_tts/rf_dit.h"
+@@ -15,6 +16,7 @@
+ #include <cstdint>
+ #include <cstring>
+ #include <limits>
++#include <sstream>
+ #include <stdexcept>
+ #include <string_view>
+ #include <utility>
+@@ -57,6 +59,392 @@ void validate_codec_weight_storage(assets::TensorStorageType storage_type,
+                            " supports only native, f32, f16, and q8_0");
+ }
+ 
++uint64_t fnv1a_bytes(uint64_t hash, const void *data, size_t size) {
++  constexpr uint64_t kPrime = 1099511628211ULL;
++  const auto *bytes = static_cast<const uint8_t *>(data);
++  for (size_t index = 0; index < size; ++index) {
++    hash ^= bytes[index];
++    hash *= kPrime;
++  }
++  return hash;
++}
++
++uint64_t speaker_condition_hash(const IrodoriSpeakerCondition &speaker) {
++  uint64_t hash = 1469598103934665603ULL;
++  hash = fnv1a_bytes(hash, &speaker.tokens, sizeof(speaker.tokens));
++  hash = fnv1a_bytes(hash, &speaker.has_speaker, sizeof(speaker.has_speaker));
++  if (!speaker.state.empty()) {
++    hash = fnv1a_bytes(hash, speaker.state.data(),
++                       speaker.state.size() * sizeof(speaker.state.front()));
++  }
++  if (!speaker.mask.empty()) {
++    hash = fnv1a_bytes(hash, speaker.mask.data(), speaker.mask.size());
++  }
++  return hash;
++}
++
++template <typename T>
++std::string vector_stats(const std::vector<T> &values) {
++  if (values.empty()) {
++    return "n=0";
++  }
++  double minimum = std::numeric_limits<double>::infinity();
++  double maximum = -std::numeric_limits<double>::infinity();
++  long double sum = 0.0L;
++  long double sum_squared = 0.0L;
++  size_t finite = 0;
++  for (const T value : values) {
++    const double converted = static_cast<double>(value);
++    if (!std::isfinite(converted)) {
++      continue;
++    }
++    minimum = std::min(minimum, converted);
++    maximum = std::max(maximum, converted);
++    sum += converted;
++    sum_squared += static_cast<long double>(converted) * converted;
++    ++finite;
++  }
++  if (finite == 0) {
++    return "n=" + std::to_string(values.size()) + ",finite=0";
++  }
++  std::ostringstream out;
++  out << "n=" << values.size() << ",finite=" << finite
++      << ",min=" << minimum << ",max=" << maximum
++      << ",mean=" << static_cast<double>(sum / finite)
++      << ",rms=" << std::sqrt(static_cast<double>(sum_squared / finite));
++  return out.str();
++}
++
++std::string token_list(const std::vector<int32_t> &tokens) {
++  std::ostringstream out;
++  for (size_t index = 0; index < tokens.size(); ++index) {
++    if (index != 0) {
++      out << ',';
++    }
++    out << tokens[index];
++  }
++  return out.str();
++}
++
++double vector_rms(const std::vector<float> &values) {
++  if (values.empty()) {
++    return 0.0;
++  }
++  long double sum_squared = 0.0L;
++  for (const float value : values) {
++    sum_squared += static_cast<long double>(value) * value;
++  }
++  return std::sqrt(static_cast<double>(sum_squared / values.size()));
++}
++
++double vector_max_abs(const std::vector<float> &values) {
++  double maximum = 0.0;
++  for (const float value : values) {
++    maximum = std::max(maximum, std::abs(static_cast<double>(value)));
++  }
++  return maximum;
++}
++
++double vector_cosine(const std::vector<float> &lhs,
++                     const std::vector<float> &rhs) {
++  if (lhs.size() != rhs.size() || lhs.empty()) {
++    return std::numeric_limits<double>::quiet_NaN();
++  }
++  long double dot = 0.0L;
++  long double lhs_squared = 0.0L;
++  long double rhs_squared = 0.0L;
++  for (size_t index = 0; index < lhs.size(); ++index) {
++    dot += static_cast<long double>(lhs[index]) * rhs[index];
++    lhs_squared += static_cast<long double>(lhs[index]) * lhs[index];
++    rhs_squared += static_cast<long double>(rhs[index]) * rhs[index];
++  }
++  if (lhs_squared == 0.0L || rhs_squared == 0.0L) {
++    return std::numeric_limits<double>::quiet_NaN();
++  }
++  return static_cast<double>(dot / std::sqrt(lhs_squared * rhs_squared));
++}
++
++std::vector<float> subtract_vectors(const std::vector<float> &lhs,
++                                    const std::vector<float> &rhs) {
++  if (lhs.size() != rhs.size()) {
++    return {};
++  }
++  std::vector<float> out(lhs.size());
++  for (size_t index = 0; index < lhs.size(); ++index) {
++    out[index] = lhs[index] - rhs[index];
++  }
++  return out;
++}
++
++void log_layer_forensics(const std::string &prefix,
++                         const IrodoriRfStepDiagnostics &diagnostics,
++                         bool text_cfg_enabled, bool speaker_cfg_enabled,
++                         bool caption_cfg_enabled) {
++  if (!speaker_cfg_enabled || diagnostics.layer_hidden.empty()) {
++    return;
++  }
++  const size_t batch =
++      1 + static_cast<size_t>(text_cfg_enabled) +
++      static_cast<size_t>(speaker_cfg_enabled) +
++      static_cast<size_t>(caption_cfg_enabled);
++  const size_t text_branch = text_cfg_enabled ? 1 : 0;
++  const size_t speaker_branch = 1 + static_cast<size_t>(text_cfg_enabled);
++  for (size_t layer = 0; layer < diagnostics.layer_hidden.size(); ++layer) {
++    const auto &values = diagnostics.layer_hidden[layer];
++    if (batch == 0 || values.empty() || values.size() % batch != 0) {
++      continue;
++    }
++    const size_t branch_values = values.size() / batch;
++    const size_t speaker_offset = speaker_branch * branch_values;
++    long double cond_squared = 0.0L;
++    long double speaker_uncond_squared = 0.0L;
++    long double speaker_diff_squared = 0.0L;
++    long double cond_speaker_dot = 0.0L;
++    long double text_diff_squared = 0.0L;
++    long double text_speaker_diff_dot = 0.0L;
++    const size_t text_offset = text_branch * branch_values;
++    for (size_t index = 0; index < branch_values; ++index) {
++      const long double cond = values[index];
++      const long double speaker_uncond = values[speaker_offset + index];
++      const long double speaker_diff = cond - speaker_uncond;
++      cond_squared += cond * cond;
++      speaker_uncond_squared += speaker_uncond * speaker_uncond;
++      speaker_diff_squared += speaker_diff * speaker_diff;
++      cond_speaker_dot += cond * speaker_uncond;
++      if (text_cfg_enabled) {
++        const long double text_diff = cond - values[text_offset + index];
++        text_diff_squared += text_diff * text_diff;
++        text_speaker_diff_dot += text_diff * speaker_diff;
++      }
++    }
++    const double count = static_cast<double>(branch_values);
++    const double cond_rms =
++        std::sqrt(static_cast<double>(cond_squared) / count);
++    const double speaker_uncond_rms =
++        std::sqrt(static_cast<double>(speaker_uncond_squared) / count);
++    const double speaker_diff_rms =
++        std::sqrt(static_cast<double>(speaker_diff_squared) / count);
++    const double cond_speaker_cosine =
++        cond_squared > 0.0L && speaker_uncond_squared > 0.0L
++            ? static_cast<double>(
++                  cond_speaker_dot /
++                  std::sqrt(cond_squared * speaker_uncond_squared))
++            : std::numeric_limits<double>::quiet_NaN();
++    const std::string layer_prefix =
++        prefix + "layer." + std::to_string(layer) + ".";
++    debug::trace_log_scalar(layer_prefix + "cond_rms", cond_rms);
++    debug::trace_log_scalar(layer_prefix + "speaker_uncond_rms",
++                            speaker_uncond_rms);
++    debug::trace_log_scalar(layer_prefix + "speaker_diff_rms",
++                            speaker_diff_rms);
++    debug::trace_log_scalar(layer_prefix + "speaker_diff_to_cond_ratio",
++                            cond_rms > 0.0 ? speaker_diff_rms / cond_rms : 0.0);
++    debug::trace_log_scalar(layer_prefix + "cond_speaker_uncond_cosine",
++                            cond_speaker_cosine);
++    if (text_cfg_enabled) {
++      const double text_diff_rms =
++          std::sqrt(static_cast<double>(text_diff_squared) / count);
++      const double text_speaker_diff_cosine =
++          text_diff_squared > 0.0L && speaker_diff_squared > 0.0L
++              ? static_cast<double>(
++                    text_speaker_diff_dot /
++                    std::sqrt(text_diff_squared * speaker_diff_squared))
++              : std::numeric_limits<double>::quiet_NaN();
++      debug::trace_log_scalar(layer_prefix + "text_diff_rms", text_diff_rms);
++      debug::trace_log_scalar(layer_prefix + "text_speaker_diff_cosine",
++                              text_speaker_diff_cosine);
++    }
++  }
++  const size_t sublayer_count = std::min(
++      diagnostics.layer_attention_hidden.size(),
++      diagnostics.layer_hidden.empty() ? size_t{0}
++                                       : diagnostics.layer_hidden.size() - 1);
++  for (size_t layer = 0; layer < sublayer_count; ++layer) {
++    const auto &input = diagnostics.layer_hidden[layer];
++    const auto &attention = diagnostics.layer_attention_hidden[layer];
++    const auto &output = diagnostics.layer_hidden[layer + 1];
++    if (input.size() != attention.size() || input.size() != output.size() ||
++        input.empty() || input.size() % batch != 0) {
++      continue;
++    }
++    const size_t branch_values = input.size() / batch;
++    const size_t speaker_offset = speaker_branch * branch_values;
++    long double attention_diff_squared = 0.0L;
++    long double attention_increment_squared = 0.0L;
++    long double mlp_increment_squared = 0.0L;
++    for (size_t index = 0; index < branch_values; ++index) {
++      const long double input_diff =
++          static_cast<long double>(input[index]) -
++          input[speaker_offset + index];
++      const long double attention_diff =
++          static_cast<long double>(attention[index]) -
++          attention[speaker_offset + index];
++      const long double output_diff =
++          static_cast<long double>(output[index]) -
++          output[speaker_offset + index];
++      const long double attention_increment = attention_diff - input_diff;
++      const long double mlp_increment = output_diff - attention_diff;
++      attention_diff_squared += attention_diff * attention_diff;
++      attention_increment_squared +=
++          attention_increment * attention_increment;
++      mlp_increment_squared += mlp_increment * mlp_increment;
++    }
++    const double count = static_cast<double>(branch_values);
++    const std::string layer_prefix =
++        prefix + "layer." + std::to_string(layer + 1) + ".";
++    debug::trace_log_scalar(
++        layer_prefix + "attention_speaker_diff_rms",
++        std::sqrt(static_cast<double>(attention_diff_squared) / count));
++    debug::trace_log_scalar(
++        layer_prefix + "attention_increment_speaker_diff_rms",
++        std::sqrt(static_cast<double>(attention_increment_squared) / count));
++    debug::trace_log_scalar(
++        layer_prefix + "mlp_increment_speaker_diff_rms",
++        std::sqrt(static_cast<double>(mlp_increment_squared) / count));
++  }
++}
++
++float apply_adaptive_speaker_guidance(
++    const IrodoriRfStepDiagnostics &diagnostics, bool text_cfg_enabled,
++    bool caption_cfg_enabled, float text_guidance_scale,
++    float speaker_guidance_scale, float caption_guidance_scale,
++    float target_ratio, std::vector<float> &velocity) {
++  const size_t count = diagnostics.cond.size();
++  if (count == 0 || diagnostics.speaker_diff.size() != count ||
++      (text_cfg_enabled && diagnostics.text_diff.size() != count) ||
++      (caption_cfg_enabled && diagnostics.caption_diff.size() != count)) {
++    throw std::runtime_error(
++        "Irodori-TTS adaptive speaker guidance diagnostics mismatch");
++  }
++
++  std::vector<float> base_velocity = diagnostics.cond;
++  if (text_cfg_enabled) {
++    for (size_t index = 0; index < count; ++index) {
++      base_velocity[index] +=
++          text_guidance_scale * diagnostics.text_diff[index];
++    }
++  }
++  if (caption_cfg_enabled) {
++    for (size_t index = 0; index < count; ++index) {
++      base_velocity[index] +=
++          caption_guidance_scale * diagnostics.caption_diff[index];
++    }
++  }
++
++  const double base_rms = vector_rms(base_velocity);
++  const double speaker_diff_rms = vector_rms(diagnostics.speaker_diff);
++  float effective_scale = speaker_guidance_scale;
++  if (base_rms > 0.0 && speaker_diff_rms > 0.0) {
++    const double maximum_scale =
++        static_cast<double>(target_ratio) * base_rms / speaker_diff_rms;
++    effective_scale = std::copysign(
++        static_cast<float>(
++            std::min(std::abs(static_cast<double>(speaker_guidance_scale)),
++                     maximum_scale)),
++        speaker_guidance_scale);
++  }
++
++  velocity.resize(count);
++#ifdef _OPENMP
++#pragma omp parallel for if(count >= 4096)
++#endif
++  for (int64_t index = 0; index < static_cast<int64_t>(count); ++index) {
++    const size_t position = static_cast<size_t>(index);
++    velocity[position] =
++        base_velocity[position] +
++        effective_scale * diagnostics.speaker_diff[position];
++  }
++  return effective_scale;
++}
++
++void transform_speaker_condition(IrodoriSpeakerCondition &speaker,
++                                 const std::string &variant) {
++  if (variant.empty() || variant == "none" || speaker.state.empty()) {
++    return;
++  }
++  const size_t tokens = static_cast<size_t>(speaker.tokens);
++  if (tokens == 0 || speaker.state.size() % tokens != 0) {
++    throw std::runtime_error("Irodori-TTS speaker simulation shape mismatch");
++  }
++  const size_t dim = speaker.state.size() / tokens;
++  auto begin = [&](size_t token) {
++    return speaker.state.begin() + static_cast<std::ptrdiff_t>(token * dim);
++  };
++  auto end = [&](size_t token) {
++    return begin(token) + static_cast<std::ptrdiff_t>(dim);
++  };
++  if (variant == "zero") {
++    std::fill(speaker.state.begin(), speaker.state.end(), 0.0F);
++    return;
++  }
++  if (variant == "no_voice") {
++    std::fill(speaker.state.begin(), speaker.state.end(), 0.0F);
++    std::fill(speaker.mask.begin(), speaker.mask.end(), 0);
++    speaker.has_speaker = false;
++    return;
++  }
++  if (variant == "scale_0.5" || variant == "scale_1.5") {
++    const float scale = variant == "scale_0.5" ? 0.5F : 1.5F;
++    for (float &value : speaker.state) {
++      value *= scale;
++    }
++    return;
++  }
++  if (variant == "direction") {
++    for (size_t token = 0; token < tokens; ++token) {
++      std::reverse(begin(token), end(token));
++    }
++    return;
++  }
++  if (variant == "variance_shrink" || variant == "variance_expand") {
++    const float scale = variant == "variance_shrink" ? 0.5F : 2.0F;
++    for (size_t token = 0; token < tokens; ++token) {
++      auto first = begin(token);
++      const auto last = end(token);
++      double mean = 0.0;
++      for (auto it = first; it != last; ++it) {
++        mean += *it;
++      }
++      mean /= static_cast<double>(dim);
++      for (auto it = first; it != last; ++it) {
++        *it = static_cast<float>(mean + (*it - mean) * scale);
++      }
++    }
++    return;
++  }
++  if (variant == "mean_only") {
++    auto first = begin(0);
++    const auto last = end(0);
++    double sum_squared = 0.0;
++    for (auto it = first; it != last; ++it) {
++      sum_squared += static_cast<double>(*it) * *it;
++    }
++    const float offset = static_cast<float>(
++        std::sqrt(sum_squared / static_cast<double>(dim)) * 0.5);
++    for (auto it = first; it != last; ++it) {
++      *it += offset;
++    }
++    return;
++  }
++  if (variant == "speaker_tokens") {
++    for (size_t token = 1; token < tokens; ++token) {
++      for (auto it = begin(token); it != end(token); ++it) {
++        *it *= 1.5F;
++      }
++    }
++    return;
++  }
++  throw std::runtime_error("unknown Irodori-TTS speaker simulation variant: " +
++                           variant);
++}
++
++IrodoriSpeakerCondition simulated_speaker(
++    const IrodoriSpeakerCondition &source, const std::string &variant) {
++  IrodoriSpeakerCondition out = source;
++  transform_speaker_condition(out, variant);
++  return out;
++}
++
+ IrodoriGenerationOptions
+ generation_options_from_request(const runtime::TaskRequest &request) {
+   IrodoriGenerationOptions options;
+@@ -80,10 +468,120 @@ generation_options_from_request(const runtime::TaskRequest &request) {
+           request.options, {"speaker_guidance_scale"})) {
+     options.speaker_guidance_scale = *value;
+   }
++  if (const auto value = runtime::find_option(
++          request.options, {"speaker_guidance_adaptive"})) {
++    options.speaker_guidance_adaptive =
++        runtime::parse_bool_option(*value, "speaker_guidance_adaptive");
++  }
++  if (const auto value = runtime::parse_float_option(
++          request.options, {"speaker_guidance_target_ratio"})) {
++    if (!std::isfinite(*value) || *value <= 0.0F) {
++      throw std::runtime_error(
++          "Irodori-TTS speaker_guidance_target_ratio must be finite and "
++          "positive");
++    }
++    options.speaker_guidance_target_ratio = *value;
++  }
++  if (const auto value = runtime::parse_float_option(
++          request.options, {"speaker_attention_bias"})) {
++    if (!std::isfinite(*value)) {
++      throw std::runtime_error(
++          "Irodori-TTS speaker_attention_bias must be finite");
++    }
++    options.speaker_attention_bias = *value;
++  }
++  if (const auto value = runtime::parse_int_option(
++          request.options, {"speaker_attention_bias_layer_start"})) {
++    options.speaker_attention_bias_layer_start = *value;
++  }
++  if (const auto value = runtime::parse_int_option(
++          request.options, {"speaker_attention_bias_layer_end"})) {
++    options.speaker_attention_bias_layer_end = *value;
++  }
++  if (const auto value = runtime::parse_int_option(
++          request.options, {"speaker_attention_bias_step_start"})) {
++    options.speaker_attention_bias_step_start = *value;
++  }
++  if (const auto value = runtime::parse_int_option(
++          request.options, {"speaker_attention_bias_step_end"})) {
++    options.speaker_attention_bias_step_end = *value;
++  }
++  if (const auto value =
++          runtime::find_option(request.options, {"speaker_rescue_enabled"})) {
++    options.speaker_rescue_enabled =
++        runtime::parse_bool_option(*value, "speaker_rescue_enabled");
++  }
++  if (const auto value = runtime::parse_float_option(
++          request.options, {"speaker_rescue_threshold"})) {
++    if (!std::isfinite(*value) || *value <= 0.0F) {
++      throw std::runtime_error(
++          "Irodori-TTS speaker_rescue_threshold must be finite and positive");
++    }
++    options.speaker_rescue_threshold = *value;
++  }
++  if (const auto value = runtime::parse_int_option(
++          request.options, {"speaker_rescue_probe_step"})) {
++    options.speaker_rescue_probe_step = *value;
++  }
++  if (const auto value = runtime::parse_int_option(
++          request.options, {"speaker_rescue_max_retries"})) {
++    options.speaker_rescue_max_retries = *value;
++  }
++  if (const auto value = runtime::parse_u32_option(
++          request.options, {"speaker_rescue_seed_stride"})) {
++    options.speaker_rescue_seed_stride = *value;
++  }
++  if (const auto value = runtime::find_option(
++          request.options, {"audio_quality_rescue_enabled"})) {
++    options.audio_quality_rescue_enabled =
++        runtime::parse_bool_option(*value, "audio_quality_rescue_enabled");
++  }
++  if (const auto value = runtime::parse_float_option(
++          request.options, {"audio_quality_rescue_max_jump"})) {
++    if (!std::isfinite(*value) || *value <= 0.0F) {
++      throw std::runtime_error(
++          "Irodori-TTS audio_quality_rescue_max_jump must be finite and "
++          "positive");
++    }
++    options.audio_quality_rescue_max_jump = *value;
++  }
++  if (const auto value = runtime::parse_int_option(
++          request.options, {"audio_quality_rescue_max_retries"})) {
++    options.audio_quality_rescue_max_retries = *value;
++  }
++  if (const auto value = runtime::parse_u32_option(
++          request.options, {"audio_quality_rescue_seed_stride"})) {
++    options.audio_quality_rescue_seed_stride = *value;
++  }
+   if (const auto value =
+           runtime::find_option(request.options, {"guidance_mode"})) {
+     options.guidance_mode = *value;
+   }
++  if (const auto value = runtime::find_option(
++          request.options, {"speaker_sim_variant"})) {
++    options.speaker_sim_variant = *value;
++  }
++  if (const auto value = runtime::find_option(
++          request.options, {"speaker_sim_scope"})) {
++    options.speaker_sim_scope = *value;
++  }
++  if (const auto value = runtime::find_option(
++          request.options, {"speaker_sim_label"})) {
++    options.speaker_sim_label = *value;
++  }
++  if (const auto value = runtime::find_option(
++          request.options, {"speaker_sim_group"})) {
++    options.speaker_sim_group = *value;
++  }
++  if (const auto value = runtime::find_option(
++          request.options, {"speaker_sim_cfg_mode"})) {
++    options.speaker_sim_cfg_mode = *value;
++  }
++  if (const auto value = runtime::find_option(
++          request.options, {"speaker_sim_skip_decode"})) {
++    options.speaker_sim_skip_decode =
++        runtime::parse_bool_option(*value, "speaker_sim_skip_decode");
++  }
+   if (const auto value =
+           runtime::parse_float_option(request.options, {"guidance_min_t"})) {
+     options.guidance_min_t = *value;
+@@ -96,6 +594,14 @@ generation_options_from_request(const runtime::TaskRequest &request) {
+           runtime::parse_float_option(request.options, {"duration_scale"})) {
+     options.duration_scale = *value;
+   }
++  if (const auto value = runtime::parse_float_option(
++          request.options, {"duration_offset_seconds"})) {
++    if (!std::isfinite(*value)) {
++      throw std::runtime_error(
++          "Irodori-TTS duration_offset_seconds must be finite");
++    }
++    options.duration_offset_seconds = *value;
++  }
+   if (const auto value =
+           runtime::parse_float_option(request.options, {"duration_seconds"})) {
+     if (*value > 0.0F) {
+@@ -120,6 +626,45 @@ generation_options_from_request(const runtime::TaskRequest &request) {
+   if (const auto value = runtime::find_option(request.options, {"trim_tail"})) {
+     options.trim_tail = runtime::parse_bool_option(*value, "trim_tail");
+   }
++  if (options.speaker_attention_bias_layer_start < 0 ||
++      (options.speaker_attention_bias_layer_end >= 0 &&
++       options.speaker_attention_bias_layer_end <
++           options.speaker_attention_bias_layer_start)) {
++    throw std::runtime_error(
++        "Irodori-TTS invalid speaker attention bias layer range");
++  }
++  if (options.speaker_attention_bias_step_start < 1 ||
++      (options.speaker_attention_bias_step_end >= 0 &&
++       options.speaker_attention_bias_step_end <
++           options.speaker_attention_bias_step_start)) {
++    throw std::runtime_error(
++        "Irodori-TTS invalid speaker attention bias step range");
++  }
++  if (options.speaker_rescue_enabled &&
++      (options.speaker_rescue_probe_step < 1 ||
++       options.speaker_rescue_probe_step > options.num_inference_steps)) {
++    throw std::runtime_error(
++        "Irodori-TTS speaker_rescue_probe_step must be within RF steps");
++  }
++  if (options.speaker_rescue_max_retries < 0 ||
++      options.speaker_rescue_max_retries > 4) {
++    throw std::runtime_error(
++        "Irodori-TTS speaker_rescue_max_retries must be between 0 and 4");
++  }
++  if (options.speaker_rescue_seed_stride == 0) {
++    throw std::runtime_error(
++        "Irodori-TTS speaker_rescue_seed_stride must be positive");
++  }
++  if (options.audio_quality_rescue_max_retries < 0 ||
++      options.audio_quality_rescue_max_retries > 4) {
++    throw std::runtime_error(
++        "Irodori-TTS audio_quality_rescue_max_retries must be between 0 and "
++        "4");
++  }
++  if (options.audio_quality_rescue_seed_stride == 0) {
++    throw std::runtime_error(
++        "Irodori-TTS audio_quality_rescue_seed_stride must be positive");
++  }
+   return options;
+ }
+ 
+@@ -313,15 +858,21 @@ IrodoriTTSSession::IrodoriTTSSession(
+     throw std::runtime_error(
+         "Irodori-TTS supports only TTS, voice-cloning, and voice-design offline tasks");
+   }
++  debug::trace_log_scalar("irodori_tts.session_init.condition.begin", 1);
+   condition_encoder_ = std::make_unique<IrodoriConditionEncoder>(
+       assets_, execution_context(), condition_graph_arena_bytes_,
+       condition_weight_context_bytes_, weight_storage_type_);
++  debug::trace_log_scalar("irodori_tts.session_init.condition.end", 1);
++  debug::trace_log_scalar("irodori_tts.session_init.rf.begin", 1);
+   rf_sampler_ = std::make_unique<IrodoriRfSampler>(
+       assets_, execution_context(), rf_graph_arena_bytes_,
+       rf_weight_context_bytes_, weight_storage_type_, mem_saver_);
++  debug::trace_log_scalar("irodori_tts.session_init.rf.end", 1);
++  debug::trace_log_scalar("irodori_tts.session_init.codec.begin", 1);
+   codec_ = std::make_unique<IrodoriCodec>(
+       assets_, execution_context(), codec_graph_arena_bytes_,
+       codec_weight_context_bytes_, codec_weight_storage_type_);
++  debug::trace_log_scalar("irodori_tts.session_init.codec.end", 1);
+   assets_->model_weights->release_storage();
+   assets_->codec_weights->release_storage();
+   debug::trace_log_scalar("irodori_tts.model_root",
+@@ -363,6 +914,8 @@ runtime::TaskResult
+ IrodoriTTSSession::run(const runtime::TaskRequest &request) {
+   require_prepared("Irodori-TTS run");
+   const auto wall_start = Clock::now();
++  const std::string request_id =
++      runtime::find_option(request.options, {"request_id"}).value_or("");
+   const int64_t text_chunk_size =
+       engine::text::parse_text_chunk_size_override(request.options)
+           .value_or(assets_->config.max_text_len);
+@@ -375,6 +928,27 @@ IrodoriTTSSession::run(const runtime::TaskRequest &request) {
+     throw std::runtime_error("Irodori-TTS text chunking produced no requests");
+   }
+   const IrodoriRequest first_request = make_request(chunk_requests.front());
++  debug::trace_log_scalar("irodori_tts.request_id", request_id);
++  debug::trace_log_scalar("irodori_tts.request.no_ref", first_request.no_ref);
++  debug::trace_log_scalar("irodori_tts.request.has_reference_audio",
++                          first_request.has_reference_audio);
++  debug::trace_log_scalar(
++      "irodori_tts.request.voice_ref_requested",
++      runtime::find_option(request.options, {"voice_ref_requested"})
++          .value_or("unknown"));
++  debug::trace_log_scalar(
++      "irodori_tts.request.voice_ref_sha256",
++      runtime::find_option(request.options, {"voice_ref_sha256"})
++          .value_or("unknown"));
++  if (first_request.has_reference_audio) {
++    debug::trace_log_scalar("irodori_tts.reference.sample_rate",
++                            first_request.reference_audio.sample_rate);
++    debug::trace_log_scalar("irodori_tts.reference.channels",
++                            first_request.reference_audio.channels);
++    debug::trace_log_scalar(
++        "irodori_tts.reference.samples",
++        static_cast<int64_t>(first_request.reference_audio.samples.size()));
++  }
+   const auto reference_start = Clock::now();
+   IrodoriSpeakerCondition speaker =
+       no_reference_speaker_condition(assets_->config);
+@@ -435,6 +1009,15 @@ IrodoriTTSSession::run(const runtime::TaskRequest &request) {
+     }
+   }
+   const auto reference_end = Clock::now();
++  debug::trace_log_scalar("irodori_tts.speaker.has_speaker",
++                          speaker.has_speaker);
++  debug::trace_log_scalar("irodori_tts.speaker.tokens", speaker.tokens);
++  debug::trace_log_scalar("irodori_tts.speaker.state_elements",
++                          static_cast<int64_t>(speaker.state.size()));
++  debug::trace_log_scalar("irodori_tts.speaker.mask_elements",
++                          static_cast<int64_t>(speaker.mask.size()));
++  debug::trace_log_scalar("irodori_tts.speaker.condition_hash",
++                          std::to_string(speaker_condition_hash(speaker)));
+   IrodoriCaptionCondition caption;
+   double tokenize_ms = 0.0;
+   if (assets_->config.use_caption_condition) {
+@@ -470,21 +1053,91 @@ IrodoriTTSSession::run(const runtime::TaskRequest &request) {
+        ++chunk_index) {
+     const auto &chunk_request = chunk_requests[chunk_index];
+     const IrodoriRequest irodori_request = make_request(chunk_request);
++    IrodoriSpeakerCondition speaker_for_duration = speaker;
++    IrodoriSpeakerCondition speaker_for_rf = speaker;
++    const auto &variant = irodori_request.generation.speaker_sim_variant;
++    const auto &scope = irodori_request.generation.speaker_sim_scope;
++    if (scope != "both" && scope != "duration" && scope != "rf") {
++      throw std::runtime_error(
++          "Irodori-TTS speaker_sim_scope must be both, duration, or rf");
++    }
++    if (!variant.empty() && variant != "none") {
++      if (scope == "both" || scope == "duration") {
++        speaker_for_duration = simulated_speaker(speaker, variant);
++      }
++      if (scope == "both" || scope == "rf") {
++        speaker_for_rf = simulated_speaker(speaker, variant);
++      }
++    }
++    debug::trace_log_scalar(
++        "irodori_tts.chunk." + std::to_string(chunk_index) + ".request_id",
++        request_id);
++    debug::trace_log_scalar(
++        "irodori_tts.chunk." + std::to_string(chunk_index) + ".no_ref",
++        irodori_request.no_ref);
++    debug::trace_log_scalar(
++        "irodori_tts.chunk." + std::to_string(chunk_index) + ".has_reference_audio",
++        irodori_request.has_reference_audio);
++    debug::trace_log_scalar(
++        "irodori_tts.chunk." + std::to_string(chunk_index) + ".text_length",
++        static_cast<int64_t>(irodori_request.text.size()));
+     debug::trace_log_scalar(
+         "irodori_tts.chunk." + std::to_string(chunk_index) + ".text",
+         escape_log_text(irodori_request.text));
+     debug::trace_log_scalar(
+         "irodori_tts.chunk." + std::to_string(chunk_index) + ".seed",
+         irodori_request.generation.seed);
++    debug::trace_log_scalar(
++        "irodori_tts.chunk." + std::to_string(chunk_index) +
++            ".speaker_sim_variant",
++        variant.empty() ? "none" : variant);
++    debug::trace_log_scalar(
++        "irodori_tts.chunk." + std::to_string(chunk_index) +
++            ".speaker_sim_scope",
++        scope);
++    debug::trace_log_scalar(
++        "irodori_tts.chunk." + std::to_string(chunk_index) +
++            ".speaker_sim_label",
++        irodori_request.generation.speaker_sim_label);
++    debug::trace_log_scalar(
++        "irodori_tts.chunk." + std::to_string(chunk_index) +
++            ".speaker_sim_group",
++        irodori_request.generation.speaker_sim_group);
++    debug::trace_log_scalar(
++        "irodori_tts.chunk." + std::to_string(chunk_index) +
++            ".speaker_sim_cfg_mode",
++        irodori_request.generation.speaker_sim_cfg_mode);
++    debug::trace_log_scalar(
++        "irodori_tts.chunk." + std::to_string(chunk_index) +
++            ".speaker_state_original_stats",
++        vector_stats(speaker.state));
++    debug::trace_log_scalar(
++        "irodori_tts.chunk." + std::to_string(chunk_index) +
++            ".speaker_state_duration_stats",
++        vector_stats(speaker_for_duration.state));
++    debug::trace_log_scalar(
++        "irodori_tts.chunk." + std::to_string(chunk_index) +
++            ".speaker_state_rf_stats",
++        vector_stats(speaker_for_rf.state));
+     const auto text_start = Clock::now();
+     const auto tokenized = tokenizer_.encode_padded(
+         irodori_request.text, assets_->config.max_text_len);
+     tokenize_ms += debug::elapsed_ms(text_start);
++    const std::string chunk_log_prefix =
++        "irodori_tts.chunk." + std::to_string(chunk_index) + ".";
++    debug::trace_log_scalar(chunk_log_prefix + "token_ids",
++                            token_list(tokenized.token_ids));
++    debug::trace_log_scalar(chunk_log_prefix + "token_mask_stats",
++                            vector_stats(tokenized.mask));
+ 
+     const auto condition_start = Clock::now();
+     const auto conditions = condition_encoder_->run(
+-        tokenized.token_ids, tokenized.mask, caption, speaker);
++        tokenized.token_ids, tokenized.mask, caption, speaker_for_duration);
+     condition_ms += debug::elapsed_ms(condition_start);
++    debug::trace_log_scalar(chunk_log_prefix + "text_state_stats",
++                            vector_stats(conditions.text_state));
++    debug::trace_log_scalar(chunk_log_prefix + "predicted_log_frames",
++                            std::to_string(conditions.predicted_log_frames));
+     if (mem_saver_) {
+       condition_encoder_->release_graphs();
+     }
+@@ -514,8 +1167,12 @@ IrodoriTTSSession::run(const runtime::TaskRequest &request) {
+       latent_steps = (target_samples + hop_length - 1) / hop_length;
+     } else {
+       const float pred_frames = std::expm1(conditions.predicted_log_frames);
++      const float offset_frames =
++          irodori_request.generation.duration_offset_seconds *
++          assets_->codec.sample_rate / hop_length;
+       const float scaled_frames =
+-          pred_frames * irodori_request.generation.duration_scale;
++          pred_frames * irodori_request.generation.duration_scale +
++          offset_frames;
+       const int64_t min_frames =
+           std::max<int64_t>(1, static_cast<int64_t>(std::ceil(
+                                    irodori_request.generation.min_seconds *
+@@ -532,19 +1189,100 @@ IrodoriTTSSession::run(const runtime::TaskRequest &request) {
+         (latent_steps + assets_->config.latent_patch_size - 1) /
+         assets_->config.latent_patch_size;
+     const int64_t patched_dim = assets_->config.patched_latent_dim();
++    debug::trace_log_scalar(
++        "irodori_tts.chunk." + std::to_string(chunk_index) + ".latent_steps",
++        latent_steps);
++    debug::trace_log_scalar(
++        "irodori_tts.chunk." + std::to_string(chunk_index) + ".patched_steps",
++        patched_steps);
++    debug::trace_log_scalar(
++        "irodori_tts.chunk." + std::to_string(chunk_index) + ".patched_dim",
++        patched_dim);
++    debug::trace_log_scalar(
++        "irodori_tts.chunk." + std::to_string(chunk_index) + ".speaker_guidance_scale",
++        irodori_request.generation.speaker_guidance_scale);
++    debug::trace_log_scalar(
++        "irodori_tts.chunk." + std::to_string(chunk_index) +
++            ".speaker_guidance_adaptive",
++        irodori_request.generation.speaker_guidance_adaptive);
++    debug::trace_log_scalar(
++        "irodori_tts.chunk." + std::to_string(chunk_index) +
++            ".speaker_guidance_target_ratio",
++        irodori_request.generation.speaker_guidance_target_ratio);
++    debug::trace_log_scalar(
++        "irodori_tts.chunk." + std::to_string(chunk_index) +
++            ".speaker_attention_bias",
++        irodori_request.generation.speaker_attention_bias);
++    debug::trace_log_scalar(
++        "irodori_tts.chunk." + std::to_string(chunk_index) +
++            ".speaker_attention_bias_layer_start",
++        irodori_request.generation.speaker_attention_bias_layer_start);
++    debug::trace_log_scalar(
++        "irodori_tts.chunk." + std::to_string(chunk_index) +
++            ".speaker_attention_bias_layer_end",
++        irodori_request.generation.speaker_attention_bias_layer_end);
++    debug::trace_log_scalar(
++        "irodori_tts.chunk." + std::to_string(chunk_index) +
++            ".speaker_attention_bias_step_start",
++        irodori_request.generation.speaker_attention_bias_step_start);
++    debug::trace_log_scalar(
++        "irodori_tts.chunk." + std::to_string(chunk_index) +
++            ".speaker_attention_bias_step_end",
++        irodori_request.generation.speaker_attention_bias_step_end);
++    debug::trace_log_scalar(
++        "irodori_tts.chunk." + std::to_string(chunk_index) +
++            ".speaker_rescue_enabled",
++        irodori_request.generation.speaker_rescue_enabled);
++    debug::trace_log_scalar(
++        "irodori_tts.chunk." + std::to_string(chunk_index) +
++            ".speaker_rescue_threshold",
++        irodori_request.generation.speaker_rescue_threshold);
++    debug::trace_log_scalar(
++        "irodori_tts.chunk." + std::to_string(chunk_index) +
++            ".speaker_rescue_probe_step",
++        irodori_request.generation.speaker_rescue_probe_step);
++    debug::trace_log_scalar(
++        "irodori_tts.chunk." + std::to_string(chunk_index) +
++            ".audio_quality_rescue_enabled",
++        irodori_request.generation.audio_quality_rescue_enabled);
++    debug::trace_log_scalar(
++        "irodori_tts.chunk." + std::to_string(chunk_index) +
++            ".audio_quality_rescue_max_jump",
++        irodori_request.generation.audio_quality_rescue_max_jump);
++    debug::trace_log_scalar(
++        "irodori_tts.chunk." + std::to_string(chunk_index) +
++            ".audio_quality_rescue_max_retries",
++        irodori_request.generation.audio_quality_rescue_max_retries);
+     const auto sample_start = Clock::now();
++    double chunk_decode_ms = 0.0;
+     std::vector<float> x_t = sampling::generate_torch_cuda_randn(
+         static_cast<size_t>(patched_steps * patched_dim),
+         irodori_request.generation.seed,
+         sampling::TorchRandnPrecision::Float32);
++    debug::trace_log_scalar(chunk_log_prefix + "initial_latent_stats",
++                            vector_stats(x_t));
++    const std::string &sim_cfg_mode =
++        irodori_request.generation.speaker_sim_cfg_mode;
++    if (sim_cfg_mode != "normal" && sim_cfg_mode != "cond_only" &&
++        sim_cfg_mode != "text_only" && sim_cfg_mode != "invert_speaker") {
++      throw std::runtime_error(
++          "unknown Irodori-TTS speaker simulation CFG mode: " + sim_cfg_mode);
++    }
++    const bool cond_only = sim_cfg_mode == "cond_only";
++    const bool text_only = sim_cfg_mode == "text_only";
++    const bool invert_speaker = sim_cfg_mode == "invert_speaker";
+     const bool text_cfg_enabled =
+-        irodori_request.generation.text_guidance_scale > 0.0F;
++        !cond_only && irodori_request.generation.text_guidance_scale > 0.0F;
+     const bool speaker_cfg_enabled =
+-        speaker.has_speaker &&
+-        irodori_request.generation.speaker_guidance_scale > 0.0F;
++        !cond_only && !text_only && speaker_for_rf.has_speaker &&
++        irodori_request.generation.speaker_guidance_scale != 0.0F;
+     const bool caption_cfg_enabled =
+-        rf_caption.has_caption &&
++        !cond_only && rf_caption.has_caption &&
+         irodori_request.generation.caption_guidance_scale > 0.0F;
++    const float effective_speaker_guidance =
++        invert_speaker
++            ? -std::abs(irodori_request.generation.speaker_guidance_scale)
++            : irodori_request.generation.speaker_guidance_scale;
+     const bool any_cfg_enabled =
+         text_cfg_enabled || speaker_cfg_enabled || caption_cfg_enabled;
+     IrodoriRfSampler::ContextCache rf_context_cond;
+@@ -553,13 +1291,24 @@ IrodoriTTSSession::run(const runtime::TaskRequest &request) {
+       const auto rf_context_cfg_start = Clock::now();
+       rf_context_cfg = rf_sampler_->build_context_cache(
+           conditions.text_state, tokenized.mask, rf_caption_state, rf_caption,
+-          speaker, text_cfg_enabled, speaker_cfg_enabled, caption_cfg_enabled);
++          speaker_for_rf, text_cfg_enabled, speaker_cfg_enabled,
++          caption_cfg_enabled,
++          irodori_request.generation.speaker_attention_bias,
++          irodori_request.generation.speaker_attention_bias_layer_start,
++          irodori_request.generation.speaker_attention_bias_layer_end,
++          irodori_request.generation.speaker_attention_bias_step_start,
++          irodori_request.generation.speaker_attention_bias_step_end);
+       rf_context_cfg_ms += debug::elapsed_ms(rf_context_cfg_start);
+     } else {
+       const auto rf_context_cond_start = Clock::now();
+       rf_context_cond = rf_sampler_->build_context_cache(
+           conditions.text_state, tokenized.mask, rf_caption_state, rf_caption,
+-          speaker, false, false, false);
++          speaker_for_rf, false, false, false,
++          irodori_request.generation.speaker_attention_bias,
++          irodori_request.generation.speaker_attention_bias_layer_start,
++          irodori_request.generation.speaker_attention_bias_layer_end,
++          irodori_request.generation.speaker_attention_bias_step_start,
++          irodori_request.generation.speaker_attention_bias_step_end);
+       rf_context_cond_ms += debug::elapsed_ms(rf_context_cond_start);
+       rf_context_cfg = rf_context_cond;
+     }
+@@ -576,84 +1325,367 @@ IrodoriTTSSession::run(const runtime::TaskRequest &request) {
+     const auto modulation_cache =
+         rf_sampler_->build_modulation_cache(timesteps);
+     std::vector<float> velocity(x_t.size());
+-    for (int64_t step = 0;
+-         step < irodori_request.generation.num_inference_steps; ++step) {
+-      const float u_next =
+-          static_cast<float>(step + 1) /
+-          static_cast<float>(irodori_request.generation.num_inference_steps);
+-      const float t = timesteps[static_cast<size_t>(step)];
+-      const float t_next = (1.0F - u_next) * 0.999F;
+-      const bool cfg_active = any_cfg_enabled &&
+-                              t >= irodori_request.generation.guidance_min_t &&
+-                              t <= irodori_request.generation.guidance_max_t;
+-      const auto &rf_context =
+-          cfg_active ? rf_context_cfg
+-                     : (any_cfg_enabled ? rf_context_cfg : rf_context_cond);
+-      const auto rf_step_start = Clock::now();
+-      rf_sampler_->run_step(x_t, step, modulation_cache, rf_context,
+-                            cfg_active && text_cfg_enabled,
+-                            cfg_active && speaker_cfg_enabled,
+-                            cfg_active && caption_cfg_enabled,
+-                            irodori_request.generation.text_guidance_scale,
+-                            irodori_request.generation.speaker_guidance_scale,
+-                            irodori_request.generation.caption_guidance_scale,
+-                            patched_steps, velocity);
+-      const double rf_step_ms = debug::elapsed_ms(rf_step_start);
+-      if (cfg_active) {
+-        rf_step_cfg_ms += rf_step_ms;
+-      } else {
+-        rf_step_cond_ms += rf_step_ms;
++    SimulationTrajectory simulation_trajectory;
++    const bool simulation_enabled =
++        !irodori_request.generation.speaker_sim_group.empty() &&
++        !irodori_request.generation.speaker_sim_label.empty();
++    const std::string simulation_prefix =
++        "irodori_tts.sim." +
++        irodori_request.generation.speaker_sim_group + "." +
++        irodori_request.generation.speaker_sim_label + ".";
++    int64_t speaker_rescue_attempt = 0;
++    int64_t audio_quality_rescue_attempt = 0;
++    uint32_t effective_seed = irodori_request.generation.seed;
++    bool retry_initial_latent = false;
++    runtime::AudioBuffer selected_decoded_audio;
++    bool selected_decoded_audio_ready = false;
++    while (true) {
++      if (retry_initial_latent) {
++        x_t = sampling::generate_torch_cuda_randn(
++            static_cast<size_t>(patched_steps * patched_dim), effective_seed,
++            sampling::TorchRandnPrecision::Float32);
++        debug::trace_log_scalar(chunk_log_prefix +
++                                    "retry_initial_latent_stats",
++                                vector_stats(x_t));
+       }
+-      const int64_t sample_count = static_cast<int64_t>(x_t.size());
++      debug::trace_log_scalar(chunk_log_prefix + "speaker_rescue_attempt",
++                              speaker_rescue_attempt);
++      debug::trace_log_scalar(
++          chunk_log_prefix + "audio_quality_rescue_attempt",
++          audio_quality_rescue_attempt);
++      debug::trace_log_scalar(chunk_log_prefix + "effective_seed",
++                              effective_seed);
++      simulation_trajectory = SimulationTrajectory{};
++      bool speaker_rescue_retry = false;
++      for (int64_t step = 0;
++           step < irodori_request.generation.num_inference_steps; ++step) {
++        const float u_next =
++            static_cast<float>(step + 1) /
++            static_cast<float>(irodori_request.generation.num_inference_steps);
++        const float t = timesteps[static_cast<size_t>(step)];
++        const float t_next = (1.0F - u_next) * 0.999F;
++        const bool cfg_active =
++            any_cfg_enabled && t >= irodori_request.generation.guidance_min_t &&
++            t <= irodori_request.generation.guidance_max_t;
++        const auto &rf_context =
++            cfg_active ? rf_context_cfg
++                       : (any_cfg_enabled ? rf_context_cfg : rf_context_cond);
++        const bool selected_step =
++            step == 0 || step == 9 || step == 19 || step == 29 ||
++            step + 1 == irodori_request.generation.num_inference_steps;
++        if (!simulation_enabled || selected_step) {
++          debug::trace_log_scalar(chunk_log_prefix + "rf_step_" +
++                                      std::to_string(step + 1) +
++                                      "_latent_before_stats",
++                                  vector_stats(x_t));
++        }
++        const auto rf_step_start = Clock::now();
++        IrodoriRfStepDiagnostics step_diagnostics;
++        const bool adaptive_speaker_active =
++            cfg_active && speaker_cfg_enabled &&
++            irodori_request.generation.speaker_guidance_adaptive;
++        const bool speaker_rescue_probe =
++            irodori_request.generation.speaker_rescue_enabled && cfg_active &&
++            speaker_cfg_enabled &&
++            step + 1 == irodori_request.generation.speaker_rescue_probe_step;
++        rf_sampler_->run_step(x_t, step, modulation_cache, rf_context,
++                              cfg_active && text_cfg_enabled,
++                              cfg_active && speaker_cfg_enabled,
++                              cfg_active && caption_cfg_enabled,
++                              irodori_request.generation.text_guidance_scale,
++                              effective_speaker_guidance,
++                              irodori_request.generation.caption_guidance_scale,
++                              patched_steps, velocity,
++                              (simulation_enabled || adaptive_speaker_active ||
++                               speaker_rescue_probe)
++                                  ? &step_diagnostics
++                                  : nullptr);
++        double speaker_rescue_metric = -1.0;
++        if (speaker_rescue_probe) {
++          speaker_rescue_metric = vector_rms(step_diagnostics.speaker_diff);
++          debug::trace_log_scalar(chunk_log_prefix + "speaker_rescue_probe_rms",
++                                  speaker_rescue_metric);
++          debug::trace_log_scalar(
++              chunk_log_prefix + "speaker_rescue_probe_threshold",
++              irodori_request.generation.speaker_rescue_threshold);
++        }
++        if (simulation_enabled && cfg_active) {
++          const std::string step_prefix =
++              simulation_prefix + "step." + std::to_string(step + 1) + ".";
++          const double cond_rms = vector_rms(step_diagnostics.cond);
++          const double speaker_diff_rms =
++              vector_rms(step_diagnostics.speaker_diff);
++          debug::trace_log_scalar(step_prefix + "cond_rms", cond_rms);
++          debug::trace_log_scalar(step_prefix + "text_diff_rms",
++                                  vector_rms(step_diagnostics.text_diff));
++          debug::trace_log_scalar(step_prefix + "speaker_diff_rms",
++                                  speaker_diff_rms);
++          debug::trace_log_scalar(
++              step_prefix + "effective_speaker_output_ratio",
++              cond_rms > 0.0 ? speaker_diff_rms / cond_rms : 0.0);
++          log_layer_forensics(step_prefix, step_diagnostics, text_cfg_enabled,
++                              speaker_cfg_enabled, caption_cfg_enabled);
++        }
++        if (adaptive_speaker_active) {
++          const float adaptive_scale = apply_adaptive_speaker_guidance(
++              step_diagnostics, text_cfg_enabled, caption_cfg_enabled,
++              irodori_request.generation.text_guidance_scale,
++              effective_speaker_guidance,
++              irodori_request.generation.caption_guidance_scale,
++              irodori_request.generation.speaker_guidance_target_ratio,
++              velocity);
++          debug::trace_log_scalar(chunk_log_prefix + "rf_step_" +
++                                      std::to_string(step + 1) +
++                                      "_adaptive_speaker_scale",
++                                  adaptive_scale);
++          debug::trace_log_scalar(
++              chunk_log_prefix + "rf_step_" + std::to_string(step + 1) +
++                  "_adaptive_speaker_term_rms",
++              std::abs(static_cast<double>(adaptive_scale)) *
++                  vector_rms(step_diagnostics.speaker_diff));
++        }
++        const double rf_step_ms = debug::elapsed_ms(rf_step_start);
++        if (cfg_active) {
++          rf_step_cfg_ms += rf_step_ms;
++        } else {
++          rf_step_cond_ms += rf_step_ms;
++        }
++        if (speaker_rescue_probe &&
++            speaker_rescue_metric <
++                irodori_request.generation.speaker_rescue_threshold &&
++            speaker_rescue_attempt <
++                irodori_request.generation.speaker_rescue_max_retries) {
++          speaker_rescue_retry = true;
++          debug::trace_log_scalar(chunk_log_prefix + "speaker_rescue_triggered",
++                                  1);
++          break;
++        }
++        const int64_t sample_count = static_cast<int64_t>(x_t.size());
+ #ifdef _OPENMP
+-#pragma omp parallel for if(sample_count >= 4096)
++#pragma omp parallel for if (sample_count >= 4096)
+ #endif
+-      for (int64_t i = 0; i < sample_count; ++i) {
+-        const size_t index = static_cast<size_t>(i);
+-        x_t[index] += velocity[index] * (t_next - t);
++        for (int64_t i = 0; i < sample_count; ++i) {
++          const size_t index = static_cast<size_t>(i);
++          x_t[index] += velocity[index] * (t_next - t);
++        }
++        if (!simulation_enabled || selected_step) {
++          debug::trace_log_scalar(chunk_log_prefix + "rf_step_" +
++                                      std::to_string(step + 1) +
++                                      "_latent_after_stats",
++                                  vector_stats(x_t));
++        }
++        if (simulation_enabled && selected_step) {
++          SimulationSnapshot snapshot;
++          snapshot.step = step + 1;
++          snapshot.latent = x_t;
++          simulation_trajectory.snapshots.push_back(std::move(snapshot));
++
++          const auto speaker_uncond = subtract_vectors(
++              step_diagnostics.cond, step_diagnostics.speaker_diff);
++          const double cond_rms = vector_rms(step_diagnostics.cond);
++          const double text_diff_rms = vector_rms(step_diagnostics.text_diff);
++          const double speaker_diff_rms =
++              vector_rms(step_diagnostics.speaker_diff);
++          debug::trace_log_scalar(simulation_prefix + "step." +
++                                      std::to_string(step + 1) + ".cond_rms",
++                                  cond_rms);
++          debug::trace_log_scalar(simulation_prefix + "step." +
++                                      std::to_string(step + 1) +
++                                      ".speaker_uncond_rms",
++                                  vector_rms(speaker_uncond));
++          debug::trace_log_scalar(
++              simulation_prefix + "step." + std::to_string(step + 1) +
++                  ".cond_speaker_uncond_cosine",
++              vector_cosine(step_diagnostics.cond, speaker_uncond));
++          debug::trace_log_scalar(simulation_prefix + "step." +
++                                      std::to_string(step + 1) +
++                                      ".text_diff_rms",
++                                  text_diff_rms);
++          debug::trace_log_scalar(simulation_prefix + "step." +
++                                      std::to_string(step + 1) +
++                                      ".speaker_diff_rms",
++                                  speaker_diff_rms);
++          debug::trace_log_scalar(simulation_prefix + "step." +
++                                      std::to_string(step + 1) + ".guided_rms",
++                                  vector_rms(step_diagnostics.guided));
++          debug::trace_log_scalar(simulation_prefix + "step." +
++                                      std::to_string(step + 1) +
++                                      ".guided_max_abs",
++                                  vector_max_abs(step_diagnostics.guided));
++          debug::trace_log_scalar(
++              simulation_prefix + "step." + std::to_string(step + 1) +
++                  ".effective_speaker_output_ratio",
++              cond_rms > 0.0 ? speaker_diff_rms / cond_rms : 0.0);
++          debug::trace_log_scalar(
++              simulation_prefix + "step." + std::to_string(step + 1) +
++                  ".text_speaker_output_norm_ratio",
++              speaker_diff_rms > 0.0 ? text_diff_rms / speaker_diff_rms : 0.0);
++        }
++      }
++      if (speaker_rescue_retry) {
++        ++speaker_rescue_attempt;
++        effective_seed +=
++            irodori_request.generation.speaker_rescue_seed_stride;
++        retry_initial_latent = true;
++        continue;
++      }
++      debug::trace_log_scalar(chunk_log_prefix +
++                                  "speaker_rescue_final_attempt",
++                              speaker_rescue_attempt);
++      debug::trace_log_scalar(chunk_log_prefix + "speaker_rescue_final_seed",
++                              effective_seed);
++      if (irodori_request.generation.speaker_sim_skip_decode) {
++        break;
+       }
+-    }
+-    if (mem_saver_) {
+-      rf_context_cond = IrodoriRfSampler::ContextCache();
+-      rf_context_cfg = IrodoriRfSampler::ContextCache();
+-      rf_sampler_->release_graphs();
+-    }
+-    sample_rf_ms += debug::elapsed_ms(sample_start);
+ 
+-    std::vector<float> latent(
+-        static_cast<size_t>(latent_steps * assets_->config.latent_dim), 0.0F);
++      std::vector<float> latent(
++          static_cast<size_t>(latent_steps * assets_->config.latent_dim),
++          0.0F);
+ #ifdef _OPENMP
+ #pragma omp parallel for collapse(2) if(latent_steps * assets_->config.latent_dim >= 4096)
+ #endif
+-    for (int64_t frame = 0; frame < latent_steps; ++frame) {
+-      for (int64_t dim = 0; dim < assets_->config.latent_dim; ++dim) {
+-        const int64_t patched_frame = frame / assets_->config.latent_patch_size;
+-        const int64_t patch_offset = frame % assets_->config.latent_patch_size;
+-        latent[static_cast<size_t>(frame * assets_->config.latent_dim + dim)] =
+-            x_t[static_cast<size_t>(patched_frame * patched_dim +
+-                                    patch_offset * assets_->config.latent_dim +
+-                                    dim)];
++      for (int64_t frame = 0; frame < latent_steps; ++frame) {
++        for (int64_t dim = 0; dim < assets_->config.latent_dim; ++dim) {
++          const int64_t patched_frame =
++              frame / assets_->config.latent_patch_size;
++          const int64_t patch_offset =
++              frame % assets_->config.latent_patch_size;
++          latent[static_cast<size_t>(frame * assets_->config.latent_dim +
++                                     dim)] =
++              x_t[static_cast<size_t>(
++                  patched_frame * patched_dim +
++                  patch_offset * assets_->config.latent_dim + dim)];
++        }
++      }
++      int64_t quality_target_samples = target_samples;
++      if (irodori_request.generation.trim_tail) {
++        const int flat = find_flattening_point(
++            latent, latent_steps, assets_->config.latent_dim,
++            irodori_request.generation.tail_window_size,
++            irodori_request.generation.tail_std_threshold,
++            irodori_request.generation.tail_mean_threshold);
++        const int64_t flattening_samples =
++            static_cast<int64_t>(flat) * hop_length;
++        if (flattening_samples > 0) {
++          quality_target_samples =
++              std::min(quality_target_samples, flattening_samples);
++        }
+       }
++      const auto decode_start = Clock::now();
++      auto decoded_audio =
++          codec_->decode(latent, latent_steps, quality_target_samples);
++      const double current_decode_ms = debug::elapsed_ms(decode_start);
++      decode_ms += current_decode_ms;
++      chunk_decode_ms += current_decode_ms;
++      debug::trace_log_scalar(chunk_log_prefix + "codec_input_latent_stats",
++                              vector_stats(latent));
++      debug::trace_log_scalar(chunk_log_prefix + "codec_output_audio_stats",
++                              vector_stats(decoded_audio.samples));
++      const auto quality_metrics =
++          analyze_irodori_audio_quality(decoded_audio.samples);
++      debug::trace_log_scalar(
++          chunk_log_prefix + "audio_quality_rescue_max_sample_jump",
++          quality_metrics.max_adjacent_jump);
++      debug::trace_log_scalar(
++          chunk_log_prefix + "audio_quality_rescue_non_finite_samples",
++          static_cast<int64_t>(quality_metrics.non_finite_samples));
++      const bool audio_quality_failed =
++          irodori_request.generation.audio_quality_rescue_enabled &&
++          irodori_audio_quality_failed(
++              quality_metrics,
++              irodori_request.generation.audio_quality_rescue_max_jump);
++      if (mem_saver_) {
++        codec_->release_graphs();
++      }
++      if (audio_quality_failed &&
++          audio_quality_rescue_attempt <
++              irodori_request.generation.audio_quality_rescue_max_retries) {
++        debug::trace_log_scalar(
++            chunk_log_prefix + "audio_quality_rescue_triggered", 1);
++        ++audio_quality_rescue_attempt;
++        effective_seed +=
++            irodori_request.generation.audio_quality_rescue_seed_stride;
++        retry_initial_latent = true;
++        continue;
++      }
++      debug::trace_log_scalar(
++          chunk_log_prefix + "audio_quality_rescue_exhausted",
++          audio_quality_failed ? 1 : 0);
++      debug::trace_log_scalar(
++          chunk_log_prefix + "audio_quality_rescue_final_attempt",
++          audio_quality_rescue_attempt);
++      debug::trace_log_scalar(
++          chunk_log_prefix + "audio_quality_rescue_final_seed",
++          effective_seed);
++      selected_decoded_audio = std::move(decoded_audio);
++      selected_decoded_audio_ready = true;
++      break;
+     }
+-    if (irodori_request.generation.trim_tail) {
+-      const int flat = find_flattening_point(
+-          latent, latent_steps, assets_->config.latent_dim,
+-          irodori_request.generation.tail_window_size,
+-          irodori_request.generation.tail_std_threshold,
+-          irodori_request.generation.tail_mean_threshold);
+-      const int64_t flattening_samples =
+-          static_cast<int64_t>(flat) * hop_length;
+-      if (flattening_samples > 0) {
+-        target_samples = std::min(target_samples, flattening_samples);
++    debug::trace_log_scalar(chunk_log_prefix + "rf_final_latent_stats",
++                            vector_stats(x_t));
++    if (simulation_enabled) {
++      const std::string trajectory_key =
++          irodori_request.generation.speaker_sim_group + "|" +
++          irodori_request.generation.speaker_sim_label;
++      speaker_sim_trajectories_[trajectory_key] = simulation_trajectory;
++      for (const std::string baseline_label :
++           {std::string("no_voice"), std::string("normal5")}) {
++        const std::string baseline_key =
++            irodori_request.generation.speaker_sim_group + "|" +
++            baseline_label;
++        const auto baseline = speaker_sim_trajectories_.find(baseline_key);
++        if (baseline == speaker_sim_trajectories_.end()) {
++          continue;
++        }
++        const auto &baseline_snapshots = baseline->second.snapshots;
++        for (const auto &snapshot : simulation_trajectory.snapshots) {
++          const auto match = std::find_if(
++              baseline_snapshots.begin(), baseline_snapshots.end(),
++              [&](const SimulationSnapshot &candidate) {
++                return candidate.step == snapshot.step;
++              });
++          if (match == baseline_snapshots.end() ||
++              match->latent.size() != snapshot.latent.size()) {
++            continue;
++          }
++          const double cosine = vector_cosine(snapshot.latent, match->latent);
++          debug::trace_log_scalar(
++              simulation_prefix + "step." + std::to_string(snapshot.step) +
++                  ".latent_cosine_to_" + baseline_label,
++              cosine);
++          debug::trace_log_scalar(
++              simulation_prefix + "step." + std::to_string(snapshot.step) +
++                  ".latent_cosine_distance_to_" + baseline_label,
++              1.0 - cosine);
++          const auto delta = subtract_vectors(snapshot.latent, match->latent);
++          debug::trace_log_scalar(
++              simulation_prefix + "step." + std::to_string(snapshot.step) +
++                  ".latent_delta_rms_to_" + baseline_label,
++              vector_rms(delta));
++        }
+       }
+     }
+-    const auto decode_start = Clock::now();
+-    runtime::append_audio_buffer(
+-        merged_audio, codec_->decode(latent, latent_steps, target_samples));
+-    decode_ms += debug::elapsed_ms(decode_start);
+     if (mem_saver_) {
+-      codec_->release_graphs();
++      rf_context_cond = IrodoriRfSampler::ContextCache();
++      rf_context_cfg = IrodoriRfSampler::ContextCache();
++      rf_sampler_->release_graphs();
+     }
++    sample_rf_ms +=
++        std::max(0.0, debug::elapsed_ms(sample_start) - chunk_decode_ms);
++
++    if (irodori_request.generation.speaker_sim_skip_decode) {
++      if (merged_audio.samples.empty()) {
++        merged_audio.sample_rate = assets_->codec.sample_rate;
++        merged_audio.channels = 1;
++        merged_audio.samples.push_back(0.0F);
++      }
++      continue;
++    }
++    if (!selected_decoded_audio_ready) {
++      throw std::runtime_error(
++          "Irodori-TTS audio quality rescue produced no decoded audio");
++    }
++    runtime::append_audio_buffer(merged_audio, selected_decoded_audio);
+   }
+   runtime::TaskResult result;
+   result.audio_output = std::move(merged_audio);
+@@ -691,6 +1723,17 @@ IrodoriTTSSession::run(const runtime::TaskRequest &request) {
+   return result;
+ }
+ 
++IrodoriSpeakerCondition IrodoriTTSSession::extract_speaker_condition(const engine::runtime::AudioBuffer &audio) {
++  int64_t ref_latent_steps = 0;
++  auto ref_latent = codec_->encode_reference(audio, ref_latent_steps);
++  auto speaker = condition_encoder_->encode_speaker_reference(ref_latent, ref_latent_steps);
++  if (mem_saver_) {
++    codec_->release_graphs();
++    condition_encoder_->release_graphs();
++  }
++  return speaker;
++}
++
+ IrodoriRequest
+ IrodoriTTSSession::make_request(const runtime::TaskRequest &request) const {
+   if (!request.text_input.has_value()) {
+diff --git a/tests/irodori_tts/irodori_tts_warm_bench.cpp b/tests/irodori_tts/irodori_tts_warm_bench.cpp
+index b7e9e2f..05f9c24 100644
+--- a/tests/irodori_tts/irodori_tts_warm_bench.cpp
++++ b/tests/irodori_tts/irodori_tts_warm_bench.cpp
+@@ -10,6 +10,7 @@
+ #include <cmath>
+ #include <cstdlib>
+ #include <filesystem>
++#include <fstream>
+ #include <iostream>
+ #include <stdexcept>
+ #include <string>
+@@ -104,10 +105,21 @@ engine::runtime::TaskRequest make_request(const engine::io::json::Value & object
+     set_optional_option(request, object, "cfg_scale_text");
+     set_optional_option(request, object, "cfg_scale_caption");
+     set_optional_option(request, object, "cfg_scale_speaker");
++    set_optional_option(request, object, "text_guidance_scale");
++    set_optional_option(request, object, "caption_guidance_scale");
++    set_optional_option(request, object, "speaker_guidance_scale");
+     set_optional_option(request, object, "cfg_guidance_mode");
++    set_optional_option(request, object, "speaker_sim_variant");
++    set_optional_option(request, object, "speaker_sim_scope");
++    set_optional_option(request, object, "speaker_sim_label");
++    set_optional_option(request, object, "speaker_sim_group");
++    set_optional_option(request, object, "speaker_sim_cfg_mode");
++    set_optional_option(request, object, "speaker_sim_skip_decode");
+     set_optional_option(request, object, "cfg_min_t");
+     set_optional_option(request, object, "cfg_max_t");
+     set_optional_option(request, object, "duration_scale");
++    request.options["text_chunk_size"] = "120";
++    request.options["text_chunk_mode"] = "japanese";
+     if (const auto * value = object.find("seconds"); value != nullptr && !value->is_null()) {
+         request.options["duration_seconds"] = option_text(*value);
+     }
+@@ -202,9 +214,15 @@ engine::io::json::Value step_json(
+ }
+ 
+ void set_env_required(const char * key, const std::string & value) {
++#ifdef _WIN32
++    if (_putenv_s(key, value.c_str()) != 0) {
++        throw std::runtime_error("failed to set environment variable: " + std::string(key));
++    }
++#else
+     if (setenv(key, value.c_str(), 1) != 0) {
+         throw std::runtime_error("failed to set environment variable: " + std::string(key));
+     }
++#endif
+ }
+ 
+ }  // namespace
+@@ -218,6 +236,8 @@ int main(int argc, char ** argv) {
+         const int warmup = int_arg(argc, argv, "--warmup", 0);
+         const int iterations = int_arg(argc, argv, "--iterations", 1);
+         const std::string request_sequence_json = arg_value(argc, argv, "--request-sequence-json", "");
++        const std::filesystem::path request_sequence_file =
++            arg_value(argc, argv, "--request-sequence-file", "");
+         const std::filesystem::path output_dir = arg_value(argc, argv, "--output-dir", "");
+         const std::filesystem::path timing_path =
+             arg_value(argc, argv, "--timing-file", "/tmp/irodori_tts_warm_bench_timing.log");
+@@ -247,7 +267,16 @@ int main(int argc, char ** argv) {
+             throw std::runtime_error("loaded Irodori-TTS session is not offline-capable");
+         }
+ 
+-        const auto requests = parse_requests(request_sequence_json);
++        std::string request_json = request_sequence_json;
++        if (!request_sequence_file.empty()) {
++            std::ifstream input(request_sequence_file, std::ios::binary);
++            if (!input) {
++                throw std::runtime_error("failed to open Irodori-TTS request sequence file");
++            }
++            request_json.assign(std::istreambuf_iterator<char>(input),
++                                std::istreambuf_iterator<char>());
++        }
++        const auto requests = parse_requests(request_json);
+         session->prepare(engine::runtime::build_preparation_request(requests.front()));
+         for (int i = 0; i < warmup; ++i) {
+             (void) session->run(requests.front());

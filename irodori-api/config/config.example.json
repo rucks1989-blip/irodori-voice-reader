@@ -1,0 +1,8 @@
+{
+  "irodori_audiocpp_api_url": "http://127.0.0.1:8091/v1/audio/speech",
+  "irodori_audiocpp_model": "irodori-500m-v3-q8",
+  "irodori_audiocpp_voice_ref_path": "",
+  "irodori_audiocpp_num_steps": 40,
+  "irodori_audiocpp_seed": 1234,
+  "chunk_profile_name": "標準250文字"
+}

@@ -1,0 +1,27 @@
+{
+  "version": "0.1.0-private.1",
+  "extensionVersion": "1.2.23",
+  "repository": "rucks1989-blip/irodori-voice-reader",
+  "release": "v0.1.0-private.1",
+  "audioCppCommit": "e12fc743ccb294753dcdced0be7778c76a178f95",
+  "model": {
+    "name": "irodori-tts-500m-v3-q8_0.gguf",
+    "url": "https://huggingface.co/audio-cpp/audio.cpp-gguf/resolve/a70a4ecb70ee38ef43a5aeae9fbefb512778e262/Irodori-TTS-500M-v3-GGUF/irodori-tts-500m-v3-q8_0.gguf",
+    "sha256": "6f1d8d84f92207d4da674c9f6d350c692b7fde7c1fbaff4e7067fe7023b4b0c4",
+    "bytes": 1093732096
+  },
+  "assets": [
+    {
+      "name": "audio-cpp-stable-cpu-x64.zip",
+      "kind": "backend",
+      "backend": "cpu",
+      "arch": "",
+      "sha256": "a35ca562db6bcf1c990d7544dcd660de7952f6d5638c3fa281b928c577ab035a"
+    },
+    {
+      "name": "IrodoriVoiceReader-Firefox-1.2.23-signed.xpi",
+      "kind": "firefox",
+      "sha256": "c5bfc3d68aacf6b8fe932a71ee652742fe05bf27eb3aac7c9c2ae3ad555b1355"
+    }
+  ]
+}

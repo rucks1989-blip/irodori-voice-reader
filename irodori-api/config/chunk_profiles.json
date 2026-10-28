@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "profiles": {
+    "標準250文字": {
+      "target_chars": 250,
+      "storyteller_target_chars": 120,
+      "backtrack_chars": 50,
+      "split_adjacent_dialogue": true,
+      "silence_sentence_ms": 120,
+      "silence_dialogue_ms": 220,
+      "silence_paragraph_ms": 300,
+      "silence_hard_ms": 80,
+      "fade_ms": 5,
+      "ignored_texts": [],
+      "speaker_switch_enabled": true,
+      "speaker_recognition_mode": "storyteller",
+      "speaker_voice_dir": "speaker_voice_refs",
+      "speaker_tag_start": "【",
+      "speaker_tag_end": "】",
+      "speaker_auto_search": true,
+      "speaker_fuzzy_search": true,
+      "speaker_fuzzy_threshold": 0.62,
+      "speaker_fallback": "default",
+      "speaker_aliases": {},
+      "audio_cpp_text_chunk_mode": "japanese"
+    }
+  }
+}
+

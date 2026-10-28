@@ -1,0 +1,25 @@
+{
+  "irodori_audiocpp_api_url": "http://127.0.0.1:8091/v1/audio/speech",
+  "irodori_audiocpp_model": "irodori-500m-v3-q8-voice-stable-speaker",
+  "irodori_audiocpp_voice_ref_path": "",
+  "irodori_audiocpp_num_steps": 40,
+  "irodori_audiocpp_seed": 1234,
+  "irodori_audiocpp_request_options": {
+    "speaker_attention_bias": 0.75,
+    "speaker_attention_bias_layer_start": 0,
+    "speaker_attention_bias_layer_end": -1,
+    "speaker_attention_bias_step_start": 1,
+    "speaker_attention_bias_step_end": 20,
+    "duration_offset_seconds": -0.64,
+    "speaker_rescue_enabled": true,
+    "speaker_rescue_threshold": 0.15,
+    "speaker_rescue_probe_step": 10,
+    "speaker_rescue_max_retries": 2,
+    "speaker_rescue_seed_stride": 1,
+    "audio_quality_rescue_enabled": true,
+    "audio_quality_rescue_max_jump": 0.4,
+    "audio_quality_rescue_max_retries": 2,
+    "audio_quality_rescue_seed_stride": 1
+  },
+  "chunk_profile_name": "標準250文字"
+}

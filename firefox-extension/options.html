@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Irodori Voice Reader 設定</title>
+  <link rel="stylesheet" href="options.css">
+  <link rel="stylesheet" href="engine-picker.css">
+  <link rel="stylesheet" href="voice-management.css">
+  <link rel="stylesheet" href="character-mapping.css">
+</head>
+<body>
+  <header><div class="brand">彩</div><div><h1>Irodori Voice Reader</h1><p>ローカル音声読み上げ設定・バージョン <span id="extensionVersion">確認中</span></p></div><div id="saveState" role="status"></div></header>
+  <main>
+    <section>
+      <h2>API</h2>
+      <fieldset class="api-mode-picker"><legend>API利用方法</legend>
+        <label><input type="radio" name="apiMode" value="managed"> Voice ReaderでAPIを管理</label>
+        <div id="managedApiControls" class="api-mode-children">
+          <fieldset class="engine-picker"><legend>生成エンジン</legend><label><input type="radio" name="engine" value="standard"> 通常版</label><label><input type="radio" name="engine" value="voice_stable"> 声質安定版</label></fieldset>
+        </div>
+        <label><input type="radio" name="apiMode" value="custom"> 既存のIrodori-TTS APIを使用</label>
+        <div id="customApiControls" class="api-mode-children">
+          <div class="grid two"><label>API URL<input id="customApiUrl" type="url" spellcheck="false" placeholder="http://127.0.0.1:8765"></label><button id="checkCustomApi" type="button">接続確認</button></div>
+          <small class="hint">Irodori互換の /health /voices /v1/plan /tts を提供するローカルAPIを指定してください。</small>
+        </div>
+      </fieldset>
+      <div class="grid two"><label>接続先API<input id="apiUrl" type="url" spellcheck="false" readonly></label><div class="actions"><button id="checkApi">接続確認</button><button id="refreshVoices">voice一覧更新</button></div></div>
+      <div class="grid two"><span id="standardHealth" class="hint">通常版: 確認前</span><span id="stableHealth" class="hint">声質安定版: 確認前</span></div>
+      <label class="checks"><span><input id="timingDebug" type="checkbox"> 計測ログを有効にする（検出・planner・TTS・再生）</span></label>
+      <div class="grid two"><span id="timingLogStatus" class="hint">計測ログ: 未開始</span><button id="openTimingLogFolder" type="button">計測ログフォルダーを開く</button></div>
+      <p id="apiResult" class="result"></p>
+    </section>
+    <section>
+      <h2>自動読み上げ</h2>
+      <div class="checks"><label><input id="chatgptEnabled" type="checkbox">ChatGPT</label><label><input id="geminiEnabled" type="checkbox">Gemini</label><label><input id="museEnabled" type="checkbox">Muse</label><label><input id="autoPlay" type="checkbox">自動再生</label></div>
+      <label>デフォルトvoice<select id="defaultVoice" class="voice-select"></select></label>
+    </section>
+    <section id="wav-saving">
+      <h2>WAVを保存</h2>
+      <label class="checks"><span><input id="wavSaveEnabled" type="checkbox"> WAVを保存</span></label>
+      <div class="grid two"><label>保存先フォルダー<input id="wavSaveDirectory" type="text" spellcheck="false" readonly placeholder="参照ボタンで選択"></label><div class="actions"><button id="chooseWavSaveDirectory" type="button">参照</button><button id="validateWavSaveDirectory" type="button">確認</button></div></div>
+      <p id="wavSaveStatus" class="hint">保存先を指定して確認すると有効化できます。フォルダーは作成しません。</p>
+    </section>
+    <section id="voice-management">
+      <div class="title-row"><div><h2>Voice管理</h2><p class="hint">選択したファイルはIrodori管理フォルダーへコピーします。元ファイルは削除しません。</p></div><div class="actions"><button id="restoreAutoVoices" hidden>自動検出Voiceを再表示</button><button id="showVoiceForm">＋ Voiceを追加</button></div></div>
+      <div id="voiceCards" class="voice-cards"></div>
+      <div id="voiceForm" class="voice-form" hidden>
+        <h3 id="voiceFormTitle">Voiceを追加</h3>
+        <div class="grid two"><label>表示名<input id="voiceName" type="text" maxlength="100"></label><label>Voice ID<input id="voiceId" type="text" maxlength="64" pattern="[0-9A-Za-z][0-9A-Za-z_-]*" spellcheck="false"></label></div>
+        <fieldset><legend>Voice形式</legend><label><input name="voiceType" type="radio" value="reference_wav" checked> Reference WAV（.wav）</label><label><input name="voiceType" type="radio" value="speaker_embedding"> Speaker Embedding（.speaker.safetensors）</label><label><input name="voiceType" type="radio" value="safetensors"> Safetensors（.safetensors / 生成未対応）</label></fieldset>
+        <label>ファイル<input id="voiceFile" type="file" accept=".wav,.speaker.safetensors,.safetensors"></label>
+        <p class="hint" id="voiceFileHint">登録時はファイルを選択してください。</p>
+        <div class="actions"><button id="registerVoice" class="primary">登録</button><button id="cancelVoiceForm">キャンセル</button></div>
+      </div>
+      <div id="deleteVoicePanel" class="voice-form danger-panel" hidden>
+        <h3 id="deleteVoiceTitle"></h3><p id="deleteVoiceReferences"></p>
+        <label id="deleteManagedLabel"><input id="deleteManagedFile" type="checkbox"> Voice登録＋Irodori管理フォルダーへコピー済みのファイルも削除</label>
+        <p class="hint">元々別フォルダーにあるWAVやEmbeddingは削除されません。</p>
+        <div class="actions"><button id="confirmDeleteVoice" class="danger">削除する</button><button id="cancelDeleteVoice">キャンセル</button></div>
+      </div>
+    </section>
+    <section class="settings-fold character-settings">
+      <div class="character-settings-head"><div><h2>キャラクター切替</h2><small class="hint">Voice管理のVoiceを自動表示します。初期状態はOFFです。本文では【結衣】のように記述し、タグ名は自由に変更できます。【】は入力不要です。</small></div><button id="toggleCharacterMappings" type="button" class="collapse-toggle" aria-expanded="true">▲ 閉じる</button></div>
+      <div id="characterMappingsPanel">
+        <div id="mappingRows" class="mapping-groups"><div class="mapping-group"><div class="mapping-group-title"><h3>使用中 <span id="activeMappingCount" class="count-badge">0</span></h3><small>現在有効なVoice</small></div><p id="activeMappingEmpty" class="hint mapping-empty" hidden>使用中のキャラクターはありません。</p><div id="activeMappingRows" class="rows"></div></div>
+        <div class="mapping-group inactive-group"><button id="toggleInactiveMappings" type="button" class="inactive-toggle" aria-expanded="false">▶ 未使用のVoice <span id="inactiveMappingCount" class="count-badge">0</span></button><div id="inactiveMappingRows" class="rows" hidden></div></div>
+        </div>
+        <div class="title-row mapping-advanced"><small class="hint">手動タグはVoice管理にない特殊なタグを追加する上級者向け機能です。</small><button id="addMapping" type="button">＋ 手動タグを追加</button></div>
+      </div>
+      <label>未登録キャラクタータグの扱い<select id="unknownTagBehavior"><option value="keep">普通の文章として読む</option><option value="read">タグ名も読んで本文を読む</option><option value="skip">未登録キャラクターの本文をスキップ</option></select></label>
+      <p class="hint">【結衣】など、Voiceを割り当てていない【タグ】が出た場合の動作です。</p>
+      <p class="hint">通常（未登録タグを普通の文章として読む設定）では、登録済みタグは次の登録済みタグが現れるまで有効です。</p>
+    </section>
+    <section>
+      <h2>ナレーション</h2>
+      <div class="checks"><label><input id="narrationEnabled" type="checkbox">ナレーションを使う</label><label><input id="characterTagPriority" type="checkbox">タグ付き会話はキャラクターVoiceを使う</label></div>
+      <div class="grid two"><label>地の文のVoice<select id="narratorVoice" class="voice-select"></select><small class="hint">ナレーションON時、会話括弧の外側に使います。</small></label><label>タグなし会話のVoice<select id="dialogueVoice" class="voice-select"></select><small class="hint">登録タグのない会話に使います。</small></label></div>
+      <label>会話として扱う括弧<textarea id="dialoguePairs" rows="3" spellcheck="false"></textarea></label>
+      <small class="hint">1行に開始括弧と終了括弧を1組ずつ入力します。例: 「」 / 『』 / （）</small>
+      <p class="hint">例: 【結衣】「やっはろー！」そう彼女は言った。→ 台詞は結衣Voice、後半は地の文のVoice。タグのない台詞はタグなし会話のVoiceを使います。</p>
+    </section>
+    <section>
+      <h2>除外ルール</h2>
+      <div class="checks"><label><input id="removeMarkdown" type="checkbox">Markdown記号を除去</label><label><input id="readUrls" type="checkbox">URLを読む</label><label><input id="readCodeBlocks" type="checkbox">コードブロックを読む</label></div>
+      <div class="grid two"><label>読まない文字列（1行1件）<textarea id="excludedStrings" rows="6"></textarea><small>未登録の【…】は通常本文として読みます。除外したい場合は、ここへ登録してください。</small></label><label>不要なUI文字（1行1件）<textarea id="unwantedUiStrings" rows="6"></textarea></label></div>
+      <div class="title-row"><h3>正規表現</h3><button id="addRegex">＋ 行を追加</button></div>
+      <div class="row-head regex-head"><span>有効</span><span>正規表現</span><span>Flags</span><span>置換</span><span></span></div>
+      <div id="regexRows" class="rows"></div>
+    </section>
+    <section>
+      <h2>長文分割</h2>
+      <div class="checks"><label><input id="longTextEnabled" type="checkbox">長文を自動分割する</label><label><input id="longTextPreserveDialogue" type="checkbox">会話の途中ではできるだけ分割しない</label><label><input id="longTextKeepCharacterTagsSeparate" type="checkbox">キャラクタータグをまたいで結合しない</label></div>
+      <div class="grid two"><label>目標最大音声長（安全側の目安）<input id="longTextTargetSeconds" type="number" min="5" max="60" step="1"></label><label>文字数上限<input id="longTextMaxChars" type="number" min="20" max="2000" step="10"></label></div>
+      <ol class="priority"><li>。！？（文末）</li><li>、（読点）</li><li>改行</li><li>最大文字数で強制分割</li></ol>
+      <p class="hint">Firefox側では分割しません。値をAPIへ渡し、既存の planner.py / splitter.py が自然な位置で分割します。</p>
+    </section>
+    <section>
+      <h2>プリセット</h2>
+      <div class="preset-grid"><select id="preset"><option value="builtin:chat">通常チャット</option><option value="builtin:character">キャラクター会話</option><option value="builtin:story">ストーリーテラー</option><option value="builtin:novel">小説朗読</option></select><button id="loadPreset">適用</button><input id="presetName" placeholder="新しいプリセット名"><button id="savePreset">現在の設定を保存</button><button id="deletePreset">削除</button></div>
+    </section>
+    <section>
+      <h2>設定のバックアップ</h2>
+      <p class="hint">Voice実体（WAV / safetensors）は含めず、Voice ID・表示名・タグ・ナレーション・engine・Dataset設定だけをJSONで保存します。</p>
+      <div class="actions"><button id="exportSettings" type="button">設定をExport</button><label class="button-like">設定をImport<input id="importSettings" type="file" accept="application/json,.json" hidden></label></div>
+      <p id="settingsTransferStatus" class="hint"></p>
+    </section>
+    <div class="bottom"><button id="save" class="primary">設定を保存</button></div>
+  </main>
+  <template id="mappingTemplate"><div class="mapping mapping-item"><div class="mapping-summary"><label class="toggle"><input data-key="enabled" type="checkbox" aria-label="有効"></label><span data-view="tag"></span><span data-view="voice"></span><button data-action="toggle-details" type="button" aria-expanded="false">›</button></div><div class="mapping-details" hidden><label>タグ名<input data-key="tag" placeholder="タグ名（例: 結衣）"></label><label>使用するVoice<select data-key="voice" class="voice-select" aria-label="使用するVoice"></select></label><button data-action="remove" type="button" class="danger">削除</button></div></div></template>
+  <template id="regexTemplate"><div class="row regex"><label class="toggle"><input data-key="enabled" type="checkbox" aria-label="有効"></label><input data-key="pattern" placeholder="正規表現"><input data-key="flags" placeholder="flags: gu"><input data-key="replacement" placeholder="置換（空欄=除去）"><button data-action="remove" class="danger">削除</button></div></template>
+  <script src="api-state.js"></script><script src="text-processor.js"></script><script src="options.js"></script>
+</body>
+</html>
