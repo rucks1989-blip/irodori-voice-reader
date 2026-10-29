@@ -146,7 +146,7 @@
     },
     {
       "path": "chrome-extension/options.html",
-      "sha256": "5eab87686fa07b62a3c9b53d8556593b505747f42504c6a36b740154995ddfab"
+      "sha256": "ec67feafb328ebcfc1b710e6fe7618d3ff22491aa842448b08d7ec709ed79dd2"
     },
     {
       "path": "chrome-extension/options.js",
@@ -174,7 +174,7 @@
     },
     {
       "path": "chrome-extension/sidebar.html",
-      "sha256": "3cc5defb96656f0a37054c5cff57c0ba8f67556cd5b765c55c0a796237d63998"
+      "sha256": "e61c41cfe848242cbb75b1724bab08385545b1341010c01d46d057483be64498"
     },
     {
       "path": "chrome-extension/sidebar.js",
@@ -182,7 +182,7 @@
     },
     {
       "path": "chrome-extension/text-processor.js",
-      "sha256": "bc5f96371021a304f8f6710c67450a224403011ccd5fa0483b41ceb171e91382"
+      "sha256": "4fc501ce3df32e33f26f73ab1d39d8ced109e56a348f03a9c86da656e40be11f"
     },
     {
       "path": "chrome-extension/voice-management.css",
@@ -254,7 +254,7 @@
     },
     {
       "path": "firefox-extension/options.html",
-      "sha256": "d32fbce36d8b8087522fc76b5686cd6526625e2a9d2c893b6400630f9ccef51f"
+      "sha256": "b26060c25ce4e7c4cc65f6ef2adcf4f5c5cbf56a0fe808219f2dbb69b069cf0d"
     },
     {
       "path": "firefox-extension/options.js",
@@ -278,7 +278,7 @@
     },
     {
       "path": "firefox-extension/sidebar.html",
-      "sha256": "3f4b576ba1f6583df39e107a8334a589b4eb3fc04bfc3ada4825b0c4785dacc5"
+      "sha256": "74fde153c9a75a4330e45fb9cb6fd3677feefe9e86c03f9782287d7d098675da"
     },
     {
       "path": "firefox-extension/sidebar.js",
@@ -286,7 +286,7 @@
     },
     {
       "path": "firefox-extension/text-processor.js",
-      "sha256": "bc5f96371021a304f8f6710c67450a224403011ccd5fa0483b41ceb171e91382"
+      "sha256": "4fc501ce3df32e33f26f73ab1d39d8ced109e56a348f03a9c86da656e40be11f"
     },
     {
       "path": "firefox-extension/voice-management.css",
@@ -505,8 +505,12 @@
       "sha256": "172e57845bb1b6fbbc2335b679c591ae30da7442d87ecb1b50d313ecfd385613"
     },
     {
+      "path": "tests/test_dialogue_scope.js",
+      "sha256": "b69f142742d50c6155767b793e501b20b839fd2c9a61bc798c223181206002fa"
+    },
+    {
       "path": "tests/test_distribution.py",
-      "sha256": "73b01d8129d88b31a4860d850e8a8baa6bd092d654f659f486da014f76e358ec"
+      "sha256": "712446808d0a91a8c521badc502c978b7d3d2dc5ba7232d6ef8af989b831741a"
     },
     {
       "path": "tests/test_installer_windows.py",

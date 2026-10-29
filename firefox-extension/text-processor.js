@@ -675,7 +675,26 @@
     if (!settings.narrationEnabled) return [segment];
     const pairs = configuredDialoguePairs(settings);
     const explicitSpeaker = Boolean(segment && segment.explicitSpeaker);
+    // A character tag owns only the immediately following dialogue group.
+    // Whitespace separates quotes visually; prose ends the speaker scope.
+    let speakerActive = explicitSpeaker;
     const makePart = (text, dialogue) => {
+      if (!dialogue && text.trim() && !segment.narration) speakerActive = false;
+      if (dialogue && explicitSpeaker && !speakerActive) {
+        return {
+          ...segment,
+          text,
+          voice: settings.dialogueVoice || settings.defaultVoice,
+          tag: "",
+          tagged: false,
+          mappedVoice: "",
+          explicitSpeaker: false,
+          speakerState: "",
+          tagResolution: "",
+          narration: false,
+          dialogue: true
+        };
+      }
       if (explicitSpeaker) {
         if (segment.narration || !dialogue) {
           return {
