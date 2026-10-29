@@ -194,6 +194,7 @@ function render(config, rebuildRows = true) {
   for (const id of ["narrationEnabled", "characterTagPriority", "removeMarkdown", "readUrls", "readCodeBlocks", "longTextEnabled"]) $(id).checked = Boolean(current[id]);
   for (const id of ["defaultVoice", "narratorVoice", "dialogueVoice"]) setVoiceOptions($(id), current[id]);
   $("unknownTagBehavior").value = current.unknownTagBehavior;
+  for (const id of ["speakerTagOpen", "speakerTagClose"]) $(id).value = current[id];
   $("dialoguePairs").value = (current.dialoguePairs || []).join("\n");
   $("excludedStrings").value = (current.excludedStrings || []).join("\n");
   $("unwantedUiStrings").value = (current.unwantedUiStrings || []).join("\n");
@@ -217,6 +218,7 @@ function collect(validate = true) {
   value.timingDebug = $("timingDebug").checked;
   for (const id of ["defaultVoice", "narratorVoice", "dialogueVoice", "unknownTagBehavior"]) value[id] = $(id).value;
   value.wavSaveDirectory = $("wavSaveDirectory").value.trim();
+  for (const id of ["speakerTagOpen", "speakerTagClose"]) value[id] = $(id).value;
   value.dialoguePairs = lines("dialoguePairs");
   value.excludedStrings = lines("excludedStrings");
   value.unwantedUiStrings = lines("unwantedUiStrings");
@@ -572,9 +574,9 @@ $("validateWavSaveDirectory").addEventListener("click", async () => {
     await saveNow();
   }
 });
-for (const id of ["defaultVoice", "narratorVoice", "dialogueVoice", "narrationEnabled", "characterTagPriority", "unknownTagBehavior", "removeMarkdown", "readUrls", "readCodeBlocks", "longTextEnabled", "dialoguePairs", "excludedStrings", "unwantedUiStrings"]) {
+for (const id of ["defaultVoice", "narratorVoice", "dialogueVoice", "narrationEnabled", "characterTagPriority", "unknownTagBehavior", "removeMarkdown", "readUrls", "readCodeBlocks", "longTextEnabled", "speakerTagOpen", "speakerTagClose", "dialoguePairs", "excludedStrings", "unwantedUiStrings"]) {
   $(id).addEventListener("change", scheduleSave);
-  if (["dialoguePairs", "excludedStrings", "unwantedUiStrings"].includes(id)) $(id).addEventListener("input", scheduleSave);
+  if (["speakerTagOpen", "speakerTagClose", "dialoguePairs", "excludedStrings", "unwantedUiStrings"].includes(id)) $(id).addEventListener("input", scheduleSave);
 }
 for (const input of document.querySelectorAll('input[name="engine"]')) input.addEventListener("change", () => {
   if (input.checked && input.value !== (pendingEngine || current.engine)) selectEngine(input.value);

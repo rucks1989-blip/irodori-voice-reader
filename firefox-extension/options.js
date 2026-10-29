@@ -13,7 +13,7 @@ let engineStorageSyncSequence = 0;
 let lastSavedSettings = null;
 let settingsEditorReady = false;
 
-const scalarIds = ["unknownTagBehavior", "longTextTargetSeconds", "longTextMaxChars", "wavSaveDirectory"];
+const scalarIds = ["speakerTagOpen", "speakerTagClose", "unknownTagBehavior", "longTextTargetSeconds", "longTextMaxChars", "wavSaveDirectory"];
 const checkIds = ["chatgptEnabled", "geminiEnabled", "museEnabled", "autoPlay", "wavSaveEnabled", "timingDebug", "narrationEnabled", "characterTagPriority", "removeMarkdown", "readUrls", "readCodeBlocks", "longTextEnabled", "longTextPreserveDialogue", "longTextKeepCharacterTagsSeparate"];
 const voiceIds = ["defaultVoice", "narratorVoice", "dialogueVoice"];
 

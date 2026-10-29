@@ -109,6 +109,11 @@
           </div>
           <div class="mapping-advanced"><small>手動タグはVoice管理にない特殊なタグを追加する上級者向け機能です。</small><button id="addMapping" type="button">＋ 手動タグを追加</button></div>
         </div>
+        <div class="speaker-tag-settings">
+          <label>話者タグの開始記号<input id="speakerTagOpen" type="text" placeholder="【"></label>
+          <label>話者タグの終了記号<input id="speakerTagClose" type="text" placeholder="】"></label>
+          <p class="hint">話者タグ専用の設定です。会話の括弧とは独立しています。空欄の場合は【】を使います。</p>
+        </div>
         <label><span>未登録キャラクタータグの扱い</span><select id="unknownTagBehavior"><option value="keep">普通の文章として読む</option><option value="read">タグ名も読んで本文を読む</option><option value="skip">未登録キャラクターの本文をスキップ</option></select></label>
         <small>【結衣】など、Voiceを割り当てていない【タグ】が出た場合の動作です。</small>
         <small>通常（未登録タグを普通の文章として読む設定）では、登録済みタグは次の登録済みタグが現れるまで有効です。</small>

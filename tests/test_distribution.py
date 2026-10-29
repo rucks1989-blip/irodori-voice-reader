@@ -37,6 +37,11 @@ class DistributionTests(unittest.TestCase):
         self.assertIn('"今日はいい天気" → kurisu', result.stdout)
         self.assertIn("ON/OFF matrix", result.stdout)
 
+    @unittest.skipUnless(shutil.which("node"), "Node.js is unavailable")
+    def test_custom_speaker_delimiters(self):
+        result = subprocess.run([shutil.which("node"), str(ROOT / "tests/test_speaker_delimiters.js")], cwd=ROOT, capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
     def test_extension_ids_and_versions(self):
         chrome = json.loads((ROOT / "chrome-extension/manifest.json").read_text(encoding="utf8"))
         firefox = json.loads((ROOT / "firefox-extension/manifest.json").read_text(encoding="utf8"))

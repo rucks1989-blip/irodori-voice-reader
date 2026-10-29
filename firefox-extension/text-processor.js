@@ -58,6 +58,8 @@
     narratorVoice: "",
     dialogueVoice: "yui",
     characterTagPriority: true,
+    speakerTagOpen: "【",
+    speakerTagClose: "】",
     dialoguePairs: ["「」", "『』"],
     longTextEnabled: true,
     longTextTargetSeconds: 25,
@@ -145,6 +147,11 @@
       : ENGINE_ENDPOINTS[merged.engine];
     const behavior = String(merged.unknownTagBehavior || "keep").toLowerCase();
     merged.unknownTagBehavior = behavior === "skip" ? "skip" : (behavior === "read" ? "read" : "keep");
+    // Blank/invalid delimiters fall back as a pair for legacy settings.
+    const delimiters = [merged.speakerTagOpen, merged.speakerTagClose];
+    const valid = delimiters.every((value) => typeof value === "string" && value.trim() && !/[\r\n]/.test(value));
+    merged.speakerTagOpen = valid ? delimiters[0] : "【";
+    merged.speakerTagClose = valid ? delimiters[1] : "】";
     merged.schemaVersion = 1;
     merged.characterMappings = Array.isArray(merged.characterMappings)
       ? merged.characterMappings.filter((item) => item && item.tag && item.voice).map((item) => ({
@@ -385,7 +392,7 @@
     const value = mergedSettings(settings);
     const keys = ["schemaVersion", "settingsVersion", "apiMode", "customApiUrl", "engine", "defaultVoice",
       "voiceDisplayNames", "voiceEngineOverrides", "characterMappings", "unknownTagBehavior", "narrationEnabled",
-      "narratorVoice", "dialogueVoice", "characterTagPriority", "dialoguePairs", "wavSaveEnabled",
+      "narratorVoice", "dialogueVoice", "characterTagPriority", "speakerTagOpen", "speakerTagClose", "dialoguePairs", "wavSaveEnabled",
       "wavSaveDirectory", "presets", "currentPreset"];
     return Object.fromEntries(keys.filter((key) => value[key] !== undefined).map((key) => [key, value[key]]));
   }
@@ -570,7 +577,24 @@
   }
 
   function tagSegments(text, settings) {
-    const matches = [...text.matchAll(/【([^】\n]+)】/g)];
+    // Literal scanning supports regex punctuation and multi-character markers.
+    const matches = [];
+    const open = settings.speakerTagOpen;
+    const close = settings.speakerTagClose;
+    let offset = 0;
+    while (offset < text.length) {
+      const start = text.indexOf(open, offset);
+      if (start < 0) break;
+      const end = text.indexOf(close, start + open.length);
+      if (end < 0) break;
+      const tag = text.slice(start + open.length, end);
+      if (tag.trim() && !/[\r\n]/.test(tag)) {
+        const match = [text.slice(start, end + close.length), tag];
+        match.index = start;
+        matches.push(match);
+      }
+      offset = end + close.length;
+    }
     if (!matches.length) return [{ text, voice: settings.defaultVoice, tagged: false }];
     const unknownBehavior = settings.unknownTagBehavior === "skip" || settings.unknownTagBehavior === "read"
       ? settings.unknownTagBehavior : "keep";
