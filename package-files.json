@@ -78,7 +78,7 @@
     },
     {
       "path": "chrome-extension/adapters.js",
-      "sha256": "78ff4150db5677582bc0cde28f8ecf008e190d3a9159a4f49cf8454a4d3cef45"
+      "sha256": "8535bb82de90f3b70f1c92a0addc1d94a77a1420a631107211152963e1547fa4"
     },
     {
       "path": "chrome-extension/api-state.js",
@@ -94,7 +94,7 @@
     },
     {
       "path": "chrome-extension/chatgpt-watcher.js",
-      "sha256": "9b9953c87c7eb8035599643ae585996f95bef630587e22fdbc14d65450232466"
+      "sha256": "09568cf6dcb6a97811c4132751367e7cd086ac5d2347f649c5149ef79b171b9c"
     },
     {
       "path": "chrome-extension/chrome-compat.js",
@@ -102,7 +102,7 @@
     },
     {
       "path": "chrome-extension/content.js",
-      "sha256": "34dd4e5631c4d720e09b3d913ebac54ed84f44c17ea29ccfc8dada19698743b8"
+      "sha256": "e0b179214d82aff11266a16befb7d306701e9cdedde2fd35a189a8986aa9367c"
     },
     {
       "path": "chrome-extension/engine-picker.css",
@@ -210,7 +210,7 @@
     },
     {
       "path": "docs/integration-validation.md",
-      "sha256": "dec68bd934d8287413ad697d7a3a3b1f53c4d844fb3cb6996207b0613cb63c4c"
+      "sha256": "5f06c8b50eece50c14fa3547eda90c416d8fe76823d846b9155011dd2995e9fd"
     },
     {
       "path": "docs/version-audit.md",
@@ -478,7 +478,7 @@
     },
     {
       "path": "README.md",
-      "sha256": "cefc683f624595daacb5587971a1abf3e4e2d5571ea68200f0f2e6517c957e58"
+      "sha256": "f58337039bddd19ae5c3585a44167b8b8b3dd7035b18e4eac0752b04c69f4e49"
     },
     {
       "path": "RELEASE_NOTES.md",
@@ -490,11 +490,11 @@
     },
     {
       "path": "scripts/common.ps1",
-      "sha256": "d28b38f926e6023511055e6e18cf9385c6b9c66688a2766b894d5b1aa4bf4930"
+      "sha256": "44d8f5649d26a3a459abd7f6da8223729cb1a27d159425fdb1031a7185a88b27"
     },
     {
       "path": "scripts/configure-chrome.ps1",
-      "sha256": "d4dfc1a3738b62440c9b25f2d9d60af2ee70d4bd830fe861ce00115ef01b0b6b"
+      "sha256": "2af54d49894f94124a7eb8f04dbe569f8d67672b7d1ea4c9e5a7ee26f55e93a4"
     },
     {
       "path": "scripts/install-files.ps1",
@@ -522,7 +522,7 @@
     },
     {
       "path": "scripts/setup-dialog.cs",
-      "sha256": "2d971dd13e0fc170f52ac8f8ebab6f74a7b44ba1c8553d50a1345b36efdefee5"
+      "sha256": "e1ff29f91817e7e5cb6ffdba7c3a4b22a8f745215d63ebfb16319072aa73b6f7"
     },
     {
       "path": "scripts/setup-job.cs",
@@ -530,7 +530,7 @@
     },
     {
       "path": "scripts/setup.ps1",
-      "sha256": "4749ddef55494b931638dd2a75bbf3012a74927c0aba99373c0372ff424d853c"
+      "sha256": "b9f9c69169eb157fafa54d0b92d355f6a17e6e2dbbbadc95d3a8948182a9fc5f"
     },
     {
       "path": "scripts/support.ps1",
@@ -562,11 +562,11 @@
     },
     {
       "path": "tests/test_distribution.py",
-      "sha256": "d7337dc60b0139aa7e288cd4ea20a6fb4e2ee301bd71c4cb7b03e3dccd3bbb48"
+      "sha256": "6db0918461557c334f29be698cf206973fab78a4d7ff3472ea64d0e1f573d908"
     },
     {
       "path": "tests/test_installer_windows.py",
-      "sha256": "76f25ff98f4531393cf5690fe06f086b8365506a8a4081dae3e74c0cb1381bd4"
+      "sha256": "6b2ae55282e07ee21ef65498bc7ca1e8ab186d88e6c1d7f6057b8ec8e88e06af"
     },
     {
       "path": "tests/test_isolated_pipeline.py",

@@ -1,14 +1,58 @@
 ﻿[CmdletBinding()]
-param([string]$InstallRoot=(Join-Path $env:LOCALAPPDATA 'IrodoriVoiceReader\App'),[switch]$CheckOnly,[ValidateSet('auto','cpu','cuda')][string]$Backend='auto',[switch]$NewEnvironment,[ValidateSet('prompt','chrome','firefox','both')][string]$Browsers='prompt',[switch]$Unattended,[string]$ModelPath='',[string]$ReferenceWav='',[switch]$NoOpenGuide,[string]$BackendDirectory='', [ValidateSet('prompt','skip','prebuilt','build')][string]$StableMode='prompt',[string]$StableBackendDirectory='')
+param([string]$InstallRoot='',[switch]$CheckOnly,[ValidateSet('auto','cpu','cuda')][string]$Backend='auto',[switch]$NewEnvironment,[ValidateSet('prompt','chrome','firefox','both')][string]$Browsers='prompt',[switch]$Unattended,[string]$ModelPath='',[string]$ReferenceWav='',[switch]$NoOpenGuide,[string]$BackendDirectory='', [ValidateSet('prompt','skip','prebuilt','build')][string]$StableMode='prompt',[string]$StableBackendDirectory='')
 . (Join-Path $PSScriptRoot 'common.ps1')
 . (Join-Path $PSScriptRoot 'install-files.ps1')
 $SourceRoot=Split-Path -Parent $PSScriptRoot
 $manifest=Get-Content (Join-Path $SourceRoot 'distribution.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+$InstallRootExplicit=$PSBoundParameters.ContainsKey('InstallRoot')
+if(-not $InstallRoot){$InstallRoot=Join-Path $env:LOCALAPPDATA 'IrodoriVoiceReader\App'}
 $InstallRoot=Assert-LocalDirectory $InstallRoot
-$StateRoot=Join-Path $env:LOCALAPPDATA 'IrodoriVoiceReader\Installer'
+$SessionRoot=Join-Path $env:LOCALAPPDATA 'IrodoriVoiceReader\Installer'
+$StateRoot=$SessionRoot
 $statePath=Join-Path $StateRoot 'state.json'
 $ApiPort=8765;$BackendPort=8091
-$step='開始前';$ownedPids=@();$lock=$null
+$step='開始前';$ownedPids=@();$lock=$null;$stableInstalled=$false;$stableNoticeShown=$false
+function Get-InstallBaseDefault {
+    $locationPath=Join-Path $SessionRoot 'location.json'
+    if(Test-Path -LiteralPath $locationPath){
+        try{
+            $saved=Get-Content $locationPath -Raw -Encoding UTF8 | ConvertFrom-Json
+            if($saved.base -and (Test-Path -LiteralPath $saved.base -PathType Container)){return (Assert-LocalDirectory $saved.base)}
+        }catch{}
+    }
+    return (Assert-LocalDirectory (Split-Path -Parent $InstallRoot))
+}
+function Get-FreeSpace([string]$Path){
+    $drive=New-Object IO.DriveInfo([IO.Path]::GetPathRoot([IO.Path]::GetFullPath($Path)))
+    return [long]$drive.AvailableFreeSpace
+}
+function Select-InstallBase([string]$DefaultBase,[switch]$Prompt,[switch]$KeepRoot){
+    $candidate=Assert-LocalDirectory $DefaultBase
+    if($Prompt){
+        $choice=Show-SetupDialog 'directory' 'Irodori Voice Reader の保存先を選択してください。空き容量を確認し、この場所に専用フォルダーを作成します。' '' $candidate
+        if($choice -eq 'cancel'){throw [OperationCanceledException]::new('保存先の選択を中止しました。')}
+        $candidate=Assert-LocalDirectory $choice
+    }
+    while($true){
+        if(-not $KeepRoot -and $candidate -match '^[A-Za-z]:\\$' -and (Split-Path -Leaf $candidate) -notmatch 'IrodoriVoiceReader'){
+            $candidate=Assert-LocalDirectory (Join-Path $candidate 'IrodoriVoiceReader')
+        }
+        if((Get-FreeSpace $candidate) -ge 5GB){return $candidate}
+        if($Unattended){throw '保存先に最低5GBの空き容量が必要です。空き容量のあるフォルダーを指定して再実行してください。'}
+        [void](Show-SetupDialog 'notice' "選択した保存先の空き容量が5GB未満です。`r`n別のドライブまたはフォルダーを選択してください。`r`n`r`n現在の保存先: $candidate")
+        $choice=Show-SetupDialog 'directory' 'Irodori Voice Reader の保存先を選択してください。空き容量を確認し、この場所に専用フォルダーを作成します。' '' $candidate
+        if($choice -eq 'cancel'){throw [OperationCanceledException]::new('保存先の選択を中止しました。')}
+        $candidate=Assert-LocalDirectory $choice
+    }
+}
+function Show-StableAbsentNotice([switch]$Dialog){
+    if($stableInstalled){return}
+    $message='声質安定版はインストールされていません。通常版のみ利用できます。'
+    if(-not $stableNoticeShown){Write-Host $message -ForegroundColor Yellow;$script:stableNoticeShown=$true}
+    if($Dialog -and -not $Unattended){
+        [void](Show-SetupDialog 'notice' ($message+"`r`n`r`n声質安定版が必要な場合は、setup.batを再実行し、声質安定版の完成品を使用するか任意ビルドを選んでください。`r`n既存の通常版環境と声の設定は変更しません。"))
+    }
+}
 function Confirm-Install([string]$Message){
     if($Unattended){Write-Host ('承諾済みの通常セットアップ処理: '+$Message);return $true}
     return Confirm $Message
@@ -45,6 +89,7 @@ function Write-Guide([bool]$VoiceReady){
     New-Item -ItemType Directory -Force -Path $folder | Out-Null
     $chrome=[Security.SecurityElement]::Escape((Join-Path $InstallRoot 'chrome-extension'))
     $voice=if($VoiceReady){'音声生成テスト：導入済みモードのWAV生成成功'}else{'音声生成テスト：未実施。使う声の登録が必要です。準備完了とは別の確認項目です。'}
+    $stableGuide=if($stableInstalled){'<p>声質安定版もインストールされています。</p>'}else{'<p><strong>声質安定版はインストールされていません。</strong>通常版のみ利用できます。声質安定版が必要な場合は、setup.batを再実行し、声質安定版の完成品を使用するか任意ビルドを選んでください。既存の通常版環境と声の設定は変更しません。</p>'}
     $firefoxGuide=if($Browsers -in @('firefox','both')){'<section><h2>Firefox</h2><p>独立環境のソースと firefox-isolated-unsigned.xpi を作成しました。未署名のため通常版Firefoxへの恒久導入はまだできません。既存の署名済みXPIはこの独立環境へ流用しません。署名工程は未解決です。</p></section>'}else{''}
     $chromeGuide=if($Browsers -in @('chrome','both')){@"
 <section><h2>Chrome</h2><ol><li>アドレス欄に <code>chrome://extensions/</code> と入力して開きます。</li><li>右上の「デベロッパー モード」をONにします。</li><li>「パッケージ化されていない拡張機能を読み込む」を押します。</li><li>下の場所をコピーし、フォルダー選択画面でこのフォルダーを選びます。</li></ol>
@@ -55,6 +100,7 @@ function Write-Guide([bool]$VoiceReady){
 <!doctype html><html lang="ja"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Irodori Voice Reader 導入の最後の手順</title>
 <style>body{font:17px/1.8 system-ui;background:#f4f3fa;color:#252036;max-width:900px;margin:30px auto;padding:20px}section{background:white;padding:24px;border-radius:12px;margin:20px 0}button,a{padding:8px}input{width:95%;padding:10px}strong{color:#6032a5}</style>
 <h1>あと少し：拡張機能を自分で追加します</h1><p>ローカル環境の準備は終了しました。<strong>拡張機能の追加はまだです。</strong></p><p>$voice</p>
+$stableGuide
 $chromeGuide
 
 $firefoxGuide
@@ -67,7 +113,7 @@ $firefoxGuide
 try{
     if(-not[Environment]::Is64BitOperatingSystem -or $env:PROCESSOR_ARCHITECTURE -eq 'ARM64'){throw 'この試験版はWindows x64用です。ARM64版ではありません。'}
     $gpu=Get-Gpu
-    Write-Host "Irodori Voice Reader セットアップ $($manifest.version)`nGPU: $($gpu.name)`n保存先: $InstallRoot"
+    Write-Host "Irodori Voice Reader セットアップ $($manifest.version)`nGPU: $($gpu.name)"
     if($CheckOnly){
         Write-Host "Python 3.12 x64: $([bool](Get-Python))"
         foreach($port in @(8765,8091)){Write-Host "ポート$port 使用中: $([bool](Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue))"}
@@ -75,52 +121,70 @@ try{
     }
     if($Unattended -and $Browsers -eq 'prompt'){throw '自動実行では-Browsers chrome/firefox/bothを明示してください。'}
     if($Browsers -eq 'prompt'){$Browsers=Select-Browsers}
-    $sessionFile=Join-Path $StateRoot ($Browsers+'-session.json')
+    $sessionFile=Join-Path $SessionRoot ($Browsers+'-session.json')
     $session=$null
     if(Test-Path $sessionFile){$session=Get-Content $sessionFile -Raw -Encoding UTF8 | ConvertFrom-Json}
+    $resume=$false
     if($session -and -not $NewEnvironment -and $session.browsers -eq $Browsers){
         $action=if($Unattended){'resume'}else{Show-SetupDialog 'installation' ("前回の環境: "+$session.installRoot+"`r`n続きから再開するか、新しい別環境を作るか選んでください。")}
-        if($action -eq 'resume'){$InstallRoot=Assert-LocalDirectory $session.installRoot}
+        if($action -eq 'resume'){$resume=$true}
         elseif($action -eq 'new'){$NewEnvironment=$true}
         else{Write-Host '中止しました。';exit 0}
     }
-    $drive=New-Object IO.DriveInfo([IO.Path]::GetPathRoot($InstallRoot))
-    if($drive.AvailableFreeSpace -lt 5GB){
-        if($Unattended){throw '保存先に最低5GBの空き容量が必要です。-InstallRootで別ドライブを指定してください。'}
-        $alternative=Show-SetupDialog 'directory' '保存先ドライブの空き容量が5GB未満です。「参照」から空き容量のあるドライブのフォルダーを選択してください。'
-        if($alternative -eq 'cancel'){throw '保存先の選択を中止しました。'}
-        $InstallRoot=Assert-LocalDirectory (Join-Path $alternative 'IrodoriVoiceReader\App')
-        $drive=New-Object IO.DriveInfo([IO.Path]::GetPathRoot($InstallRoot))
-        if($drive.AvailableFreeSpace -lt 5GB){throw '選択したドライブにも5GB以上の空き容量が必要です。'}
+    if($resume){
+        if($session.PSObject.Properties['version'] -and $session.version -ne $manifest.version){throw '前回のセットアップと版が異なります。新規作成はsetup.bat -NewEnvironmentで開始してください。'}
+        $InstallRoot=Assert-LocalDirectory $session.installRoot
+        $ApiPort=[int]$session.apiPort;$BackendPort=[int]$session.backendPort
+        $InstallBase=Assert-LocalDirectory (Split-Path -Parent $InstallRoot)
+        if((Get-FreeSpace $InstallRoot) -lt 5GB){
+            $message="前回の保存先に5GB以上の空き容量がありません。`r`n既存環境は変更していません。`r`n空き容量を確保するか、setup.bat -NewEnvironment で別の保存先を選んでください。`r`n`r`n保存先: $InstallRoot"
+            if($Unattended){throw $message}
+            [void](Show-SetupDialog 'notice' $message)
+            throw '前回の保存先の空き容量が不足しています。'
+        }
+    }else{
+        $InstallBase=if($InstallRootExplicit){Assert-LocalDirectory (Split-Path -Parent $InstallRoot)}elseif($session){Assert-LocalDirectory (Split-Path -Parent $session.installRoot)}else{Get-InstallBaseDefault}
+        if(-not $Unattended -and -not $InstallRootExplicit){
+            $InstallBase=Select-InstallBase $InstallBase -Prompt
+        }else{
+            $InstallBase=Select-InstallBase $InstallBase -KeepRoot:$InstallRootExplicit
+        }
+        try{Save-Json (Join-Path $SessionRoot 'location.json') @{base=$InstallBase}}catch{}
+        $detected=@(Get-ExistingEnvironment)
+        $detail=if($detected.Count){$detected -join "`r`n"}else{'既存環境は検出されませんでした。'}
+        $InstallRoot=Join-Path $InstallBase (($Browsers+'-')+[guid]::NewGuid().ToString('N').Substring(0,12))
+        $ApiPort=Find-FreePort 18765
+        $BackendPort=Find-FreePort 18091
+        if(-not(Confirm-Install "$detail`r`n`r`n既存環境を変更せず、選択したブラウザー ($Browsers) の新しい環境を作成しますか？`r`n保存先: $InstallRoot`r`nAPI: $ApiPort / audio.cpp: $BackendPort`r`n各ブラウザーに専用の拡張IDとNative Hostを作成します。`r`n`r`n・モデル約1.09GB、専用Python環境、音声生成プログラムもこの保存先に準備します。`r`n・完成品を優先します。不足時は取得・任意ビルド・中止から選べます。`r`n・後半で確認後に現在のWindowsユーザーへブラウザー接続ヘルパーを登録します。`r`n・拡張機能の追加は最後にご自身で行います。`r`n・音声や診断情報を自動送信しません。`r`n`r`nLICENSEとTHIRD_PARTY_NOTICES.mdの利用条件、および利用権限のある音声のみを使うことを確認してください。")){Write-Host '中止しました。';exit 0}
+        $session=@{installRoot=$InstallRoot;apiPort=$ApiPort;backendPort=$BackendPort;browsers=$Browsers;version=$manifest.version}
+        Save-Json $sessionFile $session
     }
-    if(-not(Confirm-Install "Irodori Voice Readerの導入を開始しますか？`r`n`r`n保存先は次の確認画面で表示します。`r`n・モデル約1.09GB、専用Python環境、音声生成プログラムを準備します。`r`n・完成品を優先します。不足時は取得・任意ビルド・中止から選べます。`r`n・後半で確認後に現在のWindowsユーザーへブラウザー接続ヘルパーを登録します。`r`n・拡張機能の追加は最後にご自身で行います。`r`n・音声や診断情報を自動送信しません。`r`n`r`nLICENSEとTHIRD_PARTY_NOTICES.mdの利用条件、および利用権限のある音声のみを使うことを確認してください。")){Write-Host '中止しました。';exit 0}
-    New-Item -ItemType Directory -Force -Path $StateRoot | Out-Null
-    try{$lock=[IO.File]::Open((Join-Path $StateRoot 'setup.lock'),'OpenOrCreate','ReadWrite','None')}catch{throw '別のセットアップが実行中です。終了後に再試行してください。'}
+    New-Item -ItemType Directory -Force -Path $SessionRoot | Out-Null
+    try{$lock=[IO.File]::Open((Join-Path $SessionRoot 'setup.lock'),'OpenOrCreate','ReadWrite','None')}catch{throw '別のセットアップが実行中です。終了後に再試行してください。'}
+    $env:IVR_SETUP_LOG_ROOT=$SessionRoot
+    Write-Host ("保存先: "+$InstallRoot)
     if(-not $Unattended){Start-SetupCancellation}else{
         if(-not ('IvrSetupJob' -as [type])){Add-Type -Path (Join-Path $PSScriptRoot 'setup-job.cs')}
         $script:SetupJob=New-Object IvrSetupJob
     }
-    $env:IVR_SETUP_LOG_ROOT=$StateRoot
-    if($session -and -not $NewEnvironment -and $session.browsers -eq $Browsers){
-        if($session.PSObject.Properties['version'] -and $session.version -ne $manifest.version){throw '前回のセットアップと版が異なります。新規作成はsetup.bat -NewEnvironmentで開始してください。'}
-        $InstallRoot=Assert-LocalDirectory $session.installRoot
-        $ApiPort=[int]$session.apiPort;$BackendPort=[int]$session.backendPort
-    }else{
-        $detected=@(Get-ExistingEnvironment)
-        $detail=if($detected.Count){$detected -join "`r`n"}else{'既存環境は検出されませんでした。'}
-        $InstallRoot=Join-Path (Split-Path $InstallRoot -Parent) (($Browsers+'-')+[guid]::NewGuid().ToString('N').Substring(0,12))
-        $ApiPort=Find-FreePort 18765
-        $BackendPort=Find-FreePort 18091
-        if(-not(Confirm-Install "$detail`r`n`r`n既存環境を変更せず、選択したブラウザー ($Browsers) の新しい環境を作成しますか？`r`n保存先: $InstallRoot`r`nAPI: $ApiPort / audio.cpp: $BackendPort`r`n各ブラウザーに専用の拡張IDとNative Hostを作成します。")){Write-Host '中止しました。';exit 0}
-        $session=@{installRoot=$InstallRoot;apiPort=$ApiPort;backendPort=$BackendPort;browsers=$Browsers;version=$manifest.version}
-        Save-Json $sessionFile $session
-    }
     Assert-FreePorts @($ApiPort,$BackendPort)
-    Set-Step '1/7 配布ファイルを検査して配置'
+    # Copy-Application must see a new/empty target. The installer state folder
+    # is created only after its marker has been written.
+    $step='1/7 配布ファイルを検査して配置'
+    Write-Host "`n=== $step ===" -ForegroundColor Cyan
     Copy-Application -SourceRoot $SourceRoot -InstallRoot $InstallRoot -Version $manifest.version
     $StateRoot=Join-Path $InstallRoot 'installer-state'
     $statePath=Join-Path $StateRoot 'state.json'
+    New-Item -ItemType Directory -Force -Path $StateRoot | Out-Null
+    New-Item -ItemType Directory -Force -Path (Join-Path $StateRoot 'temp') | Out-Null
+    New-Item -ItemType Directory -Force -Path (Join-Path $StateRoot 'pip-cache') | Out-Null
     $env:IVR_SETUP_LOG_ROOT=$StateRoot
+    $env:TEMP=Join-Path $StateRoot 'temp'
+    $env:TMP=$env:TEMP
+    $env:PIP_CACHE_DIR=Join-Path $StateRoot 'pip-cache'
+    $env:PIP_TMPDIR=$env:TEMP
+    $env:UV_CACHE_DIR=Join-Path $StateRoot 'pip-cache'
+    Save-Json $statePath @{version=$manifest.version;step=$step;error='';completed=$false}
     $api=Join-Path $InstallRoot 'irodori-api'
     & (Join-Path $PSScriptRoot 'configure-chrome.ps1') -InstallRoot $InstallRoot -ApiPort $ApiPort -BackendPort $BackendPort
     Set-Step '2/7 専用Pythonの準備'
@@ -134,7 +198,7 @@ try{
     }
     $venv=Join-Path $api '.venv\Scripts\python.exe'
     if(-not(Test-Path $venv)){Run $python @('-m','venv',(Join-Path $api '.venv'))}
-    Run $venv @('-m','pip','--isolated','install','--disable-pip-version-check','--only-binary=:all:','--index-url','https://pypi.org/simple','-r',(Join-Path $api 'requirements.txt'))
+    Run $venv @('-m','pip','--isolated','--cache-dir',(Join-Path $StateRoot 'pip-cache'),'install','--disable-pip-version-check','--only-binary=:all:','--index-url','https://pypi.org/simple','-r',(Join-Path $api 'requirements.txt'))
     Set-Step '3/7 モデルの取得（再開できます）'
     $model=Join-Path $api ('models\'+$manifest.model.name)
     if(-not(Test-Path $model)){
@@ -319,8 +383,9 @@ try{
     if(-not(Confirm-Install "選択したブラウザー ($Browsers) の専用接続ヘルパーを現在のWindowsユーザーに登録しますか？`r`n専用フォルダーを使用します。既存Native Host登録は上書きしません。")){throw 'ヘルパーは未登録です。setup.batから再開できます。'}
     & (Join-Path $PSScriptRoot 'register-hosts.ps1') -InstallRoot $InstallRoot -Browsers $Browsers
     Set-Step '7/7 拡張機能を追加する案内'
-    Save-Json (Join-Path $InstallRoot '.ivr-install.json') @{version=$manifest.version;state='runtime-ready';voiceTest=$voiceReady}
-    Save-Json $statePath @{version=$manifest.version;step='ローカル環境の準備完了・拡張機能の手動追加待ち';error='';completed=$true;voiceTest=$voiceReady}
+    Save-Json (Join-Path $InstallRoot '.ivr-install.json') @{version=$manifest.version;state='runtime-ready';voiceTest=$voiceReady;voiceStable=$stableInstalled}
+    Save-Json $statePath @{version=$manifest.version;step='ローカル環境の準備完了・拡張機能の手動追加待ち';error='';completed=$true;voiceTest=$voiceReady;voiceStable=$stableInstalled}
+    Show-StableAbsentNotice -Dialog
     Write-Guide $voiceReady
     Write-Host 'ローカル環境の準備が完了しました。ブラウザーで最後の追加手順を確認してください。' -ForegroundColor Green
 }catch{

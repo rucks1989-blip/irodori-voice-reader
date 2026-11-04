@@ -39,6 +39,38 @@ class InstallerWindowsTests(unittest.TestCase):
         if value["gpu"]["arch"]:
             self.assertRegex(value["gpu"]["arch"], r"^\d{2,3}$")
 
+    def test_location_selection_helpers_without_installing(self):
+        code, out, err = ps(r"""
+        . './scripts/common.ps1'
+        $ast=[System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path './scripts/setup.ps1'),[ref]$null,[ref]$null)
+        foreach($name in @('Select-InstallBase','Get-InstallBaseDefault')){
+            $fn=$ast.Find({param($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq $name},$true)
+            Invoke-Expression $fn.Extent.Text
+        }
+        $script:choices=New-Object 'Collections.Generic.Queue[string]'
+        $script:choices.Enqueue('D:\')
+        $script:choices.Enqueue('D:\chosen')
+        $script:calls=New-Object 'Collections.Generic.List[string]'
+        function Show-SetupDialog($Kind,$Message,$Filter,$Default){
+            $script:calls.Add($Kind)
+            if($Kind -eq 'notice'){return 'ok'}
+            return $script:choices.Dequeue()
+        }
+        function Get-FreeSpace($Path){if($Path -eq 'D:\IrodoriVoiceReader'){return 1GB};return 10GB}
+        $Unattended=$false
+        $selected=Select-InstallBase 'D:\default' -Prompt
+        if($selected -ne 'D:\chosen'){throw 'Selection failed'}
+        if(($script:calls -join ',') -ne 'directory,notice,directory'){throw 'Low-space retry failed'}
+        $Unattended=$true
+        if((Select-InstallBase 'D:\' -KeepRoot) -ne 'D:\'){throw 'Explicit root changed'}
+        try{Select-InstallBase 'D:\IrodoriVoiceReader';throw 'Expected low-space rejection'}catch{
+            if($_.Exception.Message -notmatch '5GB'){throw}
+        }
+        Write-Output 'location selection verified'
+        """)
+        self.assertEqual(code, 0, out + err)
+        self.assertIn('location selection verified', out)
+
     def test_automatic_backend_prefers_detected_nvidia_gpu(self):
         code, out, err = ps(". './scripts/common.ps1'; @( (Get-BackendChoice 'auto' '86'), (Get-BackendChoice 'auto' ''), (Get-BackendChoice 'cpu' '86'), (Get-BackendChoice 'cuda' '86') ) | ConvertTo-Json -Compress")
         self.assertEqual(code, 0, out + err)
@@ -56,6 +88,8 @@ class InstallerWindowsTests(unittest.TestCase):
             self.assertEqual(code, 0, out + err)
             identity = json.loads((target / "chrome-identity.json").read_text(encoding="utf8"))
             manifest = json.loads((target / "chrome-extension/manifest.json").read_text(encoding="utf8"))
+            self.assertEqual(manifest["name"], "Irodori Voice Reader")
+            self.assertNotIn("独立環境", manifest["name"])
             digest = hashlib.sha256(base64.b64decode(manifest["key"])).hexdigest()[:32]
             self.assertEqual(identity["extensionId"], "".join(chr(97 + int(c, 16)) for c in digest))
             self.assertNotEqual(identity["extensionId"], "aeaichhflmacmifblidbpojgfemjijlb")

@@ -10,6 +10,7 @@ public static class SetupDialog {
         Application.EnableVisualStyles();
         var json=new JavaScriptSerializer();
         var request=json.Deserialize<Dictionary<string,string>>(File.ReadAllText(args[0],Encoding.UTF8));
+        string defaultValue=request.ContainsKey("default")?request["default"]:"";
         string value="cancel";
         if(request["kind"]=="progress") {
             using(var form=new Form()) {
@@ -23,24 +24,39 @@ public static class SetupDialog {
             }
         } else if(request["kind"]=="confirm") {
             value=MessageBox.Show(request["message"],"Irodori Voice Reader セットアップ",MessageBoxButtons.YesNo,MessageBoxIcon.Question,MessageBoxDefaultButton.Button2)==DialogResult.Yes?"yes":"no";
+        } else if(request["kind"]=="notice") {
+            MessageBox.Show(request["message"],"Irodori Voice Reader セットアップ",MessageBoxButtons.OK,MessageBoxIcon.Warning);
+            value="ok";
         } else if(request["kind"]=="directory") {
             using(var form=new Form()) {
                 form.Text="Irodori Voice Reader — 保存先を選択";
-                form.ClientSize=new Size(720,210);form.StartPosition=FormStartPosition.CenterScreen;form.MaximizeBox=false;
-                var label=new Label{Text=request["message"]+"\r\n「参照」からフォルダーを選択してください。中に専用フォルダーを作成します。",Left=20,Top=15,Width=680,Height=60};
-                var path=new TextBox{Left=20,Top=85,Width=560,ReadOnly=true};
+                form.ClientSize=new Size(720,225);form.StartPosition=FormStartPosition.CenterScreen;form.MaximizeBox=false;
+                var label=new Label{Text=request["message"]+"\r\n「参照」からフォルダーを選択してください。この場所に専用フォルダーを作成します。",Left=20,Top=15,Width=680,Height=60};
+                var path=new TextBox{Left=20,Top=85,Width=560,Text=defaultValue};
                 var browse=new Button{Text="参照…",Left=590,Top=82,Width=110};
-                var ok=new Button{Text="この保存先を使う",Left=380,Top=150,Width=150,Enabled=false};
-                var cancel=new Button{Text="中止",Left=550,Top=150,Width=150,DialogResult=DialogResult.Cancel};
+                var ok=new Button{Text="この保存先を使う",Left=380,Top=165,Width=150,Enabled=!String.IsNullOrWhiteSpace(defaultValue)};
+                var cancel=new Button{Text="中止",Left=550,Top=165,Width=150,DialogResult=DialogResult.Cancel};
+                path.TextChanged+=(sender,e)=>{ok.Enabled=!String.IsNullOrWhiteSpace(path.Text);};
                 browse.Click+=(sender,e)=>{
                     using(var picker=new FolderBrowserDialog()) {
                         picker.Description="Irodori Voice Readerの保存先フォルダーを選択";
                         picker.ShowNewFolderButton=true;
+                        if(Directory.Exists(path.Text.Trim()))picker.SelectedPath=path.Text.Trim();
                         if(picker.ShowDialog(form)==DialogResult.OK){path.Text=picker.SelectedPath;ok.Enabled=true;}
                     }
                 };
-                ok.Click+=(sender,e)=>{value=path.Text;form.DialogResult=DialogResult.OK;form.Close();};
+                ok.Click+=(sender,e)=>{
+                    var candidate=path.Text.Trim().Trim('"');
+                    try {
+                        if(!Path.IsPathRooted(candidate) || File.Exists(candidate))throw new ArgumentException();
+                        candidate=Path.GetFullPath(candidate);
+                    } catch {
+                        MessageBox.Show("保存先のパスを確認してください。ドライブから始まるフォルダーを指定してください。");return;
+                    }
+                    value=candidate;form.DialogResult=DialogResult.OK;form.Close();
+                };
                 form.Controls.AddRange(new Control[]{label,path,browse,ok,cancel});form.AcceptButton=ok;form.CancelButton=cancel;
+                form.Shown+=(sender,e)=>path.Focus();
                 form.ShowDialog();
             }
         } else if(request["kind"]=="file") {

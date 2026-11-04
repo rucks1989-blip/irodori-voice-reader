@@ -24,7 +24,7 @@ class DistributionTests(unittest.TestCase):
             self.assertFalse(privacy.allowed(name), name)
 
     def test_chrome_shared_code_syntax(self):
-        for name in ["background.js", "text-processor.js", "voice-readiness.js", "sidebar.js", "options.js", "service-worker.js"]:
+        for name in ["background.js", "text-processor.js", "voice-readiness.js", "sidebar.js", "options.js", "service-worker.js", "adapters.js", "chatgpt-watcher.js", "muse-watcher.js", "content.js"]:
             result = subprocess.run(["node", "--check", str(ROOT / "chrome-extension" / name)], capture_output=True)
             self.assertEqual(result.returncode, 0, result.stderr)
 
@@ -54,6 +54,8 @@ class DistributionTests(unittest.TestCase):
         distribution = json.loads((ROOT / "distribution.json").read_text(encoding="utf8"))
         self.assertEqual(chrome["version"], distribution["chromeExtensionVersion"])
         self.assertEqual(firefox["version"], distribution["firefoxExtensionVersion"])
+        self.assertEqual(chrome["name"], "Irodori Voice Reader")
+        self.assertEqual(firefox["name"], "Irodori Voice Reader")
         self.assertEqual(firefox["browser_specific_settings"]["gecko"]["id"], "irodori-voice-reader@local")
         for manifest in [chrome, firefox]:
             self.assertIn("muse-watcher.js", manifest["content_scripts"][0]["js"])
@@ -69,7 +71,12 @@ class DistributionTests(unittest.TestCase):
     def test_setup_defaults_are_non_destructive(self):
         setup = (ROOT / "scripts/setup.ps1").read_text(encoding="utf-8-sig")
         self.assertIn("if($CheckOnly)", setup)
-        self.assertLess(setup.index("if($CheckOnly)"), setup.index("Save-Json $statePath", setup.index("try{")))
+        self.assertLess(setup.index("if($CheckOnly)"), setup.index("$StateRoot=Join-Path $InstallRoot 'installer-state'"))
+        self.assertIn("Select-InstallBase", setup)
+        self.assertIn("location.json", setup)
+        self.assertIn("Get-FreeSpace", setup)
+        self.assertIn("'--isolated','--cache-dir',(Join-Path $StateRoot 'pip-cache')", setup)
+        self.assertIn("声質安定版はインストールされていません", setup)
         host = (ROOT / "scripts/register-hosts.ps1").read_text(encoding="utf-8-sig")
         self.assertNotIn("Register-ScheduledTask", host)
         self.assertIn("HKCU:", host)

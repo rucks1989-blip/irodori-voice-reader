@@ -26,7 +26,7 @@ $extension=Join-Path $InstallRoot 'chrome-extension'
 $manifestPath=Join-Path $extension 'manifest.json'
 $extensionManifest=Get-Content $manifestPath -Raw -Encoding UTF8 | ConvertFrom-Json
 $extensionManifest.key=$identity.key
-$extensionManifest.name='Irodori Voice Reader (独立環境)'
+$extensionManifest.name='Irodori Voice Reader'
 Save-Json $manifestPath $extensionManifest
 $configJson=@{apiBase="http://127.0.0.1:$ApiPort";nativeHost=$identity.hostName} | ConvertTo-Json -Compress
 [IO.File]::WriteAllText((Join-Path $extension 'install-config.js'),("globalThis.IrodoriInstallConfig = Object.freeze("+$configJson+");`n"),$Utf8)

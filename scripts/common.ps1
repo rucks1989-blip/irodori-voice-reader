@@ -9,7 +9,7 @@ function Save-Json([string]$Path, $Value) {
     [IO.File]::WriteAllText($temporary, ($Value | ConvertTo-Json -Depth 30), $Utf8)
     Move-Item -LiteralPath $temporary -Destination $Path -Force
 }
-function Show-SetupDialog([string]$Kind,[string]$Message,[string]$Filter='') {
+function Show-SetupDialog([string]$Kind,[string]$Message,[string]$Filter='',[string]$Default='') {
     $dialogRoot=Join-Path $env:LOCALAPPDATA 'IrodoriVoiceReader\Installer\Dialogs'
     New-Item -ItemType Directory -Force -Path $dialogRoot | Out-Null
     $source=Join-Path $PSScriptRoot 'setup-dialog.cs'
@@ -19,7 +19,7 @@ function Show-SetupDialog([string]$Kind,[string]$Message,[string]$Filter='') {
         Add-Type -Path $source -ReferencedAssemblies @('System.Windows.Forms','System.Drawing','System.Web.Extensions') -OutputAssembly $exe -OutputType WindowsApplication
     }
     $request=Join-Path $dialogRoot ([guid]::NewGuid().ToString('N')+'.json')
-    Save-Json $request @{kind=$Kind;message=$Message;filter=$Filter}
+    Save-Json $request @{kind=$Kind;message=$Message;filter=$Filter;default=$Default}
     Write-Host ("確認画面を待っています: "+$Message) -ForegroundColor Yellow
     $process=Add-SetupProcess (Start-Process $exe -ArgumentList @(('"'+$request+'"')) -PassThru -WindowStyle Normal)
     while(-not $process.WaitForExit(200)){Assert-SetupActive}
@@ -130,7 +130,8 @@ function Assert-FreePorts([int[]]$Ports=@(8765,8091)) {
     }
 }
 function Assert-LocalDirectory([string]$Path) {
-    $full = [IO.Path]::GetFullPath($Path).TrimEnd('\')
+    $full = [IO.Path]::GetFullPath($Path)
+    if ($full -notmatch '^[A-Za-z]:\\$') { $full = $full.TrimEnd('\') }
     if ($full -match '^[\\]{2}' -or $full -match '[%!]') { throw 'ネットワーク共有または % ! を含む保存先は、この試験版では利用できません。' }
     return $full
 }
