@@ -1,4 +1,4 @@
-﻿param([Parameter(Mandatory=$true)][string]$InstallRoot,[int]$ApiPort,[int]$BackendPort)
+﻿param([Parameter(Mandatory=$true)][string]$InstallRoot,[int]$ApiPort,[int]$BackendPort,[switch]$ChromeOnly)
 . (Join-Path $PSScriptRoot 'common.ps1')
 $identityPath=Join-Path $InstallRoot 'chrome-identity.json'
 if(Test-Path $identityPath){$identity=Get-Content $identityPath -Raw -Encoding UTF8 | ConvertFrom-Json}else{
@@ -31,7 +31,11 @@ Save-Json $manifestPath $extensionManifest
 $configJson=@{apiBase="http://127.0.0.1:$ApiPort";nativeHost=$identity.hostName} | ConvertTo-Json -Compress
 [IO.File]::WriteAllText((Join-Path $extension 'install-config.js'),("globalThis.IrodoriInstallConfig = Object.freeze("+$configJson+");`n"),$Utf8)
 $api=Join-Path $InstallRoot 'irodori-api'
-Save-Json (Join-Path $api 'config\api.json') @{host='127.0.0.1';port=$ApiPort;max_input_chars=20000}
+$apiConfig=Join-Path $api 'config\api.json'
+if(Test-Path $apiConfig){
+    $savedApi=Get-Content $apiConfig -Raw -Encoding UTF8 | ConvertFrom-Json
+    if($savedApi.host -ne '127.0.0.1' -or [int]$savedApi.port -ne $ApiPort){throw '既存APIの接続先が今回の専用ポートと異なります。設定は変更しません。'}
+}else{Save-Json $apiConfig @{host='127.0.0.1';port=$ApiPort;max_input_chars=20000}}
 foreach($name in @('config','config.voice_stable')){
     $path=Join-Path $api "config\$name.json"
     if(-not(Test-Path $path)){
@@ -45,7 +49,7 @@ foreach($name in @('config','config.voice_stable')){
 }
 
 $firefox=Join-Path $InstallRoot 'firefox-extension'
-if(Test-Path $firefox){
+if(-not $ChromeOnly -and (Test-Path $firefox)){
     $firefoxId=('irodori-'+$identity.extensionId+'@isolated.local')
     $firefoxHost=('io.github.irodori.voice_reader.firefox.i'+$identity.extensionId)
     $fm=Get-Content (Join-Path $firefox 'manifest.json') -Raw -Encoding UTF8 | ConvertFrom-Json

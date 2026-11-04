@@ -1,5 +1,5 @@
 ﻿[CmdletBinding()]
-param([string]$InstallRoot='',[switch]$CheckOnly,[ValidateSet('auto','cpu','cuda')][string]$Backend='auto',[switch]$NewEnvironment,[ValidateSet('prompt','chrome','firefox','both')][string]$Browsers='prompt',[switch]$Unattended,[string]$ModelPath='',[string]$ReferenceWav='',[switch]$NoOpenGuide,[string]$BackendDirectory='', [ValidateSet('prompt','skip','prebuilt','build')][string]$StableMode='prompt',[string]$StableBackendDirectory='')
+param([string]$InstallRoot='',[switch]$CheckOnly,[ValidateSet('auto','cpu','cuda')][string]$Backend='auto',[switch]$NewEnvironment,[ValidateSet('prompt','chrome','firefox','both')][string]$Browsers='prompt',[switch]$Unattended,[string]$ModelPath='',[string]$ReferenceWav='',[switch]$NoOpenGuide,[string]$BackendDirectory='', [ValidateSet('prompt','skip','prebuilt','build')][string]$StableMode='prompt',[string]$StableBackendDirectory='', [string]$SessionDirectory='', [switch]$Repair)
 . (Join-Path $PSScriptRoot 'common.ps1')
 . (Join-Path $PSScriptRoot 'install-files.ps1')
 $SourceRoot=Split-Path -Parent $PSScriptRoot
@@ -8,6 +8,7 @@ $InstallRootExplicit=$PSBoundParameters.ContainsKey('InstallRoot')
 if(-not $InstallRoot){$InstallRoot=Join-Path $env:LOCALAPPDATA 'IrodoriVoiceReader\App'}
 $InstallRoot=Assert-LocalDirectory $InstallRoot
 $SessionRoot=Join-Path $env:LOCALAPPDATA 'IrodoriVoiceReader\Installer'
+if($SessionDirectory){$SessionRoot=Assert-LocalDirectory $SessionDirectory}
 $StateRoot=$SessionRoot
 $statePath=Join-Path $StateRoot 'state.json'
 $ApiPort=8765;$BackendPort=8091
@@ -50,7 +51,7 @@ function Show-StableAbsentNotice([switch]$Dialog){
     $message='声質安定版はインストールされていません。通常版のみ利用できます。'
     if(-not $stableNoticeShown){Write-Host $message -ForegroundColor Yellow;$script:stableNoticeShown=$true}
     if($Dialog -and -not $Unattended){
-        [void](Show-SetupDialog 'notice' ($message+"`r`n`r`n声質安定版が必要な場合は、setup.batを再実行し、声質安定版の完成品を使用するか任意ビルドを選んでください。`r`n既存の通常版環境と声の設定は変更しません。"))
+        [void](Show-SetupDialog 'notice' ($message+"`r`n`r`n声質安定版を追加する場合は、setup.bat -Repair を実行し、声質安定版の完成品を使用するか任意ビルドを選んでください。`r`n既存のVoice設定は保持します。"))
     }
 }
 function Confirm-Install([string]$Message){
@@ -64,32 +65,28 @@ function Set-Step([string]$Name){
     Save-Json $statePath @{version=$manifest.version;step=$Name;error='';completed=$false}
 }
 function Find-BackendAsset([string]$Kind,[string]$Arch){
-    return @($manifest.assets | Where-Object {$_.kind -eq 'backend' -and $_.backend -eq $Kind -and ($Kind -eq 'cpu' -or $_.arch -eq '*' -or $_.arch -eq $Arch)}) | Select-Object -First 1
+    return @($manifest.assets | Where-Object {$_.kind -eq 'backend' -and (-not $_.PSObject.Properties['role'] -or $_.role -ne 'stable') -and $_.backend -eq $Kind -and ($Kind -eq 'cpu' -or $_.arch -eq '*' -or $_.arch -eq $Arch)}) | Select-Object -First 1
 }
 function Get-Asset($Asset){
     $local=Join-Path $SourceRoot ('assets\'+$Asset.name)
     if(Test-Path $local){
-        if((Get-FileHash $local -Algorithm SHA256).Hash -ne $Asset.sha256){throw '配布パッケージ内のファイル検査に失敗しました。GitHubから取得し直してください。'}
-        return $local
+        if(Test-DownloadFile $local $Asset.sha256 ([long](Get-DownloadProperty $Asset 'bytes' '0'))){return $local}
+        Write-Host '同梱アセットが必要な容量/SHA-256と異なります。元ファイルを保持し、自動取得または復旧画面から正しいファイルを指定できます。' -ForegroundColor Yellow
     }
     if($Asset.PSObject.Properties['url'] -and $Asset.url){
         $cache=Join-Path $StateRoot ('downloads\'+$Asset.name)
         Write-Host ('完成品を自動取得します: '+$Asset.name) -ForegroundColor Cyan
         $size=if($Asset.PSObject.Properties['bytes']){[long]$Asset.bytes}else{0}
-        Get-Verified $Asset.url $cache $Asset.sha256 $size
-        return $cache
+        return (Get-RequiredDownload $Asset $cache -NonInteractive:$Unattended -Python (Get-Python))
     }
-    $uri='https://github.com/'+$manifest.repository+'/releases/tag/'+$manifest.release
-    if($Unattended){throw ('配布ファイルがありません: '+$Asset.name)}
-    [void](Show-SetupDialog 'confirm' "配布ファイル $($Asset.name) がありません。非公開リポジトリのReleaseからWindows-test一式を取得してください。`r`n$uri`r`n個人トークンを入力する必要はありません。")
-    throw '配布ファイルがありません。個人トークンの入力は不要です。READMEの推奨「Windowsお試し版一式」を取得すると必要ファイルが揃います。'
+    return (Get-RequiredDownload $Asset (Join-Path $StateRoot ('downloads\'+$Asset.name)) -NonInteractive:$Unattended -Python (Get-Python))
 }
 function Write-Guide([bool]$VoiceReady){
     $folder=Join-Path $InstallRoot 'docs'
     New-Item -ItemType Directory -Force -Path $folder | Out-Null
     $chrome=[Security.SecurityElement]::Escape((Join-Path $InstallRoot 'chrome-extension'))
     $voice=if($VoiceReady){'音声生成テスト：導入済みモードのWAV生成成功'}else{'音声生成テスト：未実施。使う声の登録が必要です。準備完了とは別の確認項目です。'}
-    $stableGuide=if($stableInstalled){'<p>声質安定版もインストールされています。</p>'}else{'<p><strong>声質安定版はインストールされていません。</strong>通常版のみ利用できます。声質安定版が必要な場合は、setup.batを再実行し、声質安定版の完成品を使用するか任意ビルドを選んでください。既存の通常版環境と声の設定は変更しません。</p>'}
+    $stableGuide=if($stableInstalled){'<p>声質安定版もインストールされています。</p>'}else{'<p><strong>声質安定版はインストールされていません。</strong>通常版のみ利用できます。声質安定版を追加する場合は、setup.bat -Repair を実行し、声質安定版の完成品を使用するか任意ビルドを選んでください。既存のVoice設定は保持します。</p>'}
     $firefoxGuide=if($Browsers -in @('firefox','both')){'<section><h2>Firefox</h2><p>独立環境のソースと firefox-isolated-unsigned.xpi を作成しました。未署名のため通常版Firefoxへの恒久導入はまだできません。既存の署名済みXPIはこの独立環境へ流用しません。署名工程は未解決です。</p></section>'}else{''}
     $chromeGuide=if($Browsers -in @('chrome','both')){@"
 <section><h2>Chrome</h2><ol><li>アドレス欄に <code>chrome://extensions/</code> と入力して開きます。</li><li>右上の「デベロッパー モード」をONにします。</li><li>「パッケージ化されていない拡張機能を読み込む」を押します。</li><li>下の場所をコピーし、フォルダー選択画面でこのフォルダーを選びます。</li></ol>
@@ -163,6 +160,22 @@ try{
     try{$lock=[IO.File]::Open((Join-Path $SessionRoot 'setup.lock'),'OpenOrCreate','ReadWrite','None')}catch{throw '別のセットアップが実行中です。終了後に再試行してください。'}
     $env:IVR_SETUP_LOG_ROOT=$SessionRoot
     Write-Host ("保存先: "+$InstallRoot)
+    # A completed environment is not an invitation to initialize it again.
+    # This read-only reuse path also works while its existing API is running.
+    $completedMarker=Join-Path $InstallRoot '.ivr-install.json'
+    $runtimePath=Join-Path $InstallRoot 'irodori-api\config\runtime.json'
+    if($resume -and -not $Repair -and (Test-Path $completedMarker) -and (Test-Path $runtimePath)){
+        $completed=Get-Content $completedMarker -Raw -Encoding UTF8 | ConvertFrom-Json
+        $savedRuntime=Get-Content $runtimePath -Raw -Encoding UTF8 | ConvertFrom-Json
+        $savedModel=Join-Path $InstallRoot ('irodori-api\models\'+$manifest.model.name)
+        if($completed.state -eq 'runtime-ready' -and (Test-DownloadFile $savedModel $manifest.model.sha256 $manifest.model.bytes) -and (Test-Path -LiteralPath $savedRuntime.audio_cpp_shared_executable -PathType Leaf)){
+            [void](Get-PackageFiles $SourceRoot)
+            $stableInstalled=[bool]$completed.voiceStable
+            Write-Host '完了済み環境と検証済みモデルを再利用します。Voice・設定・Native Host・実行中APIは変更しません。再取得・再ビルドも行いません。修復／アプリ更新が必要な場合は setup.bat -Repair を使用してください。' -ForegroundColor Green
+            Write-Guide ([bool]$completed.voiceTest)
+            return
+        }
+    }
     if(-not $Unattended){Start-SetupCancellation}else{
         if(-not ('IvrSetupJob' -as [type])){Add-Type -Path (Join-Path $PSScriptRoot 'setup-job.cs')}
         $script:SetupJob=New-Object IvrSetupJob
@@ -186,7 +199,7 @@ try{
     $env:UV_CACHE_DIR=Join-Path $StateRoot 'pip-cache'
     Save-Json $statePath @{version=$manifest.version;step=$step;error='';completed=$false}
     $api=Join-Path $InstallRoot 'irodori-api'
-    & (Join-Path $PSScriptRoot 'configure-chrome.ps1') -InstallRoot $InstallRoot -ApiPort $ApiPort -BackendPort $BackendPort
+    & (Join-Path $PSScriptRoot 'configure-chrome.ps1') -InstallRoot $InstallRoot -ApiPort $ApiPort -BackendPort $BackendPort -ChromeOnly:($Browsers -eq 'chrome')
     Set-Step '2/7 専用Pythonの準備'
     $python=Get-Python
     if(-not $python){
@@ -198,18 +211,38 @@ try{
     }
     $venv=Join-Path $api '.venv\Scripts\python.exe'
     if(-not(Test-Path $venv)){Run $python @('-m','venv',(Join-Path $api '.venv'))}
-    Run $venv @('-m','pip','--isolated','--cache-dir',(Join-Path $StateRoot 'pip-cache'),'install','--disable-pip-version-check','--only-binary=:all:','--index-url','https://pypi.org/simple','-r',(Join-Path $api 'requirements.txt'))
+    $installedJson=& $venv -c 'import importlib.metadata as m,json;print(json.dumps({d.name.lower().replace(chr(95),chr(45)):d.version for d in m.distributions()}))'
+    if($LASTEXITCODE -ne 0){throw '専用Python環境のパッケージ検査に失敗しました。'}
+    $installed=$installedJson | ConvertFrom-Json
+    $dependenciesReady=$true
+    foreach($wheel in $manifest.pythonWheels){
+        if(-not $installed.PSObject.Properties[$wheel.package] -or $installed.($wheel.package) -ne $wheel.version){$dependenciesReady=$false}
+    }
+    if(-not $dependenciesReady){
+        $wheelFolder=Join-Path $StateRoot 'downloads\python-wheels'
+        foreach($wheel in $manifest.pythonWheels){
+            $wheel | Add-Member NoteProperty title ($wheel.package+' '+$wheel.version+' Windows Python 3.12依存パッケージ') -Force
+            $wheel | Add-Member NoteProperty pageUrl ('https://pypi.org/project/'+$wheel.package+'/'+$wheel.version+'/#files') -Force
+            $wheel | Add-Member NoteProperty searchWords ('PyPI '+$wheel.package+' '+$wheel.version+' '+$wheel.name) -Force
+            $wheel | Add-Member NoteProperty instructions ('PyPIの上記バージョンのページを開き、Download filesで '+$wheel.name+' を選びます。tar.gzや他のPython/GPU/OS向けファイルは選びません。保存先は自由です。.whlを展開せず、復旧画面の「ファイルを指定する」→「参照」で指定してください。セットアップが検証し、専用Python環境にのみ導入します。') -Force
+            [void](Get-RequiredDownload $wheel (Join-Path $wheelFolder $wheel.name) -NonInteractive:$Unattended -Python $venv)
+        }
+        $requirementsLock=Join-Path $StateRoot 'verified-requirements.txt'
+        $lockLines=@($manifest.pythonWheels | ForEach-Object {$_.package+'=='+$_.version+' --hash=sha256:'+$_.sha256})
+        [IO.File]::WriteAllText($requirementsLock,($lockLines -join "`n"),$Utf8)
+        # All network transfers above have pinned hashes. pip installs only
+        # these verified wheels, including transitive dependencies, offline.
+        Run $venv @('-m','pip','--isolated','--cache-dir',(Join-Path $StateRoot 'pip-cache'),'install','--disable-pip-version-check','--only-binary=:all:','--no-index','--require-hashes','--find-links',$wheelFolder,'-r',$requirementsLock)
+    }else{Write-Host '専用Pythonの依存パッケージは検証済みバージョンです。再取得・再導入しません。'}
     Set-Step '3/7 モデルの取得（再開できます）'
     $model=Join-Path $api ('models\'+$manifest.model.name)
-    if(-not(Test-Path $model)){
-        $selected=if($ModelPath){[IO.Path]::GetFullPath($ModelPath)}elseif($Unattended){'cancel'}else{Show-SetupDialog 'file' '既存の同一モデルを再利用できます。なければキャンセルでダウンロードへ' 'Irodori model|irodori-tts-500m-v3-q8_0.gguf'}
-        if($selected -ne 'cancel'){
-            if((Get-FileHash $selected -Algorithm SHA256).Hash -ne $manifest.model.sha256){throw '選択したモデルのハッシュが一致しません。元ファイルは変更していません。'}
-            New-Item -ItemType Directory -Force -Path (Split-Path $model) | Out-Null
-            Copy-Item -LiteralPath $selected -Destination $model
-        }
+    $selected=''
+    if($ModelPath){$selected=[IO.Path]::GetFullPath($ModelPath)}
+    elseif(-not(Test-Path $model) -and -not $Unattended){
+        $selected=Show-SetupDialog 'file' '既存の同一モデルを再利用できます。なければ「指定せず進む」で自動取得します。失敗時も参照から指定できます。' 'Irodori model|irodori-tts-500m-v3-q8_0.gguf'
+        if($selected -eq 'cancel'){$selected=''}
     }
-    Get-Verified $manifest.model.url $model $manifest.model.sha256 $manifest.model.bytes
+    [void](Get-RequiredDownload $manifest.model $model -NonInteractive:$Unattended -Python $venv -Selected $selected)
     Set-Step '4/7 通常版を準備（声質安定版は任意）'
     $runtimeMissing=@(@('vcruntime140.dll','vcruntime140_1.dll','msvcp140.dll','vcomp140.dll') | Where-Object {-not(Test-Path (Join-Path $env:WINDIR "System32\$_"))})
     if($runtimeMissing.Count){
@@ -218,6 +251,11 @@ try{
         Install-Winget 'Microsoft.VCRedist.2015+.x64'
     }
     if($Backend -eq 'auto'){
+        $savedServerPath=Join-Path $api 'config\audio_cpp_server.shared.json'
+        if($resume -and (Test-Path $savedServerPath)){
+            $savedServer=Get-Content $savedServerPath -Raw -Encoding UTF8 | ConvertFrom-Json
+            if($savedServer.backend -in @('cpu','cuda')){$Backend=[string]$savedServer.backend}
+        }
         $Backend=Get-BackendChoice $Backend $gpu.arch
         Write-Host "選択した実行方式: $Backend / GPU: $($gpu.name)"
     }
@@ -228,15 +266,15 @@ try{
         if($exeChoice -ne 'cancel'){$BackendDirectory=Split-Path $exeChoice -Parent}
     }
     if($BackendDirectory){
-        Copy-BackendRuntime $BackendDirectory $backendDir
+        if([IO.Path]::GetFullPath($BackendDirectory) -ne [IO.Path]::GetFullPath($backendDir)){Copy-BackendRuntime $BackendDirectory $backendDir}
     }elseif($asset){
         $archive=Get-Asset $asset
         New-Item -ItemType Directory -Force -Path $backendDir | Out-Null
-        Expand-Archive -LiteralPath $archive -DestinationPath $backendDir -Force
+        Expand-Download $archive $asset $backendDir $venv
         if($asset.PSObject.Properties['dependencies']){
             foreach($dependency in $asset.dependencies){
                 $dependencyArchive=Get-Asset $dependency
-                Expand-Archive -LiteralPath $dependencyArchive -DestinationPath $backendDir -Force
+                Expand-Download $dependencyArchive $dependency $backendDir $venv
             }
         }
     }else{
@@ -244,7 +282,7 @@ try{
         $choice=Show-SetupDialog 'backend' '対応完成品がありません。取得して再開するか、任意ビルドを選んでください。'
         if($choice -ne 'build'){throw '完成品を準備して再実行できます。ビルドは開始していません。'}
         if(-not(Confirm-Install '開発者向けビルドを開始します。CUDA Toolkit、C++ツール、数十GBの空き容量と数十分以上が必要な場合があります。続けますか？')){throw '任意ビルドを中止しました。'}
-        $buildArgs=@('-NoProfile','-ExecutionPolicy','Bypass','-File',(Join-Path $PSScriptRoot 'build-backend.ps1'),'-Python',$venv,'-WorkRoot',$StateRoot,'-Backend',$Backend,'-AllowToolInstall','-StandardOnly')
+        $buildArgs=@('-NoProfile','-ExecutionPolicy','Bypass','-File',(Join-Path $PSScriptRoot 'build-backend.ps1'),'-Python',$venv,'-WorkRoot',$StateRoot,'-CacheRoot',(Join-Path $InstallBase '.ivr-build-cache'),'-Backend',$Backend,'-AllowToolInstall','-StandardOnly')
         if($Backend -eq 'cuda'){$buildArgs+=@('-CudaArch',$gpu.arch)}
         Run 'powershell.exe' $buildArgs
         $built=Join-Path $StateRoot ('build-output\'+$Backend+$(if($Backend -eq 'cuda'){'-sm'+$gpu.arch}else{''}))
@@ -253,6 +291,14 @@ try{
         Get-ChildItem $built -File | Copy-Item -Destination $backendDir -Force
     }
     $stableInstalled=$false
+    if($resume -and (Test-Path (Join-Path $api 'config\capabilities.json')) -and (Test-Path $runtimePath) -and -not $StableBackendDirectory -and $StableMode -ne 'build'){
+        $savedCapabilities=Get-Content (Join-Path $api 'config\capabilities.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+        $savedRuntime=Get-Content $runtimePath -Raw -Encoding UTF8 | ConvertFrom-Json
+        if($savedCapabilities.voice_stable -and (Test-Path $savedRuntime.audio_cpp_shared_executable)){
+            $StableMode='prebuilt';$StableBackendDirectory=Split-Path -Parent $savedRuntime.audio_cpp_shared_executable
+            Write-Host '導入済みの声質安定版を保持・再利用します。通常版のみに初期化しません。'
+        }
+    }
     if($StableMode -eq 'prompt'){
         $StableMode=if($Unattended){'skip'}else{Show-SetupDialog 'stable' '声質安定版を追加しますか？未導入でも通常版は利用できます。'}
     }
@@ -260,15 +306,23 @@ try{
         $stableCandidate=Join-Path $StateRoot 'stable-candidate'
         try{
             if($StableMode -eq 'prebuilt'){
+                $stableAsset=@($manifest.assets | Where-Object {$_.kind -eq 'backend' -and $_.PSObject.Properties['role'] -and $_.role -eq 'stable' -and $_.backend -eq $Backend -and ($Backend -eq 'cpu' -or $_.arch -eq '*' -or $_.arch -eq $gpu.arch)}) | Select-Object -First 1
+                if(-not $StableBackendDirectory -and $stableAsset){
+                    Write-Host '対応する検証済み声質安定版の完成品を優先します。ソースビルドは不要です。'
+                    $stableArchive=Get-Asset $stableAsset
+                    $stableExtract=Join-Path $StateRoot ('stable-prebuilt-'+$stableAsset.sha256.Substring(0,12))
+                    Expand-Download $stableArchive $stableAsset $stableExtract $venv
+                    $StableBackendDirectory=$stableExtract
+                }
                 if(-not $StableBackendDirectory){
                     if($Unattended){throw '声質安定版完成品の指定がありません。'}
                     $selectedStable=Show-SetupDialog 'file' '通常・声質安定の両プロファイルに対応する完成品を選択してください。' 'audio.cpp|audiocpp_server.exe'
                     if($selectedStable -eq 'cancel'){throw '声質安定版の指定を中止しました。'}
                     $StableBackendDirectory=Split-Path $selectedStable -Parent
                 }
-                Copy-BackendRuntime $StableBackendDirectory $stableCandidate
+                if([IO.Path]::GetFullPath($StableBackendDirectory) -ne [IO.Path]::GetFullPath($stableCandidate)){Copy-BackendRuntime $StableBackendDirectory $stableCandidate}
             }else{
-                $stableArgs=@('-NoProfile','-ExecutionPolicy','Bypass','-File',(Join-Path $PSScriptRoot 'build-backend.ps1'),'-Python',$venv,'-WorkRoot',(Join-Path $StateRoot 'stable-build'),'-Backend',$Backend,'-AllowToolInstall')
+                $stableArgs=@('-NoProfile','-ExecutionPolicy','Bypass','-File',(Join-Path $PSScriptRoot 'build-backend.ps1'),'-Python',$venv,'-WorkRoot',(Join-Path $StateRoot 'stable-build'),'-CacheRoot',(Join-Path $InstallBase '.ivr-build-cache'),'-Backend',$Backend,'-AllowToolInstall')
                 if($Backend -eq 'cuda'){$stableArgs+=@('-CudaArch',$gpu.arch)}
                 Run 'powershell.exe' $stableArgs
                 $stableBuilt=Join-Path $StateRoot ('stable-build\build-output\'+$Backend+$(if($Backend -eq 'cuda'){'-sm'+$gpu.arch}else{''}))
@@ -278,6 +332,7 @@ try{
             $stableInstalled=$true
         }catch{
             Assert-SetupActive
+            if($_.Exception -is [OperationCanceledException]){throw}
             Write-Host ('声質安定版の追加を見送り、通常版で継続します: '+$_.Exception.Message) -ForegroundColor Yellow
         }
     }
@@ -295,9 +350,24 @@ try{
     }
     $voicesPath=Join-Path $api 'config\voices.json'
     if(-not(Test-Path $voicesPath)){Save-Json $voicesPath @{voices=@()}}
-    Save-Json (Join-Path $api 'config\runtime.json') @{backend_start_script='start_audio_cpp_shared.ps1';backend_stop_script='stop_audio_cpp_shared.ps1';audio_cpp_shared_executable=(Join-Path $backendDir 'audiocpp_server.exe');audio_cpp_shared_config='config\audio_cpp_server.shared.json';audio_cpp_shared_cuda_bin=$backendDir;audio_cpp_shared_port=$BackendPort;stop_backend_with_api=$false}
+    if(-not(Test-Path $runtimePath)){
+        Save-Json $runtimePath @{backend_start_script='start_audio_cpp_shared.ps1';backend_stop_script='stop_audio_cpp_shared.ps1';audio_cpp_shared_executable=(Join-Path $backendDir 'audiocpp_server.exe');audio_cpp_shared_config='config\audio_cpp_server.shared.json';audio_cpp_shared_cuda_bin=$backendDir;audio_cpp_shared_port=$BackendPort;stop_backend_with_api=$false}
+    }elseif($stableInstalled){
+        $existingRuntime=Get-Content $runtimePath -Raw -Encoding UTF8 | ConvertFrom-Json
+        $existingRuntime.audio_cpp_shared_executable=Join-Path $backendDir 'audiocpp_server.exe'
+        $existingRuntime.audio_cpp_shared_cuda_bin=$backendDir
+        Save-Json $runtimePath $existingRuntime
+    }
     $models=@($modelIds) | ForEach-Object { @{id=$_;family='irodori_tts';path=$model;task='tts';mode='offline';session_options=@{'irodori_tts.mem_saver'='true';'irodori_tts.reference_cache_slots'='1'}} }
-    Save-Json (Join-Path $api 'config\audio_cpp_server.shared.json') @{host='127.0.0.1';port=$BackendPort;backend=$Backend;device=0;threads=4;lazy_load=$false;models=@($models)}
+    $sharedConfig=Join-Path $api 'config\audio_cpp_server.shared.json'
+    if(-not(Test-Path $sharedConfig)){
+        Save-Json $sharedConfig @{host='127.0.0.1';port=$BackendPort;backend=$Backend;device=0;threads=4;lazy_load=$false;models=@($models)}
+    }else{
+        $existingServer=Get-Content $sharedConfig -Raw -Encoding UTF8 | ConvertFrom-Json
+        if([int]$existingServer.port -ne $BackendPort){throw '既存の音声エンジン設定のポートが異なります。設定は変更しません。'}
+        $missingModels=@($models | Where-Object {$_.id -notin @($existingServer.models.id)})
+        if($missingModels.Count){$existingServer.models=@($existingServer.models)+$missingModels;Save-Json $sharedConfig $existingServer}
+    }
     Set-Step '5/7 利用する声の登録と音声生成テスト'
     $voices=Get-Content $voicesPath -Raw -Encoding UTF8 | ConvertFrom-Json
     $voiceReady=$false

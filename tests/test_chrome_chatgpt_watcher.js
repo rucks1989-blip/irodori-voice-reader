@@ -5,7 +5,7 @@ const vm = require("node:vm");
 
 // Regression cases from Chrome's live ChatGPT DOM/route trace (2026-11-04).
 // This checks watcher state transitions, not synthesis or physical playback.
-async function fixture(path = "/", history = false) {
+async function fixture(path = "/", history = false, site = "chatgpt") {
   let now = 0, next = 0, mutation;
   const timers = new Map(), handlers = new Map(), enqueued = [], events = [];
   const users = [], answers = [], location = { pathname: path };
@@ -13,10 +13,10 @@ async function fixture(path = "/", history = false) {
     contains: () => false, compareDocumentPosition: other => order < other.order ? 4 : 2 });
   if (history) { users.push(node("history-user", "old", 1)); answers.push(node("history-answer", "old answer", 2)); }
   const adapter = {
-    name: "chatgpt", enabledKey: "chatgptEnabled", userMessages: () => users,
+    name: site, enabledKey: site + "Enabled", userMessages: () => users,
     candidates: () => answers, messageId: n => n.id, userText: n => n.text,
     text: n => n.text, streaming: n => Boolean(n.streaming),
-    conversationId: () => location.pathname.split("/c/")[1] || ""
+    conversationId: () => location.pathname.split(site === "gemini" ? "/app/" : "/c/")[1] || ""
   };
   const win = {
     location, setTimeout: (fn, ms) => { timers.set(++next, { at: now + ms, fn }); return next; },
@@ -24,14 +24,14 @@ async function fixture(path = "/", history = false) {
     addEventListener() {}, removeEventListener() {},
     MutationObserver: class { constructor(fn) { mutation = fn; } observe() {} disconnect() {} }
   };
-  const editor = { value: "", matches: selector => selector.includes('[data-composer-markdown]'),
+  const editor = { value: "", matches: selector => selector.includes(site === "gemini" ? "rich-textarea" : '[data-composer-markdown]'),
     closest(selector) { return this.matches(selector) ? this : null; } };
   const doc = { documentElement: {}, querySelectorAll: () => [editor],
     addEventListener: (type, fn) => handlers.set(type, fn), removeEventListener() {} };
   const context = vm.createContext({ Date: class extends Date { static now() { return now; } } });
   vm.runInContext(fs.readFileSync(require.resolve("../chrome-extension/chatgpt-watcher.js"), "utf8"), context);
   const control = context.IvrChatgptWatcher.start({ doc, win,
-    api: { storage: { local: { get: async defaults => ({ ...defaults, chatgptEnabled: true, timingDebug: true }), set: async () => {} },
+    api: { storage: { local: { get: async defaults => ({ ...defaults, [site + "Enabled"]: true, timingDebug: true }), set: async () => {} },
       onChanged: { addListener() {}, removeListener() {} } } },
     getAdapter: () => adapter, hash: async text => `hash:${text}`, toast() {},
     request: async (type, payload) => {
@@ -57,7 +57,8 @@ async function fixture(path = "/", history = false) {
   };
 }
 
-(async () => {
+module.exports = { fixture };
+if (require.main === module) (async () => {
   const f = await fixture();
   await f.send("new question");
   f.users.push(f.node("u1", "new question", 1));

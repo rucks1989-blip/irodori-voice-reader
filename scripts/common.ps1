@@ -66,27 +66,14 @@ function Run([string]$Exe,[string[]]$Arguments){
     finally{foreach($reader in $readers){$reader.Dispose()};if(-not $p.HasExited){$p.Kill();$p.WaitForExit()}}
     $lines=@(Get-Content $out -ErrorAction SilentlyContinue)+@(Get-Content $err -ErrorAction SilentlyContinue)
     if($env:IVR_SETUP_LOG_ROOT){[IO.File]::WriteAllText((Join-Path $logRoot 'last-command.log'),($lines -join "`r`n"),$Utf8)}
-    if($code -notin @(0,3010)){throw ("コマンド終了コード: $code ($Exe)`r`n"+(($lines | Select-Object -Last 16) -join "`r`n"))}
-}
-function Get-Verified([string]$Url, [string]$Destination, [string]$Sha256, [long]$Bytes = 0) {
-    if ($Url -notmatch '^https://') { throw 'HTTPS以外の取得元は利用しません。' }
-    if ($Sha256 -notmatch '^[0-9a-fA-F]{64}$') { throw '取得ファイルの検証用ハッシュがありません。' }
-    if (Test-Path -LiteralPath $Destination) {
-        if ((Get-FileHash -LiteralPath $Destination -Algorithm SHA256).Hash -eq $Sha256) { return }
-        throw "既存ファイルの検査に失敗しました。上書きせず停止します: $([IO.Path]::GetFileName($Destination))"
+    if($code -notin @(0,3010)){
+        $failure=New-Object Exception ("コマンド終了コード: $code ($Exe)`r`n"+(($lines | Select-Object -Last 16) -join "`r`n"))
+        $failure.Data['ExitCode']=$code
+        $failure.Data['Program']=[IO.Path]::GetFileName($Exe)
+        throw $failure
     }
-    New-Item -ItemType Directory -Force -Path (Split-Path -Parent $Destination) | Out-Null
-    $partial = "$Destination.partial"
-    $curl = Get-Command curl.exe -ErrorAction SilentlyContinue
-    if (-not $curl) { throw 'Windows標準のcurl.exeが見つかりません。Windows Updateを確認してください。' }
-    Run $curl.Source @('--location','--fail','--retry','3','--retry-delay','2','--proto','=https','--proto-redir','=https','--continue-at','-','--output',$partial,$Url)
-    if ($Bytes -gt 0 -and (Get-Item -LiteralPath $partial).Length -ne $Bytes) { throw 'ダウンロードの容量が想定と一致しません。' }
-    if ((Get-FileHash -LiteralPath $partial -Algorithm SHA256).Hash -ne $Sha256) {
-        Move-Item -LiteralPath $partial -Destination ($partial + '.rejected-' + [guid]::NewGuid().ToString('N'))
-        throw 'ファイル検査に失敗しました。破損ファイルを隔離しました。setup.batを再実行してください。'
-    }
-    Move-Item -LiteralPath $partial -Destination $Destination
 }
+. (Join-Path $PSScriptRoot 'downloads.ps1')
 function Get-Gpu {
     $smi = Get-Command nvidia-smi.exe -ErrorAction SilentlyContinue
     if ($smi) {
@@ -180,6 +167,7 @@ function Start-SetupCancellation {
     $exe=Join-Path $dialogRoot ('SetupDialog-'+(Get-FileHash $source).Hash.Substring(0,16)+'.exe')
     if(-not(Test-Path $exe)){Add-Type -Path $source -ReferencedAssemblies @('System.Windows.Forms','System.Drawing','System.Web.Extensions') -OutputAssembly $exe -OutputType WindowsApplication}
     $script:CancelRequest=Join-Path $dialogRoot ([guid]::NewGuid().ToString('N')+'.json')
+    $env:IVR_SETUP_CANCEL_REQUEST=$script:CancelRequest
     Save-Json $script:CancelRequest @{kind='progress';message=''}
     [void](Start-Process $exe -ArgumentList @(('"'+$script:CancelRequest+'"')) -WindowStyle Normal -PassThru)
 }

@@ -32,8 +32,8 @@ public static class SetupDialog {
                 form.Text="Irodori Voice Reader — 保存先を選択";
                 form.ClientSize=new Size(720,225);form.StartPosition=FormStartPosition.CenterScreen;form.MaximizeBox=false;
                 var label=new Label{Text=request["message"]+"\r\n「参照」からフォルダーを選択してください。この場所に専用フォルダーを作成します。",Left=20,Top=15,Width=680,Height=60};
-                var path=new TextBox{Left=20,Top=85,Width=560,Text=defaultValue};
-                var browse=new Button{Text="参照…",Left=590,Top=82,Width=110};
+                var path=new TextBox{Name="installBasePath",Left=20,Top=85,Width=560,Text=defaultValue};
+                var browse=new Button{Name="browseDirectory",Text="参照…",Left=590,Top=82,Width=110};
                 var ok=new Button{Text="この保存先を使う",Left=380,Top=165,Width=150,Enabled=!String.IsNullOrWhiteSpace(defaultValue)};
                 var cancel=new Button{Text="中止",Left=550,Top=165,Width=150,DialogResult=DialogResult.Cancel};
                 path.TextChanged+=(sender,e)=>{ok.Enabled=!String.IsNullOrWhiteSpace(path.Text);};
@@ -59,13 +59,34 @@ public static class SetupDialog {
                 form.Shown+=(sender,e)=>path.Focus();
                 form.ShowDialog();
             }
-        } else if(request["kind"]=="file") {
+        } else if(request["kind"]=="download") {
             using(var form=new Form()) {
-                form.Text="Irodori Voice Reader — ファイルを指定";form.ClientSize=new Size(720,205);form.StartPosition=FormStartPosition.CenterScreen;form.MaximizeBox=false;form.AllowDrop=true;
-                var label=new Label {Text=request["message"]+"\r\n「参照」からファイルを選択してください。",Left=20,Top=15,Width=680,Height=60};
-                var path=new TextBox {Left=20,Top=85,Width=560,ReadOnly=true};
-                var browse=new Button {Text="参照…",Left=590,Top=82,Width=110};
+                form.Text="Irodori Voice Reader — ダウンロードの復旧";
+                form.ClientSize=new Size(820,620);form.StartPosition=FormStartPosition.CenterScreen;
+                var help=new TextBox{Multiline=true,ReadOnly=true,ScrollBars=ScrollBars.Vertical,WordWrap=true,Left=20,Top=20,Width=780,Height=430,Text=request["message"],Anchor=AnchorStyles.Top|AnchorStyles.Left|AnchorStyles.Right|AnchorStyles.Bottom};
+                var choices=new ComboBox{Name="downloadAction",Left=20,Top=470,Width=780,DropDownStyle=ComboBoxStyle.DropDownList,Anchor=AnchorStyles.Left|AnchorStyles.Right|AnchorStyles.Bottom};
+                choices.Items.AddRange(new object[]{"1. 今すぐ再ダウンロード／再確認（何度でも）","2. 別の安全な取得方法で再試行","3. 配布元のダウンロードページを開く","4. 手動で取得した単体ファイル・ZIPを参照","5. 保存済み／ZIP展開済みフォルダーを参照","6. AIに相談する文を作る（自動送信なし）","7. 今回は中断して、後から再開"});
+                choices.SelectedIndex=0;
+                var ok=new Button{Name="runDownloadAction",Text="選んだ操作を実行",Left=490,Top=550,Width=160,Anchor=AnchorStyles.Right|AnchorStyles.Bottom};
+                var cancel=new Button{Text="中断して後で再開",Left=660,Top=550,Width=140,DialogResult=DialogResult.Cancel,Anchor=AnchorStyles.Right|AnchorStyles.Bottom};
+                ok.Click+=(sender,e)=>{value=new[]{"retry","alternative","page","file","folder","ai","cancel"}[choices.SelectedIndex];form.DialogResult=DialogResult.OK;form.Close();};
+                form.Controls.AddRange(new Control[]{help,choices,ok,cancel});form.AcceptButton=ok;form.CancelButton=cancel;form.ShowDialog();
+            }
+        } else if(request["kind"]=="file" || request["kind"]=="folder") {
+            using(var form=new Form()) {
+                bool folder=request["kind"]=="folder";
+                form.Text=folder?"Irodori Voice Reader — フォルダーを指定":"Irodori Voice Reader — ファイルを指定";form.ClientSize=new Size(720,205);form.StartPosition=FormStartPosition.CenterScreen;form.MaximizeBox=false;form.AllowDrop=true;
+                var label=new Label {Text=request["message"]+"\r\n「参照」から保存場所を選択してください。移動やフォルダー作成は不要です。",Left=20,Top=15,Width=680,Height=60};
+                var path=new TextBox {Name="selectedFilePath",Left=20,Top=85,Width=560,ReadOnly=true};
+                var browse=new Button {Name="browseFile",Text="参照…",Left=590,Top=82,Width=110};
                 browse.Click+=(sender,e)=>{
+                    if(folder){
+                        using(var picker=new FolderBrowserDialog()){
+                            picker.Description=request["message"];picker.ShowNewFolderButton=false;
+                            if(picker.ShowDialog(form)==DialogResult.OK)path.Text=picker.SelectedPath;
+                        }
+                        return;
+                    }
                     using(var picker=new OpenFileDialog()) {
                         picker.AutoUpgradeEnabled=false;
                         picker.Title=request["message"];
@@ -73,9 +94,9 @@ public static class SetupDialog {
                         if(picker.ShowDialog(form)==DialogResult.OK)path.Text=picker.FileName;
                     }
                 };
-                var ok=new Button {Text="このファイルを使う",Left=380,Top=145,Width=150};
+                var ok=new Button {Name="useSelectedFile",Text=folder?"このフォルダーを使う":"このファイルを使う",Left=380,Top=145,Width=150};
                 var cancel=new Button {Text="指定せず進む",Left=550,Top=145,Width=150,DialogResult=DialogResult.Cancel};
-                ok.Click+=(sender,e)=>{var candidate=path.Text.Trim().Trim('"');if(File.Exists(candidate) || (request["kind"]=="directory" && (Directory.Exists(candidate) || Directory.Exists(Path.GetDirectoryName(candidate))))){value=candidate;form.DialogResult=DialogResult.OK;form.Close();}else MessageBox.Show("ファイルが見つかりません。パスを確認してください。");};
+                ok.Click+=(sender,e)=>{var candidate=path.Text.Trim().Trim('"');if(folder?Directory.Exists(candidate):File.Exists(candidate)){value=candidate;form.DialogResult=DialogResult.OK;form.Close();}else MessageBox.Show("指定した保存場所が見つかりません。参照から選び直してください。");};
                 form.DragEnter+=(sender,e)=>{if(e.Data.GetDataPresent(DataFormats.FileDrop))e.Effect=DragDropEffects.Copy;};
                 form.DragDrop+=(sender,e)=>{var files=(string[])e.Data.GetData(DataFormats.FileDrop);if(files.Length>0)path.Text=files[0];};
                 form.Controls.AddRange(new Control[]{label,path,browse,ok,cancel});form.AcceptButton=ok;form.CancelButton=cancel;
@@ -85,9 +106,9 @@ public static class SetupDialog {
             using(var form=new Form()) {
                 form.Text=request["kind"]=="installation"?"Irodori Voice Reader — 導入方法を選択":"Irodori Voice Reader — ブラウザーを選択";form.ClientSize=new Size(510,230);form.StartPosition=FormStartPosition.CenterScreen;form.FormBorderStyle=FormBorderStyle.FixedDialog;form.MaximizeBox=false;
                 var label=new Label {Text=request["message"],Left=20,Top=20,Width=470,Height=80};
-                var choices=new ComboBox {Left=20,Top=110,Width=470,DropDownStyle=ComboBoxStyle.DropDownList};
+                var choices=new ComboBox {Name="setupChoice",Left=20,Top=110,Width=470,DropDownStyle=ComboBoxStyle.DropDownList};
                 choices.Items.AddRange(request["kind"]=="installation" ? new object[]{"前回の続きから再開","新しい別環境を作成","中止"} : request["kind"]=="stable" ? new object[]{"今回は導入しない（通常版のみ）","声質安定版の完成品を使用","声質安定版をビルド（任意）"} : request["kind"]=="backend" ? new object[]{"対応完成品を用意して再開","このPC向けにビルド（任意）","中止"} : new object[]{"Chromeのみ","Firefoxのみ","ChromeとFirefoxの両方"});choices.SelectedIndex=request["kind"]=="installation"?1:0;
-                var ok=new Button {Text="次へ",Left=310,Top=175,DialogResult=DialogResult.OK};
+                var ok=new Button {Name="continueSetup",Text="次へ",Left=310,Top=175,DialogResult=DialogResult.OK};
                 var cancel=new Button {Text="中止",Left=410,Top=175,DialogResult=DialogResult.Cancel};
                 form.Controls.AddRange(new Control[]{label,choices,ok,cancel});form.AcceptButton=ok;form.CancelButton=cancel;
                 if(form.ShowDialog()==DialogResult.OK)value=(request["kind"]=="installation" ? new[]{"resume","new","cancel"} : request["kind"]=="stable" ? new[]{"skip","prebuilt","build"} : request["kind"]=="backend" ? new[]{"obtain","build","cancel"} : new[]{"chrome","firefox","both"})[choices.SelectedIndex];

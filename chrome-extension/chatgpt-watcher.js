@@ -244,7 +244,7 @@ globalThis.IvrChatgptWatcher = (() => {
       const latest = users.at(-1);
       if (!latest || pending.beforeUsers.has(nodeId(a, latest))) return null;
       const latestText = normalize(a.userText(latest));
-      if (siteName === "chatgpt" && pending.text && latestText !== pending.text) return null;
+      if (pending.text && latestText !== pending.text) return null;
       // Without a re-render ID, accept the newest turn.  An already matched
       // turn must still match its text so an unrelated later turn is ignored.
       if (pending.userId && latestText !== pending.userText) return null;
@@ -252,7 +252,7 @@ globalThis.IvrChatgptWatcher = (() => {
     }
     function answerAfter(a, user) {
       // A later question must never donate its answer to an older pending send.
-      if (siteName === "chatgpt" && a.userMessages().at(-1) !== user) return null;
+      if (a.userMessages().at(-1) !== user) return null;
       let answer = null;
       for (const node of a.candidates()) {
         if (node === user || user.contains(node) || node.contains(user)) continue;
@@ -296,6 +296,11 @@ globalThis.IvrChatgptWatcher = (() => {
       if (!baselineReady || pending) return;
       const a = adapter();
       if (!a) return;
+      // Gemini virtualizes/recreates historical user-query/model-response nodes
+      // on scroll. A newly inserted node (even with a loading indicator) is not
+      // evidence of a send. Only trusted composer Enter/click/submit arms it.
+      // Keep ChatGPT's existing fallback unchanged.
+      if (a.name === "gemini") return;
       const users = a.userMessages();
       if (!users.length) return;
       const unknown = [];

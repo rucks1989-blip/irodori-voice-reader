@@ -3,15 +3,54 @@
   "repository": "rucks1989-blip/irodori-voice-reader",
   "release": "v0.1.0-private.2",
   "audioCppCommit": "e12fc743ccb294753dcdced0be7778c76a178f95",
+  "audioCppSource": {
+    "title": "audio.cpp 固定コミットのソースコードZIP（完成品ではありません）",
+    "version": "e12fc743ccb294753dcdced0be7778c76a178f95",
+    "purpose": "対応完成品がない場合の任意ソースビルド。通常版／声質安定版パッチの適用元",
+    "artifactType": "ソースコードZIP（実行ファイルではありません）",
+    "name": "audio.cpp-e12fc743ccb294753dcdced0be7778c76a178f95.zip",
+    "url": "https://codeload.github.com/0xShug0/audio.cpp/zip/e12fc743ccb294753dcdced0be7778c76a178f95",
+    "alternateUrl": "https://github.com/0xShug0/audio.cpp/archive/e12fc743ccb294753dcdced0be7778c76a178f95.zip",
+    "pageUrl": "https://github.com/0xShug0/audio.cpp/tree/e12fc743ccb294753dcdced0be7778c76a178f95",
+    "sha256": "a8b80ff2ef485cabc758903e76cf4fd67350731ec6cb953476579a38e52bf90c",
+    "bytes": 95594222,
+    "searchWords": "0xShug0 audio.cpp e12fc743ccb294753dcdced0be7778c76a178f95 GitHub",
+    "instructions": "これはソースコードです。Releasesの完成品ではありません。上記の固定コミットページを開き、緑色の Code → Download ZIP を選びます。mainブランチのZIPは別の版なので選ばないでください。直接URLでも同じZIPを取得できます。任意の場所に保存し、展開せず「ダウンロード済みファイルを指定する」→「参照」からZIPを選びます。展開・パッチ・ビルドはセットアップが行います。"
+  },
   "model": {
+    "title": "Irodori-TTS 500M v3 GGUF Q8_0 モデル",
+    "version": "500M v3 Q8_0 / a70a4ecb70ee38ef43a5aeae9fbefb512778e262",
+    "purpose": "通常版・声質安定版で共有する必須の音声生成モデル",
+    "artifactType": "GGUF単体ファイル（ZIPではありません）",
     "name": "irodori-tts-500m-v3-q8_0.gguf",
     "url": "https://huggingface.co/audio-cpp/audio.cpp-gguf/resolve/a70a4ecb70ee38ef43a5aeae9fbefb512778e262/Irodori-TTS-500M-v3-GGUF/irodori-tts-500m-v3-q8_0.gguf",
     "sha256": "6f1d8d84f92207d4da674c9f6d350c692b7fde7c1fbaff4e7067fe7023b4b0c4",
-    "bytes": 1093732096
+    "bytes": 1093732096,
+    "pageUrl": "https://huggingface.co/audio-cpp/audio.cpp-gguf/blob/a70a4ecb70ee38ef43a5aeae9fbefb512778e262/Irodori-TTS-500M-v3-GGUF/irodori-tts-500m-v3-q8_0.gguf",
+    "searchWords": "audio-cpp audio.cpp-gguf Irodori-TTS-500M-v3-GGUF irodori-tts-500m-v3-q8_0.gguf",
+    "instructions": "Hugging Faceの上記ファイルページを開き、Download（下向き矢印）を押します。ファイル名 irodori-tts-500m-v3-q8_0.gguf（約1.09GB）を確認してください。f16版やHTMLページは別のファイルです。任意の場所に保存し、展開せず「ダウンロード済みファイルを指定する」→「参照」から .gguf を選びます。検証・配置はセットアップが行います。"
   },
+  "pythonWheels": [
+    {"package":"numpy","version":"2.4.4","name":"numpy-2.4.4-cp312-cp312-win_amd64.whl","bytes":12320584,"sha256":"b5f0362dc928a6ecd9db58868fca5e48485205e3855957bdedea308f8672ea4a","url":"https://files.pythonhosted.org/packages/2d/5b/e1deebf88ff431b01b7406ca3583ab2bbb90972bbe1c568732e49c844f7e/numpy-2.4.4-cp312-cp312-win_amd64.whl"},
+    {"package":"requests","version":"2.34.0","name":"requests-2.34.0-py3-none-any.whl","bytes":73021,"sha256":"917520a21b767485ce7c588f4ebb917c436b24a31231b44228715eaeb5a52c60","url":"https://files.pythonhosted.org/packages/ef/e6/e300fce5fe83c30520607a015dabd985df3251e188d234bfe9492e17a389/requests-2.34.0-py3-none-any.whl"},
+    {"package":"soundfile","version":"0.13.1","name":"soundfile-0.13.1-py2.py3-none-win_amd64.whl","bytes":1019162,"sha256":"1e70a05a0626524a69e9f0f4dd2ec174b4e9567f4d8b6c11d38b5c289be36ee9","url":"https://files.pythonhosted.org/packages/14/e9/6b761de83277f2f02ded7e7ea6f07828ec78e4b229b80e4ca55dd205b9dc/soundfile-0.13.1-py2.py3-none-win_amd64.whl"},
+    {"package":"certifi","version":"2026.10.23","name":"certifi-2026.10.23-py3-none-any.whl","bytes":135082,"sha256":"e9b54de76e530bb6cf0ccd036787103acb58fd42ba930ea8bf948ddbaa2f61d1","url":"https://files.pythonhosted.org/packages/32/d1/a3652fe2c19134d0d15922177821d863cbd7e842d53a21bbe7e8e3a1b5ac/certifi-2026.10.23-py3-none-any.whl"},
+    {"package":"cffi","version":"2.1.1","name":"cffi-2.1.1-cp312-cp312-win_amd64.whl","bytes":185919,"sha256":"f53e442b08449d42821fa4a4fba000095af9f62742a500f978a9f557ec44339a","url":"https://files.pythonhosted.org/packages/d9/79/615cc094e2fb508cade7de88d3b4f6c4ec2bab695c97bce9153dc65aadf5/cffi-2.1.1-cp312-cp312-win_amd64.whl"},
+    {"package":"charset-normalizer","version":"3.5.2","name":"charset_normalizer-3.5.2-cp312-cp312-win_amd64.whl","bytes":207486,"sha256":"780fbe7cab297b81dad9fb8dc5eb003c0468ffb0d9e5f65068c53a34661a96bc","url":"https://files.pythonhosted.org/packages/eb/e6/e6e083884cbcfd49c64865af05027fe7011be7b2d9179524f099a1b611f3/charset_normalizer-3.5.2-cp312-cp312-win_amd64.whl"},
+    {"package":"idna","version":"3.20","name":"idna-3.20-py3-none-any.whl","bytes":69583,"sha256":"ab7ae7122974553370f0bdb919e1a960b2cd1bc1ef0276416d896db81c14582c","url":"https://files.pythonhosted.org/packages/58/a2/bb081bab032533a855d44de1d56f8e8426114ff1ba5d1f07a438a0a654f8/idna-3.20-py3-none-any.whl"},
+    {"package":"pycparser","version":"3.12","name":"pycparser-3.12-py3-none-any.whl","bytes":62600,"sha256":"a076f3f489b39b43ed13563a1dafe42447445bec2e294154ec5c57fcdda4c85e","url":"https://files.pythonhosted.org/packages/b6/ae/315bbeee126a769cbde43cf4908acb4b40408d8bf8bbf334dd7368d8dadf/pycparser-3.12-py3-none-any.whl"},
+    {"package":"urllib3","version":"2.8.0","name":"urllib3-2.8.0-py3-none-any.whl","bytes":135717,"sha256":"0cf3cae568d36aa9576b28dfb35f11328f1cb974ca7647d9475ebb86c75ac6e3","url":"https://files.pythonhosted.org/packages/92/9d/c4e665119135114480843e7ab388fa94d8480650450e6f8e26b70d323a4c/urllib3-2.8.0-py3-none-any.whl"}
+  ],
   "assets": [
     {
       "name": "audio-v0.9.3-bin-windows-x64-cuda13.3.zip",
+      "title": "audio.cpp v0.9.3 Windows x64 CUDA 13.3 通常版完成品",
+      "version": "v0.9.3 / Windows x64 / CUDA 13.3",
+      "purpose": "NVIDIA GPU用の通常版音声生成エンジン",
+      "artifactType": "完成済み実行ファイルZIP（声質安定版パッチなし）",
+      "pageUrl": "https://github.com/0xShug0/audio.cpp/releases/tag/v0.9.3",
+      "searchWords": "0xShug0 audio.cpp v0.9.3 windows x64 cuda13.3",
+      "instructions": "GitHubの v0.9.3 Releaseを開き、Assets（見えなければ Show all assets）から audio-v0.9.3-bin-windows-x64-cuda13.3.zip を選びます。lib、Linux、Source codeは選びません。依存CUDAランタイムZIPも別途必要です（次の工程で取得します）。保存先は自由です。展開せず、復旧画面の「ファイルを指定する」→「参照」でZIPを選んでください。これは通常版で、声質安定版パッチ入りの完成品ではありません。",
       "kind": "backend",
       "role": "standard",
       "backend": "cuda",
@@ -22,6 +61,13 @@
       "dependencies": [
         {
           "name": "audio-v0.9.3-cudart-windows-x64-cuda13.3.zip",
+          "title": "audio.cpp v0.9.3 Windows x64 CUDA 13.3 実行時DLL",
+          "version": "v0.9.3 / CUDA 13.3",
+          "purpose": "CUDA完成品を起動するための依存DLL（bin ZIPとは別に必要）",
+          "artifactType": "実行時DLLのZIP（ソースやCUDA Toolkit全体ではありません）",
+          "pageUrl": "https://github.com/0xShug0/audio.cpp/releases/tag/v0.9.3",
+          "searchWords": "0xShug0 audio.cpp v0.9.3 cudart windows x64 cuda13.3",
+          "instructions": "同じ v0.9.3 ReleaseのAssetsから audio-v0.9.3-cudart-windows-x64-cuda13.3.zip を選びます。これはDLLのZIPです。binのZIPと両方必要です。CUDA Toolkit全体やSource codeではありません。展開せず参照で指定してください。配置はセットアップが行います。",
           "url": "https://github.com/0xShug0/audio.cpp/releases/download/v0.9.3/audio-v0.9.3-cudart-windows-x64-cuda13.3.zip",
           "sha256": "839eb20f684a8aab64895b1e466b32ce9b29dfc19dc1ce15b2ef35218512ac0a",
           "bytes": 575457454
@@ -29,10 +75,37 @@
       ]
     },
     {
-      "name": "audio-cpp-stable-cpu-x64.zip",
+      "name": "audio-v0.9.3-bin-windows-x64-cpu-portable.zip",
+      "title": "audio.cpp v0.9.3 Windows x64 CPU portable 通常版完成品",
+      "version": "v0.9.3 / Windows x64 CPU portable",
+      "purpose": "CPU用の通常版音声生成エンジン（CUDA DLLは不要）",
+      "artifactType": "完成済み実行ファイルZIP（ソースではありません）",
       "kind": "backend",
+      "role": "standard",
       "backend": "cpu",
       "arch": "",
+      "url": "https://github.com/0xShug0/audio.cpp/releases/download/v0.9.3/audio-v0.9.3-bin-windows-x64-cpu-portable.zip",
+      "pageUrl": "https://github.com/0xShug0/audio.cpp/releases/tag/v0.9.3",
+      "sha256": "f5fa4662b7ec323dbe31d37e224e46159b064836a9005da384551a5248771eeb",
+      "bytes": 30409504,
+      "searchWords": "0xShug0 audio.cpp v0.9.3 windows x64 cpu portable",
+      "instructions": "GitHub v0.9.3 ReleaseのAssetsから audio-v0.9.3-bin-windows-x64-cpu-portable.zip を選びます。lib、Linux、Source codeは選びません。これは通常版の実行ファイルです。展開せず「ファイルを指定する」→「参照」でZIPを選んでください。"
+    },
+    {
+      "name": "audio-cpp-stable-cpu-x64.zip",
+      "title": "Irodori Voice Reader 同梱の声質安定対応CPU完成品",
+      "version": "同梱固定版（SHA-256で識別）",
+      "purpose": "任意で追加する声質安定対応CPUエンジン",
+      "artifactType": "パッチ適用済み完成品ZIP（上流の通常版では代替不可）",
+      "kind": "backend",
+      "role": "stable",
+      "backend": "cpu",
+      "arch": "",
+      "url": "",
+      "pageUrl": "",
+      "bytes": 4297809,
+      "searchWords": "Irodori Voice Reader audio-cpp-stable-cpu-x64.zip",
+      "instructions": "このパッチ入りCPU完成品は配布パッケージ内のassetsに同梱されています。現在、検証済みの公開単独ダウンロード先はありません。お持ちの配布パッケージ内の同名ZIPを参照で指定できます。なければ中断し、声質安定版のソースビルドを選んで再開してください。上流audio.cppの通常版ZIPを代用品にはできません。ZIPは展開せず指定してください。",
       "sha256": "a35ca562db6bcf1c990d7544dcd660de7952f6d5638c3fa281b928c577ab035a"
     },
     {

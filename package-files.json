@@ -78,7 +78,7 @@
     },
     {
       "path": "chrome-extension/adapters.js",
-      "sha256": "8535bb82de90f3b70f1c92a0addc1d94a77a1420a631107211152963e1547fa4"
+      "sha256": "3749d320e5aa96d21cc8b5422d2563cc18aad5473b7a576e770d75d43d27586c"
     },
     {
       "path": "chrome-extension/api-state.js",
@@ -94,7 +94,7 @@
     },
     {
       "path": "chrome-extension/chatgpt-watcher.js",
-      "sha256": "09568cf6dcb6a97811c4132751367e7cd086ac5d2347f649c5149ef79b171b9c"
+      "sha256": "436da7576da8be4ad7471490091b2b8ffee32805211c60ac15f2acfe21515071"
     },
     {
       "path": "chrome-extension/chrome-compat.js",
@@ -190,15 +190,27 @@
     },
     {
       "path": "distribution.json",
-      "sha256": "75f48118f120d70de53e2a279f03bdeea3b7e310b8e3d193b2499844a72ecdf5"
+      "sha256": "53f7910fbf80807831bca176fffc8da1e4eb17931ac0a4361481a01c5f9cee4c"
     },
     {
       "path": "docs/browser-install.md",
       "sha256": "0f8bbc5a0633585f112ab892404b52a47a4e092470c1fd31dba9f50d1a211b5d"
     },
     {
+      "path": "docs/chrome-chatgpt-verification-2026-11-04.md",
+      "sha256": "08ce5e90d2d36cc4501fe3d605e92d549a266548b51451700d26900be3b0fa75"
+    },
+    {
       "path": "docs/chrome-install.svg",
       "sha256": "9faaf070d3d0935a1e6e624cb42c9e07abc71e45644efab6afda1a5d9992c2e8"
+    },
+    {
+      "path": "docs/download-recovery-verification-2026-11-04.md",
+      "sha256": "e81baaaca063b0d5ccd10c4591785ffef60838183a026cafb734ddf310f2346f"
+    },
+    {
+      "path": "docs/downloads-and-recovery.md",
+      "sha256": "deb10f98198c9426f6e5e3e9a79e3151a7c04f691f7840cd56445647141a4b3e"
     },
     {
       "path": "docs/firefox-install.svg",
@@ -478,7 +490,7 @@
     },
     {
       "path": "README.md",
-      "sha256": "f58337039bddd19ae5c3585a44167b8b8b3dd7035b18e4eac0752b04c69f4e49"
+      "sha256": "7617c26a963e13a3ac41f3324756230575715ffdb348339b0644affd8026dfe1"
     },
     {
       "path": "RELEASE_NOTES.md",
@@ -486,23 +498,51 @@
     },
     {
       "path": "scripts/build-backend.ps1",
-      "sha256": "aeaa63d75a90094389f0a5495a303b8b6ea8434af38aa12ca0ad44f4f3c58bee"
+      "sha256": "89d141917860ebc7782afa6908567eed525965a8b09f4d79fe883b3af88b5e93"
+    },
+    {
+      "path": "scripts/build-fingerprint.py",
+      "sha256": "f4c49a40d797a32f38b7725928d5b8d824a9b2df17477e9e56c94c22651f5082"
     },
     {
       "path": "scripts/common.ps1",
-      "sha256": "44d8f5649d26a3a459abd7f6da8223729cb1a27d159425fdb1031a7185a88b27"
+      "sha256": "337c9fcb9d5a5a89ecc3732f70e93c226e4dc609c8986f352312c38d4d7ffa04"
     },
     {
       "path": "scripts/configure-chrome.ps1",
-      "sha256": "2af54d49894f94124a7eb8f04dbe569f8d67672b7d1ea4c9e5a7ee26f55e93a4"
+      "sha256": "1c29039cf360382f194169e594092db46ea5a010151f91e0cca4175ebb7bbd1a"
+    },
+    {
+      "path": "scripts/download-catalog.json",
+      "sha256": "e8b3813452e8d719bf9ca86361416a1f042f2bb4af97690a5c2d887b3b6bf3fa"
+    },
+    {
+      "path": "scripts/download-file.py",
+      "sha256": "393dbc5e465aef3a27399a820f14422742e542b7bb6c13014b73102db16305b8"
+    },
+    {
+      "path": "scripts/downloads.ps1",
+      "sha256": "c6ee843b5951768f8fed24f02a5391d85659a83b54fa56b2f993338c067473ed"
+    },
+    {
+      "path": "scripts/extract-archive.py",
+      "sha256": "1adf7d9721fc62df36e2903c23afda6db5c74a7fdbb45608acd5508d21e8648f"
+    },
+    {
+      "path": "scripts/import-download.py",
+      "sha256": "d2cba21d93fd90615afdbae4f50dc58760ffb0301dffa9ca25d3cc63e2347250"
     },
     {
       "path": "scripts/install-files.ps1",
       "sha256": "a194e8ba89a60e39694059cf6a67bb722223cda232962aa0a915217ec701b9aa"
     },
     {
+      "path": "scripts/make-download-catalog.py",
+      "sha256": "8399bb66e89927a1e8a2239b261db28666e720cbe42e317f7b677399e4a50046"
+    },
+    {
       "path": "scripts/make-inventory.py",
-      "sha256": "b45175907e26c59cdc039f7410163298da66fd7f898444982b1425cab682ac73"
+      "sha256": "95ec2a1e63e1093b13b574fd55167737ae644d89dc1f99cc482c2d587c198367"
     },
     {
       "path": "scripts/package-release.py",
@@ -522,7 +562,7 @@
     },
     {
       "path": "scripts/setup-dialog.cs",
-      "sha256": "e1ff29f91817e7e5cb6ffdba7c3a4b22a8f745215d63ebfb16319072aa73b6f7"
+      "sha256": "2cc20b72fcbedf01f2d63e46e8536ab2fa49a639aa147413b7ccd517a6edecb7"
     },
     {
       "path": "scripts/setup-job.cs",
@@ -530,11 +570,11 @@
     },
     {
       "path": "scripts/setup.ps1",
-      "sha256": "b9f9c69169eb157fafa54d0b92d355f6a17e6e2dbbbadc95d3a8948182a9fc5f"
+      "sha256": "35c169eab6583e5dad3b15f1f0154aa8a04a7d48386c24519ca1611434fd824f"
     },
     {
       "path": "scripts/support.ps1",
-      "sha256": "0d4112e9d47bfd56c661d6aacc48b59498b0740680a8bb1f69d41ce615f6f2e0"
+      "sha256": "fc942cd7762f10c8e8524d777c6ef5d8916916d3c32996ec748b25a4bd366337"
     },
     {
       "path": "scripts/validate.ps1",
@@ -553,8 +593,28 @@
       "sha256": "b8dcda95b069ce8d7525a949b8701658a9e9d4d2c4ce67fc3a1d7ac5d4fd71b2"
     },
     {
+      "path": "tests/prepare_download_ui.py",
+      "sha256": "9c8c2fac7db289c9d11ba21cc881723a6595f44e1c3333f622ece7182eb71e03"
+    },
+    {
       "path": "tests/smoke_backend.py",
       "sha256": "172e57845bb1b6fbbc2335b679c591ae30da7442d87ecb1b50d313ecfd385613"
+    },
+    {
+      "path": "tests/test_chrome_chatgpt_adapter.html",
+      "sha256": "c5cf21015c482e126392e388e9c793c9fffe428dec944648b082eb2e4547b222"
+    },
+    {
+      "path": "tests/test_chrome_chatgpt_watcher.js",
+      "sha256": "d61726a80a74377fd38c897813541714d4122ced465fc410c417a42f4ba17a77"
+    },
+    {
+      "path": "tests/test_chrome_gemini_adapter.html",
+      "sha256": "8a9998b3cef833dc927945fe48d40446ff6ebcaf0ead3badcc4af679944e16b2"
+    },
+    {
+      "path": "tests/test_chrome_gemini_watcher.js",
+      "sha256": "8fc4ffda51540a292590f8ae66fbe0e14d19285909cdee9273a7628ac70c6005"
     },
     {
       "path": "tests/test_dialogue_scope.js",
@@ -563,6 +623,14 @@
     {
       "path": "tests/test_distribution.py",
       "sha256": "6db0918461557c334f29be698cf206973fab78a4d7ff3472ea64d0e1f573d908"
+    },
+    {
+      "path": "tests/test_download_ui.ps1",
+      "sha256": "cb746328490ae69bc1b6bf4c1d20410014349229ea3d2d515f8128d259dd3456"
+    },
+    {
+      "path": "tests/test_downloads.py",
+      "sha256": "83b385faaca3022de6eba999d6db55d8653efe6f7a62f1b405d6d25dca9816bc"
     },
     {
       "path": "tests/test_installer_windows.py",

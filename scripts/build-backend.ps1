@@ -5,12 +5,21 @@ param(
     [ValidateSet('cpu','cuda')][string]$Backend='cpu',
     [string]$CudaArch='',
     [switch]$StandardOnly,
-    [switch]$AllowToolInstall
+    [switch]$AllowToolInstall,
+    [ValidateRange(0,64)][int]$Jobs=0,
+    [string]$CacheRoot='',
+    [string]$VsInstall='',
+    [string]$SourceArchive='',
+    [switch]$ConfigureOnly
 )
 . (Join-Path $PSScriptRoot 'common.ps1')
 $Root = Split-Path -Parent $PSScriptRoot
 $manifest = Get-Content (Join-Path $Root 'distribution.json') -Raw -Encoding UTF8 | ConvertFrom-Json
 function Find-Vs {
+    if($VsInstall){
+        if(-not(Test-Path (Join-Path $VsInstall 'VC\Tools\MSVC'))){throw '指定したC++ビルド環境が見つかりません。'}
+        return $VsInstall
+    }
     $where = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
     if (Test-Path $where) {
         $found = & $where -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 Microsoft.VisualStudio.Component.VC.CMake.Project -property installationPath
@@ -20,7 +29,7 @@ function Find-Vs {
 }
 function Find-Cuda {
     if (-not $CudaArch -or $CudaArch -notmatch '^\d{2,3}$') { throw 'NVIDIA GPUの世代を確認できません。CPU方式を選択してください。' }
-    $roots = @($env:CUDA_PATH)
+    $roots = @($env:CUDA_PATH,$env:CUDAToolkit_ROOT)
     $roots += @(Get-ChildItem 'C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA' -Directory -ErrorAction SilentlyContinue | Sort-Object Name -Descending | ForEach-Object { $_.FullName })
     foreach ($r in $roots) {
         if (-not $r) { continue }
@@ -31,6 +40,57 @@ function Find-Cuda {
         }
     }
     return ''
+}
+$watch=[Diagnostics.Stopwatch]::StartNew()
+$patchFiles=if($StandardOnly){@()}else{@('audio-cpp-stable-patch\stable-rescue.patch','audio-cpp-stable-patch\speaker-embedding-dump.patch','audio-cpp-patch\apply_speaker_embedding_patch.py','audio-cpp-patch\speaker_embedding_loader.inc')}
+$legacyInputs=@($patchFiles | ForEach-Object {Join-Path $Root $_})
+if(-not $StandardOnly){$legacyInputs+=@(Get-ChildItem (Join-Path $Root 'audio-cpp-stable-patch\added-files') -Recurse -File | Sort-Object FullName | ForEach-Object {$_.FullName})}
+$legacyHash=($legacyInputs | ForEach-Object {(Get-FileHash $_ -Algorithm SHA256).Hash}) -join ''
+function Hash-Text([string]$Text){return [BitConverter]::ToString([Security.Cryptography.SHA256]::Create().ComputeHash([Text.Encoding]::UTF8.GetBytes($Text))).Replace('-','')}
+$legacyDigest=(Hash-Text $legacyHash).Substring(0,16)
+$sharedPatch=Join-Path $Root 'audio-cpp-patch\apply_shared_session_patch.py'
+$patchHash=$legacyHash+$(if(-not $StandardOnly){(Get-FileHash $sharedPatch).Hash}else{''})
+$digest=(Hash-Text $patchHash).Substring(0,16)
+if(-not $CacheRoot){$CacheRoot=Join-Path $WorkRoot 'b'}
+$mode=if($StandardOnly){'standard'}else{'stable'}
+$arch=if($Backend -eq 'cuda'){$CudaArch}else{''}
+$recipe="schema=2;commit=$($manifest.audioCppCommit);patch=$digest;mode=$mode;backend=$Backend;arch=$arch;cpu=baseline;native=OFF;llamafile=OFF;target=audiocpp_server;config=Release"
+$legacyRuntime=Join-Path $CacheRoot ($manifest.audioCppCommit.Substring(0,7)+'-'+$mode+'-'+$digest.Substring(0,8)+'-'+$Backend+$(if($arch){'-sm'+$arch}else{''}))
+# Short paths also save Windows CMake/Ninja object-file path budget. All recipe
+# fields remain in complete.json rather than being repeated in directory names.
+$cache=Join-Path $CacheRoot ((Hash-Text $recipe).Substring(0,12))
+if(-not(Test-Path (Join-Path $cache 'complete.json')) -and (Test-Path (Join-Path $legacyRuntime 'complete.json'))){$cache=$legacyRuntime}
+$runtime=Join-Path $cache 'runtime'
+$completion=Join-Path $cache 'complete.json'
+$output=Join-Path $WorkRoot ('build-output\'+$Backend+$(if($arch){'-sm'+$arch}else{''}))
+function Source-Fingerprint([string]$Directory){
+    $result=& $Python (Join-Path $PSScriptRoot 'build-fingerprint.py') $Directory
+    if($LASTEXITCODE -ne 0){throw 'ソースキャッシュの検査に失敗しました。'}
+    return [string]$result
+}
+function Get-BuildJobs([int]$Cores,[long]$FreeBytes,[string]$Kind,[int]$Requested=0){
+    $perJob=if($Kind -eq 'cuda'){1536MB}else{768MB}
+    $memoryJobs=[Math]::Max(1,[Math]::Floor(($FreeBytes-1GB)/$perJob))
+    $count=[int][Math]::Max(1,[Math]::Min([Math]::Max(1,$Cores-1),$memoryJobs))
+    if($Requested -gt 0){$count=[int][Math]::Min($Requested,$count)}
+    return $count
+}
+if(-not $ConfigureOnly -and (Test-Path $completion)){
+    $saved=Get-Content $completion -Raw -Encoding UTF8 | ConvertFrom-Json
+    $valid=$saved.recipe -eq $recipe
+    foreach($file in $saved.files){if(-not(Test-DownloadFile (Join-Path $runtime $file.name) $file.sha256 $file.bytes)){$valid=$false}}
+    if(-not @($saved.files | Where-Object {$_.name -eq 'audiocpp_server.exe'}).Count){$valid=$false}
+    foreach($tool in $saved.tools){if((Test-Path $tool.path) -and (Get-FileHash $tool.path).Hash -ne $tool.sha256){$valid=$false}}
+    if((Test-Path $saved.source) -and (Source-Fingerprint $saved.source) -ne $saved.sourceFingerprint){$valid=$false}
+    if($valid){
+        Copy-BackendRuntime $runtime $output
+        Copy-Item (Join-Path $runtime 'build.json') (Join-Path $output 'build.json') -Force
+        Save-Json (Join-Path $WorkRoot 'last-build.json') @{cacheHit=$true;seconds=$watch.Elapsed.TotalSeconds;recipe=$recipe;jobs=0;compiled=$false}
+        Write-Host ('検証済み完成品キャッシュを再利用。取得・展開・パッチ・CMake・コンパイルは不要です。秒数: '+$watch.Elapsed.TotalSeconds.ToString('F2'))
+        Write-Output $output
+        exit 0
+    }
+    Write-Host '入力または完成品が変化したため、既存ソースとNinja中間成果物を使って差分ビルドします。'
 }
 $vs = Find-Vs
 if (-not $vs) {
@@ -60,25 +120,40 @@ if (-not $git) {
     $git = Get-Command git.exe -ErrorAction SilentlyContinue
     if (-not $git) { throw 'Gitを確認できません。setup.batを再実行してください。' }
 }
-$patchFiles = @('audio-cpp-stable-patch\stable-rescue.patch','audio-cpp-stable-patch\speaker-embedding-dump.patch','audio-cpp-patch\apply_speaker_embedding_patch.py','audio-cpp-patch\speaker_embedding_loader.inc')
-$patchInputs=@($patchFiles | ForEach-Object {Join-Path $Root $_})
-$patchInputs+=@(Get-ChildItem (Join-Path $Root 'audio-cpp-stable-patch\added-files') -Recurse -File | Sort-Object FullName | ForEach-Object {$_.FullName})
-$patchHash = ($patchInputs | ForEach-Object { (Get-FileHash $_ -Algorithm SHA256).Hash }) -join ''
-$digest = [BitConverter]::ToString([Security.Cryptography.SHA256]::Create().ComputeHash([Text.Encoding]::UTF8.GetBytes($patchHash))).Replace('-','').Substring(0,16)
-$cache = Join-Path $WorkRoot ('b\'+$manifest.audioCppCommit.Substring(0,7)+$(if($StandardOnly){'-standard'}else{''})+'-'+$digest.Substring(0,8))
-$source = Join-Path $cache 'source'
+$source = Join-Path $cache 's'
 $marker = Join-Path $cache 'patched.json'
 if (-not (Test-Path $marker)) {
+    # Adopt our previous managed, matching patch cache in place: its absolute
+    # source path matters to CMake/Ninja. Never reset/clean a user's source.
+    $legacy=Join-Path $CacheRoot ($manifest.audioCppCommit.Substring(0,7)+$(if($StandardOnly){'-standard'}else{''})+'-'+$legacyDigest.Substring(0,8)+'\patched.json')
+    $adopted=$false
+    if(Test-Path $legacy){
+        $old=Get-Content $legacy -Raw -Encoding UTF8 | ConvertFrom-Json
+        if($old.commit -eq $manifest.audioCppCommit -and $old.patchHash -eq $legacyDigest -and (Test-Path $old.source)){
+            $head=& $git.Source -C $old.source rev-parse HEAD
+            if($LASTEXITCODE -eq 0 -and $head.Trim() -eq $manifest.audioCppCommit){$source=$old.source;$adopted=$true;Write-Host '既存の一致するソース/CMake/Ninjaキャッシュを再利用します。'}
+        }
+    }
+    if($adopted -and -not $StandardOnly){
+        Run $Python @((Join-Path $Root 'audio-cpp-patch\apply_speaker_embedding_patch.py'),$source,'--check')
+        # Later embedding/CMake fixes overlap the original patch hunks, so a
+        # reverse-apply check would reject a valid layered cache. Verify its
+        # marker, copied inputs and embedding implementation without rewriting
+        # those sources; the full source fingerprint is retained on completion.
+        foreach($file in Get-ChildItem (Join-Path $Root 'audio-cpp-stable-patch\added-files') -Recurse -File){
+            $relative=$file.FullName.Substring((Join-Path $Root 'audio-cpp-stable-patch\added-files').Length).TrimStart('\')
+            if(-not(Test-DownloadFile (Join-Path $source $relative) (Get-FileHash $file.FullName).Hash $file.Length)){throw '以前のソースキャッシュに変更があります。上書きせず停止します。別のCacheRootを指定してください。'}
+        }
+    }
+    if(-not $adopted){
     # Never reset or clean an existing source directory. A failed partial source
     # stays available for diagnostics, and the next attempt uses a fresh directory.
     if (Test-Path $source) { $source = Join-Path $cache ('source-'+[guid]::NewGuid().ToString('N')) }
-    New-Item -ItemType Directory -Force -Path $source | Out-Null
-    Run $git.Source @('init',$source)
-    Run $git.Source @('-C',$source,'remote','add','origin','https://github.com/0xShug0/audio.cpp.git')
-    Run $git.Source @('-C',$source,'fetch','--depth','1','origin',$manifest.audioCppCommit)
-    Run $git.Source @('-C',$source,'checkout','--detach','FETCH_HEAD')
-    $head = & $git.Source -C $source rev-parse HEAD
-    if ($head.Trim() -ne $manifest.audioCppCommit) { throw 'audio.cppのコミット検査に失敗しました。' }
+    $archive=Join-Path $CacheRoot ('downloads\'+$manifest.audioCppSource.name)
+    [void](Get-RequiredDownload $manifest.audioCppSource $archive -Python $Python -Selected $SourceArchive)
+    New-Item -ItemType Directory -Force -Path $cache | Out-Null
+    Expand-Download $archive $manifest.audioCppSource $source $Python -StripRoot ('audio.cpp-'+$manifest.audioCppCommit)
+    if(-not(Test-Path (Join-Path $source 'scripts\build_windows.ps1'))){throw '固定ソースZIPの構造が想定と異なります。'}
     if(-not $StandardOnly){
     foreach ($relative in @('audio-cpp-stable-patch\stable-rescue.patch','audio-cpp-stable-patch\speaker-embedding-dump.patch')) {
         $file = Join-Path $Root $relative
@@ -89,28 +164,42 @@ if (-not (Test-Path $marker)) {
     Run $Python @((Join-Path $Root 'audio-cpp-patch\apply_speaker_embedding_patch.py'),$source)
     Run $Python @((Join-Path $Root 'audio-cpp-patch\apply_speaker_embedding_patch.py'),$source,'--check')
     }
-    Save-Json $marker @{ source=$source; commit=$head.Trim(); patchHash=$digest }
+    }
+    Save-Json $marker @{ source=$source; commit=$manifest.audioCppCommit; patchHash=$digest }
 } else {
     $source = (Get-Content $marker -Raw -Encoding UTF8 | ConvertFrom-Json).source
     if(-not $StandardOnly){Run $Python @((Join-Path $Root 'audio-cpp-patch\apply_speaker_embedding_patch.py'),$source,'--check')}
 }
-$sharedPatch=Join-Path $Root 'audio-cpp-patch\apply_shared_session_patch.py'
 if(-not $StandardOnly){Run $Python @($sharedPatch,$source);Run $Python @($sharedPatch,$source,'--check')}
 $preset=if($Backend -eq 'cuda'){'windows-cuda-release'}else{'windows-cpu-release'}
-$buildArguments=@('-NoProfile','-ExecutionPolicy','Bypass','-File',(Join-Path $source 'scripts\build_windows.ps1'),'-Preset',$preset,'-Target','audiocpp_server','-VsInstall',$vs,'-Jobs','2')
+$cpu=[Environment]::ProcessorCount
+$free=[long](Get-CimInstance Win32_OperatingSystem).FreePhysicalMemory*1KB
+$effectiveJobs=Get-BuildJobs $cpu $free $Backend $Jobs
+Write-Host "ビルド並列数: $effectiveJobs / 論理CPU: $cpu / 空きRAM: $([Math]::Round($free/1GB,2)) GB（OS用1GBとコンパイラ用メモリを確保）"
+$buildArguments=@('-NoProfile','-ExecutionPolicy','Bypass','-File',(Join-Path $source 'scripts\build_windows.ps1'),'-Preset',$preset,'-Target','audiocpp_server','-VsInstall',$vs,'-Jobs',[string]$effectiveJobs)
 $buildArguments+=@('-CpuArch','baseline','-NativeCpu','OFF','-Llamafile','OFF')
 if($Backend -eq 'cuda'){$buildArguments+=@('-CudaArchitectures',($CudaArch+'-real'))}
+if($ConfigureOnly){$buildArguments+='-ConfigureOnly'}
 Run 'powershell.exe' $buildArguments
+if($ConfigureOnly){Write-Host ('固定ソースの取得・パッチ・CMake設定を確認しました。コンパイルは要求されていません。秒数: '+$watch.Elapsed.TotalSeconds.ToString('F2'));exit 0}
 $bin=Join-Path $source "build\$preset\bin"
 $exe=Join-Path $bin 'audiocpp_server.exe'
 if(-not(Test-Path $exe)){throw 'ビルド結果の実行ファイルが見つかりません。'}
-$output=Join-Path $WorkRoot ('build-output\'+$Backend+$(if($CudaArch){'-sm'+$CudaArch}else{''}))
-New-Item -ItemType Directory -Force -Path $output | Out-Null
-Get-ChildItem $bin -File | Where-Object {$_.Extension -in @('.exe','.dll')} | Copy-Item -Destination $output -Force
+New-Item -ItemType Directory -Force -Path $runtime | Out-Null
+Get-ChildItem $bin -File | Where-Object {$_.Extension -in @('.exe','.dll')} | Copy-Item -Destination $runtime -Force
 if($Backend -eq 'cuda'){
     foreach($pattern in @('cudart64_*.dll','cublas64_*.dll','cublasLt64_*.dll','cufft64_*.dll')){
-        Get-ChildItem (Join-Path $cuda 'bin') -Filter $pattern -File | Copy-Item -Destination $output -Force
+        Get-ChildItem (Join-Path $cuda 'bin') -Filter $pattern -File | Copy-Item -Destination $runtime -Force
     }
 }
-Save-Json (Join-Path $output 'build.json') @{ standardOnly=[bool]$StandardOnly; stableSupported=(-not $StandardOnly); commit=$manifest.audioCppCommit; patchHash=$digest; sharedSessionPatchSha256=(Get-FileHash $sharedPatch -Algorithm SHA256).Hash; backend=$Backend; arch=$CudaArch; exeSha256=(Get-FileHash $exe -Algorithm SHA256).Hash }
+Save-Json (Join-Path $runtime 'build.json') @{ standardOnly=[bool]$StandardOnly; stableSupported=(-not $StandardOnly); commit=$manifest.audioCppCommit; patchHash=$digest; sharedSessionPatchSha256=$(if(-not $StandardOnly){(Get-FileHash $sharedPatch).Hash}else{''}); backend=$Backend; arch=$arch; exeSha256=(Get-FileHash $exe -Algorithm SHA256).Hash }
+$toolPaths=@((Get-ChildItem (Join-Path $vs 'VC\Tools\MSVC\*\bin\Hostx64\x64\cl.exe') | Sort-Object FullName -Descending | Select-Object -First 1).FullName)
+if($Backend -eq 'cuda'){$toolPaths+=Join-Path $cuda 'bin\nvcc.exe'}
+$tools=@($toolPaths | ForEach-Object {@{path=$_;sha256=(Get-FileHash $_).Hash}})
+$files=@(Get-ChildItem $runtime -File | Where-Object {$_.Extension -in @('.exe','.dll') -or $_.Name -eq 'build.json'} | ForEach-Object {@{name=$_.Name;sha256=(Get-FileHash $_.FullName).Hash;bytes=$_.Length}})
+Save-Json $completion @{recipe=$recipe;source=$source;sourceFingerprint=(Source-Fingerprint $source);files=$files;tools=$tools}
+Copy-BackendRuntime $runtime $output
+Copy-Item (Join-Path $runtime 'build.json') (Join-Path $output 'build.json') -Force
+Save-Json (Join-Path $WorkRoot 'last-build.json') @{cacheHit=$false;seconds=$watch.Elapsed.TotalSeconds;recipe=$recipe;jobs=$effectiveJobs;compiled=$true}
+Write-Host ('ビルドと配置の合計秒数: '+$watch.Elapsed.TotalSeconds.ToString('F2'))
 Write-Output $output

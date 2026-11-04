@@ -1,0 +1,40 @@
+"use strict";
+const assert = require("node:assert/strict");
+const { fixture } = require("./test_chrome_chatgpt_watcher.js");
+(async () => {
+  const f = await fixture("/app/history", true, "gemini");
+  await f.advance(6000);
+  // A lazy historical turn arriving with a spinner used to infer a new send.
+  f.users.push(f.node("lazy-user", "old question", 3));
+  const lazy = f.node("lazy-answer", "old answer", 4); lazy.streaming = true;
+  f.answers.push(lazy); await f.scan();
+  lazy.streaming = false; await f.scan(); await f.advance(30);
+  assert.equal(f.enqueued.length, 0, "scroll/lazy history must never arm Gemini");
+  await f.send("new question\nsecond line");
+  f.users.push(f.node("new-user", "new question second line", 5));
+  const answer = f.node("new-answer", "first line", 6); answer.streaming = true;
+  f.answers.push(answer); await f.scan(); await f.advance(50);
+  assert.equal(f.enqueued.length, 0, "wait for completion");
+  answer.text = "同じ回答です。\n二行目です。"; answer.streaming = false;
+  await f.scan(); await f.advance(30);
+  assert.equal(f.enqueued.length, 1);
+  // Recreated nodes with new IDs must not replay a completed answer.
+  f.users.splice(0, f.users.length, f.node("rerender-user", "new question second line", 1));
+  f.answers.splice(0, f.answers.length, f.node("rerender-answer", answer.text, 2));
+  await f.scan(); await f.advance(50);
+  assert.equal(f.enqueued.length, 1, "rerender must not enqueue");
+  await f.send("another question");
+  f.users.push(f.node("next-user", "another question", 3));
+  f.answers.push(f.node("next-answer", answer.text, 4));
+  await f.scan(); await f.advance(30);
+  assert.equal(f.enqueued.length, 2, "identical text on a different turn must play");
+  assert.notEqual(f.enqueued[0].answer.messageId, f.enqueued[1].answer.messageId);
+  await f.send("pending question");
+  await f.route("/app/different-chat"); await f.advance(30);
+  assert.equal(f.enqueued.length, 2, "switching chats cancels pending send");
+  f.control.stop();
+  const reload = await fixture("/app/history", true, "gemini");
+  await reload.advance(6000); await reload.scan();
+  assert.equal(reload.enqueued.length, 0, "reload ignores history"); reload.control.stop();
+  console.log("Chrome Gemini watcher: explicit sends, lazy history, rerender, same-text new turns, multiline, completion and navigation passed");
+})().catch(error => { console.error(error); process.exitCode = 1; });

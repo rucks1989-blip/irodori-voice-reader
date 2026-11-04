@@ -187,15 +187,21 @@ globalThis.IvrAdapters = (() => {
         text(node) { return cleanBody(node.querySelector("message-content, .markdown-main-panel, .response-content") || node, options.readCodeBlocks); },
         messageId(node) {
           const inner = node.querySelector('[data-message-id], [data-turn-id], [data-response-id]');
+          // Gemini's live DOM puts the stable turn ID on the shared container,
+          // not on user-query/model-response. Prefix each role so the two sides
+          // cannot share an ID, and rerender/virtualization cannot change it.
+          const turn = node.closest('.conversation-container[id]')?.id;
+          const turnId = turn && /^[a-f0-9]{16,}$/i.test(turn)
+            ? `gemini-${node.matches(GEMINI_USER) ? "user" : "answer"}-${turn}` : "";
           return node.getAttribute("data-message-id") || node.getAttribute("data-turn-id") ||
-            node.getAttribute("data-response-id") || node.id || inner?.getAttribute("data-message-id") ||
+            node.getAttribute("data-response-id") || node.id || turnId || inner?.getAttribute("data-message-id") ||
             inner?.getAttribute("data-turn-id") || inner?.getAttribute("data-response-id") || "";
         },
         conversationId() { return conversationId(loc, doc); },
         streaming(node) {
           if (node.matches('[aria-busy="true"], [data-is-streaming="true"]') ||
-              node.querySelector('mat-progress-spinner:not([hidden]), .loading:not([hidden]), .response-loading, [aria-busy="true"], [data-is-streaming="true"]')) return true;
-          const stop = doc.querySelector('button[aria-label*="Stop response" i], button[aria-label*="Stop generating" i], button[aria-label*="Stop streaming" i], button[aria-label*="回答を停止"], button[aria-label*="応答を停止"], button[aria-label*="生成を停止"]');
+              [...node.querySelectorAll('mat-progress-spinner, .loading, .response-loading, [aria-busy="true"], [data-is-streaming="true"]')].some(visible)) return true;
+          const stop = [...doc.querySelectorAll('button[aria-label*="Stop response" i], button[aria-label*="Stop generating" i], button[aria-label*="Stop streaming" i], button[aria-label*="回答を停止"], button[aria-label*="応答を停止"], button[aria-label*="生成を停止"]')].find(visible);
           return Boolean(stop && candidates.at(-1) === node);
         }
       };

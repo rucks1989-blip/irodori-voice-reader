@@ -5,12 +5,15 @@ import json
 from privacy_scan import ROOT, allowed
 
 files = []
+# User-supplied standalone prototype, reviewed but not adopted as an installer
+# entry point. Preserve it locally without silently publishing it in releases.
+excluded_prototypes = {"download-irodori.ps1", "README.txt", "ダウンロード.bat"}
 for path in sorted(ROOT.rglob("*")):
     if not path.is_file():
         continue
     name = path.relative_to(ROOT).as_posix()
-    if name == "package-files.json" or not allowed(name):
+    if name == "package-files.json" or name in excluded_prototypes or not allowed(name):
         continue
     files.append({"path": name, "sha256": hashlib.sha256(path.read_bytes()).hexdigest()})
-(ROOT / "package-files.json").write_text(json.dumps({"files": files}, indent=2) + "\n", encoding="utf8")
+(ROOT / "package-files.json").write_text(json.dumps({"files": files}, indent=2) + "\n", encoding="utf8", newline="\n")
 print(f"Inventory: {len(files)} explicit files")

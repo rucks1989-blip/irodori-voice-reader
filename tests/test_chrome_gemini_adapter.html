@@ -1,0 +1,27 @@
+<!doctype html><meta charset="utf-8"><title>Gemini adapter regression</title>
+<div id="fixture"></div><pre id="result">Running</pre>
+<script src="../chrome-extension/adapters.js"></script><script>
+"use strict";
+try {
+  const f = document.getElementById("fixture");
+  f.innerHTML = `<div class="conversation-container" id="fce81f3ae7c27295"><user-query><div class="query-text">Question</div></user-query><model-response><message-content><p>同じ回答です。</p><p>二行目です。</p><button>Copy</button></message-content><div class="loading" style="display:none">Loading</div></model-response></div>`;
+  const a = IvrAdapters.forPage({ hostname:"gemini.google.com", pathname:"/app/test" },document);
+  let count=0;
+  function check(condition, text) { if (!condition) throw new Error(text); count++; }
+  const user=a.userMessages()[0], answer=a.candidates()[0];
+  check(a.messageId(user)==="gemini-user-fce81f3ae7c27295","stable user ID");
+  check(a.messageId(answer)==="gemini-answer-fce81f3ae7c27295","stable answer ID");
+  check(!a.streaming(answer),"CSS-hidden loading indicator is not streaming");
+  check(a.text(answer).includes("同じ回答です。\n二行目です。"),"multiline answer text");
+  const clone=f.firstElementChild.cloneNode(true); f.firstElementChild.replaceWith(clone);
+  check(a.messageId(a.candidates()[0])===a.messageId(answer),"rerender retains ID");
+  const next=clone.cloneNode(true); next.id="0123456789abcdef"; f.append(next);
+  check(a.messageId(a.candidates()[1])!==a.messageId(a.candidates()[0]),"identical text on another turn has a new ID");
+  const stop=document.createElement("button");stop.setAttribute("aria-label","回答を停止");f.append(stop);
+  check(a.streaming(a.candidates()[1]),"latest answer waits for visible Stop button");
+  check(!a.streaming(a.candidates()[0]),"stop button belongs only to newest answer");
+  stop.style.display="none";
+  check(!a.streaming(a.candidates()[1]),"hidden Stop button does not block completion");
+  document.getElementById("result").textContent=`PASS (${count} assertions)`;document.title="PASS: Gemini adapter";
+} catch(error) { document.getElementById("result").textContent=error.stack; document.title="FAIL: Gemini adapter"; throw error; }
+</script>
