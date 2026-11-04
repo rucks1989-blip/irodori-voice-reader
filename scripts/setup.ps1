@@ -147,8 +147,11 @@ try{
         $choice=Show-SetupDialog 'backend' '対応完成品がありません。取得して再開するか、任意ビルドを選んでください。'
         if($choice -ne 'build'){throw '完成品を準備して再実行できます。ビルドは開始していません。'}
         if(-not(Confirm-Install '開発者向けビルドを開始します。CUDA Toolkit、C++ツール、数十GBの空き容量と数十分以上が必要な場合があります。続けますか？')){throw '任意ビルドを中止しました。'}
-        $built=& (Join-Path $PSScriptRoot 'build-backend.ps1') -Python $venv -WorkRoot $StateRoot -Backend $Backend -CudaArch $(if($Backend -eq 'cuda'){$gpu.arch}else{''}) -AllowToolInstall
-        $built=[string](@($built)[-1])
+        $buildArgs=@('-NoProfile','-ExecutionPolicy','Bypass','-File',(Join-Path $PSScriptRoot 'build-backend.ps1'),'-Python',$venv,'-WorkRoot',$StateRoot,'-Backend',$Backend,'-AllowToolInstall')
+        if($Backend -eq 'cuda'){$buildArgs+=@('-CudaArch',$gpu.arch)}
+        Run 'powershell.exe' $buildArgs
+        $built=Join-Path $StateRoot ('build-output\'+$Backend+$(if($Backend -eq 'cuda'){'-sm'+$gpu.arch}else{''}))
+        if(-not(Test-Path (Join-Path $built 'audiocpp_server.exe'))){throw '任意ビルドの完成品が見つかりません。'}
         New-Item -ItemType Directory -Force -Path $backendDir | Out-Null
         Get-ChildItem $built -File | Copy-Item -Destination $backendDir -Force
     }

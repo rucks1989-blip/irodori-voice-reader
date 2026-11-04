@@ -530,7 +530,7 @@
     },
     {
       "path": "scripts/setup.ps1",
-      "sha256": "688e294f1636cb70563be9d7bfde27f789b5d6f4687e2af8d08529184f68d9c5"
+      "sha256": "110d0083c5c1adf63aa08b2c8437d44d20ef3684b6c8aadc43481e95a294353e"
     },
     {
       "path": "scripts/support.ps1",
