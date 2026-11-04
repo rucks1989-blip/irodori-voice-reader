@@ -1,0 +1,63 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Chrome ChatGPT adapter regression</title>
+<div id="fixture"></div>
+<pre id="result">Running</pre>
+<script src="../chrome-extension/adapters.js"></script>
+<script>
+"use strict";
+const fixture = document.getElementById("fixture");
+const results = [];
+function check(value, message) {
+  if (!value) throw new Error(message);
+  results.push(message);
+}
+try {
+  // Reduced from the actual Chrome ChatGPT DOM. The user heading is OUTSIDE
+  // its search unit; the turn-state wrapper contains BOTH user and assistant.
+  fixture.innerHTML = `
+    <div data-talvt-turn-state="complete"><div>
+      <div style="display:contents"><h4 data-conversation-role="user" class="sr-only">You said:</h4>
+        <div data-chatgpt-search-unit-key="fallback-turn-0:0:user" data-chatgpt-search-message-ids="user-uuid">
+          <div data-content-search-unit-key="fallback-turn-0:0:user">
+            <div data-user-message-bubble><div class="whitespace-pre-wrap">New question</div></div>
+          </div>
+        </div>
+      </div>
+      <div data-chatgpt-search-unit-key="fallback-turn-0:2:assistant" data-chatgpt-search-message-ids="answer-uuid answer-uuid">
+        <h4 data-conversation-role="assistant" class="sr-only">ChatGPT said:</h4>
+        <div data-chatgpt-selection-message-id="answer-uuid">
+          <div data-markdown-text-style="assistant-message"><p>音声再生の確認です。</p><button>Copy</button></div>
+        </div>
+      </div>
+    </div></div>`;
+  const a = IvrAdapters.forPage({ hostname: "chatgpt.com", pathname: "/c/server-id" }, document);
+  function checkModern() {
+    const users = a.userMessages(), answers = a.candidates();
+    check(users.length === 1 && answers.length === 1, "one user and one answer");
+    check(!users[0].contains(answers[0]), "user root excludes assistant answer");
+    check(users[0].getAttribute("data-chatgpt-search-message-ids") === "user-uuid", "use the visible search unit, not its display:contents parent");
+    check(Boolean(users[0].compareDocumentPosition(answers[0]) & 4), "answer follows user");
+    check(a.userText(users[0]) === "New question", "extract only user text");
+    check(a.messageId(users[0]) === "user-uuid", "user keeps its own message ID");
+    check(a.messageId(answers[0]) === "answer-uuid", "assistant keeps its own message ID");
+    check(a.text(answers[0]) === "音声再生の確認です。", "extract answer without headings or buttons");
+    check(!a.streaming(answers[0]), "completed turn is complete");
+  }
+  checkModern();
+  fixture.querySelector(".whitespace-pre-wrap").setAttribute("data-user-message-copy", "");
+  checkModern();
+  fixture.querySelector("[data-talvt-turn-state]").setAttribute("data-talvt-turn-state", "streaming");
+  check(a.streaming(a.candidates()[0]), "streaming turn must wait");
+  fixture.innerHTML = `<article data-testid="conversation-turn-0"><div data-message-author-role="user" data-message-id="legacy-user"><div class="whitespace-pre-wrap">Legacy question</div></div></article>
+    <article data-testid="conversation-turn-1"><div data-message-author-role="assistant" data-message-id="legacy-answer"><div class="markdown"><p>Legacy answer</p></div></div></article>`;
+  check(a.userMessages().length === 1 && a.candidates().length === 1, "legacy roles still supported");
+  check(a.text(a.candidates()[0]) === "Legacy answer", "legacy answer extraction");
+  document.getElementById("result").textContent = `PASS (${results.length} assertions)\n` + results.join("\n");
+  document.title = "PASS: Chrome ChatGPT adapter";
+} catch (error) {
+  document.getElementById("result").textContent = "FAIL: " + error.stack;
+  document.title = "FAIL: Chrome ChatGPT adapter";
+  throw error;
+}
+</script>

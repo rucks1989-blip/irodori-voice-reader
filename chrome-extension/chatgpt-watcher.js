@@ -6,7 +6,7 @@ globalThis.IvrChatgptWatcher = (() => {
   const normalize = (value) => String(value || "").normalize("NFC").replace(/\s+/gu, " ").trim();
   const SITES = {
     chatgpt: {
-      editors: '#prompt-textarea, textarea[data-mobile-composer-prompt], textarea[name="prompt-textarea"], [contenteditable="true"][data-lexical-editor]',
+      editors: '#prompt-textarea, textarea[data-mobile-composer-prompt], textarea[name="prompt-textarea"], [contenteditable="true"][data-lexical-editor], [contenteditable="true"][data-composer-markdown]',
       composer: 'form, [data-composer-root], [data-testid="composer"]',
       sendButtons: '[data-testid="send-button"], [data-composer-submit], #composer-submit-button',
       sendLabels: /^(?:send(?: message| prompt)?|submit|送信(?:する)?|メッセージを送信(?:する)?)$/iu
@@ -108,7 +108,12 @@ globalThis.IvrChatgptWatcher = (() => {
     function routeContinuesNewConversation(previousPath, path) {
       if (!pending || Date.now() - pending.sentAt > 2 * 60 * 1000) return false;
       if (siteName === "chatgpt") {
-        return !/\/(?:c|uc)\/[^/?#]+/.test(previousPath) && /\/(?:c|uc)\/[^/?#]+/.test(path);
+        // Chrome's current renderer first assigns /c/local-chatgpt%3A<uuid>,
+        // then replaces it with the server conversation ID. Both transitions
+        // belong to the send we are already tracking, not a history navigation.
+        const provisional = /^\/c\/local-chatgpt(?::|%3a)[^/?#]+\/?$/i.test(previousPath);
+        return (provisional || !/\/(?:c|uc)\/[^/?#]+/.test(previousPath)) &&
+          /\/(?:c|uc)\/[^/?#]+/.test(path);
       }
       if (siteName === "gemini") {
         return !/\/app\/[^/?#]+/.test(previousPath) && /\/app\/[^/?#]+/.test(path);
@@ -239,12 +244,15 @@ globalThis.IvrChatgptWatcher = (() => {
       const latest = users.at(-1);
       if (!latest || pending.beforeUsers.has(nodeId(a, latest))) return null;
       const latestText = normalize(a.userText(latest));
+      if (siteName === "chatgpt" && pending.text && latestText !== pending.text) return null;
       // Without a re-render ID, accept the newest turn.  An already matched
       // turn must still match its text so an unrelated later turn is ignored.
       if (pending.userId && latestText !== pending.userText) return null;
       return { node: latest, index: users.length - 1 };
     }
     function answerAfter(a, user) {
+      // A later question must never donate its answer to an older pending send.
+      if (siteName === "chatgpt" && a.userMessages().at(-1) !== user) return null;
       let answer = null;
       for (const node of a.candidates()) {
         if (node === user || user.contains(node) || node.contains(user)) continue;

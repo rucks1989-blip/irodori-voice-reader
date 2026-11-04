@@ -29,7 +29,18 @@ globalThis.IvrAdapters = (() => {
   }
   function chatRoot(node, role) {
     if (node.getAttribute("data-message-role") === role) return node;
-    return node.closest(MODERN_UNIT) || node.closest("article") || node.parentElement || node;
+    const root = node.closest(MODERN_UNIT) || node.closest("article");
+    const opposite = role === "user" ? "assistant" : "user";
+    // data-talvt-turn-state now wraps BOTH sides of a turn. In particular the
+    // user heading is a sibling of its search unit, not a child of that unit.
+    // Returning the common turn makes user.contains(answer) true and can even
+    // assign the assistant's message ID to the user.
+    const otherRole = `[data-message-role="${opposite}"], [data-message-author-role="${opposite}"], [data-conversation-role="${opposite}"]`;
+    const sibling = node.nextElementSibling;
+    if (sibling?.matches('[data-chatgpt-search-unit-key], [data-content-search-unit-key]') &&
+        !sibling.matches(otherRole) && !sibling.querySelector(otherRole)) return sibling;
+    if (root && !root.matches(otherRole) && !root.querySelector(otherRole)) return root;
+    return node.parentElement || node;
   }
   function chatCandidates(doc) {
     const roots = new Set();
@@ -58,7 +69,7 @@ globalThis.IvrAdapters = (() => {
       if (root && !root.matches('[data-message-role="assistant"], [data-message-author-role="assistant"], [data-conversation-role="assistant"]')) roots.add(root);
     }
     for (const body of doc.querySelectorAll('[data-user-message-copy], [data-markdown-text-style="user-message"]')) {
-      const root = body.closest('[data-message-role="user"]') || body.closest(MODERN_UNIT) || body.closest("li") || body;
+      const root = body.closest('[data-message-role="user"]') || chatRoot(body, "user");
       if (!root.matches("[data-message-role='assistant']")) roots.add(root);
     }
     return documentOrder([...roots].filter(visible));
@@ -137,9 +148,10 @@ globalThis.IvrAdapters = (() => {
           return cleanBody(body, options.readCodeBlocks);
         },
         messageId(node) {
-          const inner = node.querySelector('[data-message-id], [data-chatgpt-selection-message-id]');
+          const inner = node.querySelector('[data-message-id], [data-chatgpt-selection-message-id], [data-chatgpt-search-message-ids]');
           return node.getAttribute("data-message-id") || node.getAttribute("data-chatgpt-selection-message-id") ||
             inner?.getAttribute("data-message-id") || inner?.getAttribute("data-chatgpt-selection-message-id") ||
+            (node.getAttribute("data-chatgpt-search-message-ids") || inner?.getAttribute("data-chatgpt-search-message-ids"))?.trim().split(/\s+/)[0] ||
             node.getAttribute("data-turn-id") || node.getAttribute("data-talvt-turn-id") ||
             node.getAttribute("data-chatgpt-search-unit-key") || node.getAttribute("data-content-search-unit-key") ||
             node.id || node.getAttribute("data-testid") || "";
