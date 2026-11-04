@@ -1,4 +1,5 @@
 ﻿$ErrorActionPreference = "Stop"
+$ProgressPreference = "SilentlyContinue"
 
 # 共有 audio.cpp サーバー（既定 8091）の起動確認・起動スクリプト。
 # 通常版と声質安定版が共有する単一API（8765）から呼ばれます。
@@ -49,9 +50,22 @@ function Test-SharedServer {
 }
 
 function Get-PortOwner {
-    $conn = Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1
-    if ($null -eq $conn) { return $null }
-    return Get-CimInstance Win32_Process -Filter "ProcessId = $($conn.OwningProcess)" -ErrorAction SilentlyContinue
+    # Some Windows TCP snapshots report PID 0 while the loopback socket changes
+    # state. Use our process identity record, never the idle process, as fallback.
+    $connections=@(Get-NetTCPConnection -LocalPort $port -ErrorAction SilentlyContinue | Where-Object {$_.OwningProcess -gt 0})
+    foreach($connection in $connections){
+        $candidate=Get-CimInstance Win32_Process -Filter "ProcessId = $($connection.OwningProcess)" -ErrorAction SilentlyContinue
+        if($candidate){return $candidate}
+    }
+    $ownerPath=Join-Path $runtimeDir 'server.owner.json'
+    if(Test-Path $ownerPath){
+        $record=Get-Content $ownerPath -Raw -Encoding UTF8 | ConvertFrom-Json
+        $candidate=Get-CimInstance Win32_Process -Filter "ProcessId = $($record.pid)" -ErrorAction SilentlyContinue
+        if($candidate -and $record.executable -eq $exe -and $record.config -eq $config -and
+           [math]::Abs(($candidate.CreationDate.ToUniversalTime()-[DateTime]::Parse($record.createdUtc).ToUniversalTime()).TotalMilliseconds) -lt 2 -and
+           (Test-SameExe $candidate) -and (Get-ProcessConfigArg $candidate) -eq $config){return $candidate}
+    }
+    return $null
 }
 
 function Test-SameExe([object]$process) {
@@ -74,8 +88,13 @@ function Get-ProcessConfigArg([object]$process) {
     }
 }
 
+$initialOwner = Get-PortOwner
+if ($null -ne $initialOwner -and (-not(Test-SameExe $initialOwner) -or (Get-ProcessConfigArg $initialOwner) -ne $config)) {
+    throw "Port $port belongs to a different installation. It will not be reused or stopped."
+}
 if (Test-SharedServer) {
     $owner = Get-PortOwner
+    if($null -eq $owner){throw "Port $port responds but its installation ownership cannot be verified."}
     Write-Host "[audio.cpp] shared server is already ready on port $port (pid=$($owner.ProcessId))."
     return
 }
@@ -116,7 +135,11 @@ if (-not $waitingForOther) {
             -RedirectStandardError (Join-Path $runtimeDir "stderr.log") `
             -WindowStyle Hidden `
             -PassThru
+        [void]$process.Handle
         Set-Content -LiteralPath $pidPath -Value $process.Id -Encoding ASCII
+        $identity=Get-CimInstance Win32_Process -Filter "ProcessId = $($process.Id)" -ErrorAction Stop
+        $record=@{pid=$process.Id;createdUtc=$identity.CreationDate.ToUniversalTime().ToString('o');executable=$exe;config=$config}
+        [IO.File]::WriteAllText((Join-Path $runtimeDir 'server.owner.json'),($record | ConvertTo-Json),(New-Object Text.UTF8Encoding($false)))
     } finally {
         $env:PATH = $oldPath
     }

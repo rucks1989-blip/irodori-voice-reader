@@ -159,10 +159,10 @@ def main() -> int:
         except Exception:
             pass
         return 1
-    # The shared implementation already validates argv[2] against the fixed
+    # The shared implementation already validates argv[2] against the configured
     # Firefox ID. Present the same internal value after validating Chrome's
     # origin above; Firefox registration and files are not modified.
-    sys.argv[:] = [sys.argv[0], origin, firefox_host.EXPECTED_EXTENSION_ID]
+    sys.argv[:] = [sys.argv[0], origin, str(firefox_host.load_config().get("firefox_extension_id") or firefox_host.EXPECTED_EXTENSION_ID)]
     _install_voice_import_diagnostics()
     return firefox_host.main()
 

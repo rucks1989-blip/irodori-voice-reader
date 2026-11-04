@@ -35,3 +35,17 @@ External components are not relicensed by this repository:
 No reference voices, speaker embeddings, personal training weights, generated
 audio, browser profiles, or external chat contents are distributed. Use only
 reference audio you have permission to use.
+
+## GPU packaging review (integration branch)
+
+No new GPU binary or CUDA DLL is committed or published by this branch.
+Before packaging a finished GPU backend, identify the exact imported DLL
+versions and retain the corresponding license documents and notices.
+NVIDIA identifies redistributable components in the
+[CUDA EULA supplement](https://docs.nvidia.com/cuda/eula/index.html).
+Microsoft requires comparing dependencies with the applicable REDIST list;
+see [Determine which DLLs to redistribute](https://learn.microsoft.com/en-us/cpp/windows/determining-which-dlls-to-redistribute?view=msvc-170)
+and [Visual Studio license terms](https://visualstudio.microsoft.com/license-terms/).
+Possession of an installed DLL alone is not a completed redistribution review.
+Use the official VC++ Redistributable package where appropriate rather than
+assuming every DLL copied from an existing application is distributable.

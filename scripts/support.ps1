@@ -10,6 +10,13 @@ function Redact([string]$Text){
     $safe=$safe -replace '\b(?:gh[pousr]_[A-Za-z0-9_]+|github_pat_[A-Za-z0-9_]+|hf_[A-Za-z0-9]+)\b','<redacted>'
     return $safe
 }
+if(-not $PSBoundParameters.ContainsKey('StateRoot')){
+    $sessionFile=Join-Path $StateRoot 'chrome-session.json'
+    if(Test-Path $sessionFile){
+        $session=Get-Content $sessionFile -Raw -Encoding UTF8 | ConvertFrom-Json
+        $StateRoot=Join-Path $session.installRoot 'installer-state'
+    }
+}
 $statePath=Join-Path $StateRoot 'state.json'
 $state=$null
 if(Test-Path $statePath){$state=Get-Content $statePath -Raw -Encoding UTF8 | ConvertFrom-Json}
@@ -31,7 +38,7 @@ $errorText
 
 まず原因と不足情報を確認し、既存モデル・Voice・設定を削除せずに復旧する方法を案内してください。
 非公開リポジトリなので、閲覧できない場合は内容を推測せず、必要なファイルを尋ねてください。
-API入口は127.0.0.1:8765、audio.cppは共有8091、通常版/声質安定版は同じサーバーです。
+APIとaudio.cppは今回の導入先に記録された専用ループバックポートを使用します。通常版/声質安定版は同じ環境内のサーバーです。
 セキュリティ機能の無効化や、未確認の管理者コマンドは提案しないでください。
 "@
 $prompt=Redact $prompt

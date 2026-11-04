@@ -152,7 +152,8 @@
 
   <template id="mappingTemplate"><div class="mapping-item"><div class="mapping-summary"><input data-key="enabled" type="checkbox" aria-label="有効"><span data-view="tag"></span><span data-view="voice"></span><button data-action="toggle-details" type="button" aria-expanded="false">›</button></div><div class="mapping-details" hidden><label><span>タグ名</span><input data-key="tag" placeholder="タグ名（例: 結衣）" aria-label="タグ名"></label><label><span>使用するVoice</span><select data-key="voice" aria-label="使用するVoice"></select></label><button data-action="remove" type="button" class="danger" aria-label="削除">削除</button></div></div></template>
   <template id="regexTemplate"><div class="regex-row"><input data-key="enabled" type="checkbox" aria-label="有効"><input data-key="pattern" placeholder="正規表現"><input data-key="flags" value="gu" aria-label="フラグ"><input data-key="replacement" placeholder="置換後（空欄で削除）"><button data-action="remove" class="danger" aria-label="削除">×</button></div></template>
-  <script src="api-state.js"></script><script src="text-processor.js"></script>
+  <script src="install-config.js"></script>
+<script src="api-state.js"></script><script src="text-processor.js"></script>
   <script src="sidebar.js"></script>
 </body>
 </html>

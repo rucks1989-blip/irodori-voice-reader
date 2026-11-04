@@ -115,6 +115,7 @@
   </main>
   <template id="mappingTemplate"><div class="mapping mapping-item"><div class="mapping-summary"><label class="toggle"><input data-key="enabled" type="checkbox" aria-label="有効"></label><span data-view="tag"></span><span data-view="voice"></span><button data-action="toggle-details" type="button" aria-expanded="false">›</button></div><div class="mapping-details" hidden><label>タグ名<input data-key="tag" placeholder="タグ名（例: 結衣）"></label><label>使用するVoice<select data-key="voice" class="voice-select" aria-label="使用するVoice"></select></label><button data-action="remove" type="button" class="danger">削除</button></div></div></template>
   <template id="regexTemplate"><div class="row regex"><label class="toggle"><input data-key="enabled" type="checkbox" aria-label="有効"></label><input data-key="pattern" placeholder="正規表現"><input data-key="flags" placeholder="flags: gu"><input data-key="replacement" placeholder="置換（空欄=除去）"><button data-action="remove" class="danger">削除</button></div></template>
-  <script src="api-state.js"></script><script src="text-processor.js"></script><script src="options.js"></script>
+  <script src="install-config.js"></script>
+<script src="api-state.js"></script><script src="text-processor.js"></script><script src="options.js"></script>
 </body>
 </html>

@@ -27,3 +27,5 @@ irodori-api/config/runtime.json
 irodori-api/config/audio_cpp_server.shared.json
 native-host/config.json
 .env*
+
+irodori-api/config/api.json

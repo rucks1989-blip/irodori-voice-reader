@@ -1,8 +1,7 @@
 {
-  "version": "0.1.0-private.1",
-  "extensionVersion": "1.2.23",
+  "version": "0.1.0-private.2",
   "repository": "rucks1989-blip/irodori-voice-reader",
-  "release": "v0.1.0-private.1",
+  "release": "v0.1.0-private.2",
   "audioCppCommit": "e12fc743ccb294753dcdced0be7778c76a178f95",
   "model": {
     "name": "irodori-tts-500m-v3-q8_0.gguf",
@@ -19,9 +18,15 @@
       "sha256": "a35ca562db6bcf1c990d7544dcd660de7952f6d5638c3fa281b928c577ab035a"
     },
     {
-      "name": "IrodoriVoiceReader-Firefox-1.2.23-signed.xpi",
+      "name": "IrodoriVoiceReader-Firefox-1.2.25-signed.xpi",
       "kind": "firefox",
-      "sha256": "c5bfc3d68aacf6b8fe932a71ee652742fe05bf27eb3aac7c9c2ae3ad555b1355"
+      "sha256": "e48a36da54ac161a9b5952588e8387869c962d6ed2c35a05b11f4908051a7762",
+      "purpose": "legacy-reference-not-isolated-install"
     }
-  ]
+  ],
+  "chromeExtensionVersion": "1.2.25",
+  "firefoxExtensionVersion": "1.2.25",
+  "status": "integration-incomplete",
+  "extensionBaseCommit": "3bde4586b1f0b72e4391babe30de724c3ad1e79d",
+  "firefoxIsolatedSigning": "pending"
 }

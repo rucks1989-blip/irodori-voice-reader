@@ -60,7 +60,9 @@ if (-not $git) {
     if (-not $git) { throw 'Gitを確認できません。setup.batを再実行してください。' }
 }
 $patchFiles = @('audio-cpp-stable-patch\stable-rescue.patch','audio-cpp-stable-patch\speaker-embedding-dump.patch','audio-cpp-patch\apply_speaker_embedding_patch.py','audio-cpp-patch\speaker_embedding_loader.inc')
-$patchHash = ($patchFiles | ForEach-Object { (Get-FileHash (Join-Path $Root $_) -Algorithm SHA256).Hash }) -join ''
+$patchInputs=@($patchFiles | ForEach-Object {Join-Path $Root $_})
+$patchInputs+=@(Get-ChildItem (Join-Path $Root 'audio-cpp-stable-patch\added-files') -Recurse -File | Sort-Object FullName | ForEach-Object {$_.FullName})
+$patchHash = ($patchInputs | ForEach-Object { (Get-FileHash $_ -Algorithm SHA256).Hash }) -join ''
 $digest = [BitConverter]::ToString([Security.Cryptography.SHA256]::Create().ComputeHash([Text.Encoding]::UTF8.GetBytes($patchHash))).Replace('-','').Substring(0,16)
 $cache = Join-Path $WorkRoot ('b\'+$manifest.audioCppCommit.Substring(0,7)+'-'+$digest.Substring(0,8))
 $source = Join-Path $cache 'source'
@@ -93,9 +95,10 @@ $sharedPatch=Join-Path $Root 'audio-cpp-patch\apply_shared_session_patch.py'
 Run $Python @($sharedPatch,$source)
 Run $Python @($sharedPatch,$source,'--check')
 $preset=if($Backend -eq 'cuda'){'windows-cuda-release'}else{'windows-cpu-release'}
-$args=@('-NoProfile','-ExecutionPolicy','Bypass','-File',(Join-Path $source 'scripts\build_windows.ps1'),'-Preset',$preset,'-Target','audiocpp_server','-VsInstall',$vs,'-Jobs','2')
-if($Backend -eq 'cuda'){$args+=@('-CudaArchitectures',($CudaArch+'-real'))}else{$args+=@('-CpuArch','baseline','-NativeCpu','OFF','-Llamafile','OFF')}
-Run 'powershell.exe' $args
+$buildArguments=@('-NoProfile','-ExecutionPolicy','Bypass','-File',(Join-Path $source 'scripts\build_windows.ps1'),'-Preset',$preset,'-Target','audiocpp_server','-VsInstall',$vs,'-Jobs','2')
+$buildArguments+=@('-CpuArch','baseline','-NativeCpu','OFF','-Llamafile','OFF')
+if($Backend -eq 'cuda'){$buildArguments+=@('-CudaArchitectures',($CudaArch+'-real'))}
+Run 'powershell.exe' $buildArguments
 $bin=Join-Path $source "build\$preset\bin"
 $exe=Join-Path $bin 'audiocpp_server.exe'
 if(-not(Test-Path $exe)){throw 'ビルド結果の実行ファイルが見つかりません。'}

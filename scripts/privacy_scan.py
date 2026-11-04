@@ -8,7 +8,7 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 DENIED_PARTS = {".git", ".venv", "__pycache__", "logs", "models", "downloads", "build-cache", "build-output", "dist", ".state", "ai-support", "assets"}
 DENIED_SUFFIXES = {".wav", ".mp3", ".flac", ".safetensors", ".gguf", ".ckpt", ".pth", ".exe", ".dll", ".xpi", ".zip", ".log", ".pyc"}
-LIVE_CONFIGS = {"irodori-api/config/config.json", "irodori-api/config/config.voice_stable.json", "irodori-api/config/voices.json", "irodori-api/config/runtime.json", "irodori-api/config/audio_cpp_server.shared.json", "native-host/config.json"}
+LIVE_CONFIGS = {"irodori-api/config/api.json", "irodori-api/config/config.json", "irodori-api/config/config.voice_stable.json", "irodori-api/config/voices.json", "irodori-api/config/runtime.json", "irodori-api/config/audio_cpp_server.shared.json", "native-host/config.json"}
 PATTERNS = [
     re.compile(r"\bgh[pousr]_[A-Za-z0-9_]{20,}\b"),
     re.compile(r"\bgithub_pat_[A-Za-z0-9_]{20,}\b"),
@@ -20,7 +20,10 @@ PATTERNS = [
 
 def allowed(name):
     p = PurePosixPath(name)
-    return (not p.is_absolute() and ".." not in p.parts and not any(part.lower() in DENIED_PARTS for part in p.parts)
+    source_model_code = (name.startswith("audio-cpp-stable-patch/added-files/src/models/")
+                         or name.startswith("audio-cpp-stable-patch/added-files/include/engine/models/")) and p.suffix.lower() in {".cpp", ".h"}
+    denied = DENIED_PARTS - {"models"} if source_model_code else DENIED_PARTS
+    return (not p.is_absolute() and ".." not in p.parts and not any(part.lower() in denied for part in p.parts)
             and p.suffix.lower() not in DENIED_SUFFIXES and name not in LIVE_CONFIGS
             and name not in {".env", ".env.local"})
 
@@ -58,6 +61,12 @@ def main():
     files = inventory["files"]
     names = [x["path"] for x in files]
     errors = inspect(files)
+    provenance = json.loads((ROOT / "provenance.json").read_text(encoding="utf8"))["importedFiles"]
+    for name, expected in provenance.items():
+        if name.startswith("audio-cpp-stable-patch/added-files/"):
+            path = ROOT / name
+            if name not in names or not path.is_file() or hashlib.sha256(path.read_bytes()).hexdigest() != expected:
+                errors.append("Missing or mismatched stable build source: " + name)
     if len(names) != len(set(names)):
         errors.append("Duplicate inventory entry")
     pngs = [n for n in names if n.endswith(".png")]

@@ -2,8 +2,8 @@
   "use strict";
 
   const ENGINE_ENDPOINTS = Object.freeze({
-    standard: "http://127.0.0.1:8765",
-    voice_stable: "http://127.0.0.1:8765"
+    standard: root.IrodoriInstallConfig?.apiBase || "http://127.0.0.1:8765",
+    voice_stable: root.IrodoriInstallConfig?.apiBase || "http://127.0.0.1:8765"
   });
 
   const LEGACY_ENGINE_ENDPOINTS = Object.freeze({

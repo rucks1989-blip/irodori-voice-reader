@@ -20,13 +20,21 @@ from kurisu_voice.voices import VoiceRegistry
 
 
 ROOT = Path(__file__).resolve().parent
-CONFIG_PATH = Path(os.environ.get("IRODORI_VOICE_CONFIG", str(ROOT / "config" / "config.json")))
-STABLE_CONFIG_PATH = Path(os.environ.get("IRODORI_STABLE_VOICE_CONFIG", str(ROOT / "config" / "config.voice_stable.json")))
+
+
+def runtime_setting(name, default):
+    # An installed environment must never inherit another installation's paths,
+    # ports, voice storage or backend URL through global IRODORI_* variables.
+    isolated = (ROOT.parent / "chrome-identity.json").is_file() and (ROOT.parent / ".ivr-install.json").is_file()
+    return default if isolated else os.environ.get(name, default)
+
+CONFIG_PATH = Path(runtime_setting("IRODORI_VOICE_CONFIG", str(ROOT / "config" / "config.json")))
+STABLE_CONFIG_PATH = Path(runtime_setting("IRODORI_STABLE_VOICE_CONFIG", str(ROOT / "config" / "config.voice_stable.json")))
 CONFIG_EXAMPLE_PATH = ROOT / "config" / "config.example.json"
 PROFILES_PATH = ROOT / "config" / "chunk_profiles.json"
-API_CONFIG_PATH = Path(os.environ.get("IRODORI_API_CONFIG", str(ROOT / "config" / "api.json")))
-VOICES_CONFIG_PATH = Path(os.environ.get("IRODORI_VOICES_CONFIG", str(ROOT / "config" / "voices.json")))
-PID_PATH = Path(os.environ.get("IRODORI_API_PID", str(ROOT / "logs" / "kurisu_voice_api" / "server.pid")))
+API_CONFIG_PATH = Path(runtime_setting("IRODORI_API_CONFIG", str(ROOT / "config" / "api.json")))
+VOICES_CONFIG_PATH = Path(runtime_setting("IRODORI_VOICES_CONFIG", str(ROOT / "config" / "voices.json")))
+PID_PATH = Path(runtime_setting("IRODORI_API_PID", str(ROOT / "logs" / "kurisu_voice_api" / "server.pid")))
 SYNTHESIS_LOCK = threading.Lock()
 API_STOPPING = threading.Event()
 STATE_LOCK = threading.RLock()
@@ -44,6 +52,13 @@ ENGINE_LABELS = {
     "voice_stable": "声質安定版",
 }
 TRUSTED_CHROME_EXTENSION_ID = "aeaichhflmacmifblidbpojgfemjijlb"
+_identity_path = ROOT.parent / "chrome-identity.json"
+if (ROOT.parent / ".ivr-install.json").is_file() and _identity_path.is_file():
+    _identity = json.loads(_identity_path.read_text(encoding="utf8"))
+    _extension_id = str(_identity.get("extensionId", ""))
+    if not re.fullmatch(r"[a-p]{32}", _extension_id):
+        raise ValueError("独立環境のChrome識別情報が不正です。")
+    TRUSTED_CHROME_EXTENSION_ID = _extension_id
 TRUSTED_CHROME_ORIGIN = f"chrome-extension://{TRUSTED_CHROME_EXTENSION_ID}"
 
 
@@ -95,27 +110,34 @@ class State:
             self.profiles = load_profiles(PROFILES_PATH)
             self.api = {
                 "host": "127.0.0.1",
-                "port": int(os.environ.get("IRODORI_API_PORT", "8765")),
+                "port": int(runtime_setting("IRODORI_API_PORT", "8765")),
                 "max_input_chars": 20000,
             }
             self.api.update(_read_json(API_CONFIG_PATH))
             # Local-only is a design invariant, not a user-overridable convenience.
             self.api["host"] = "127.0.0.1"
-            self.api["port"] = int(os.environ.get("IRODORI_API_PORT", str(self.api["port"])))
+            self.api["port"] = int(runtime_setting("IRODORI_API_PORT", str(self.api["port"])))
             clear_speaker_cache()
             self.voices = VoiceRegistry(ROOT, VOICES_CONFIG_PATH)
             self.device = self._device_name()
 
     @staticmethod
     def _device_name():
+        runtime = _read_json(ROOT / "config" / "runtime.json")
+        server = Path(runtime.get("audio_cpp_shared_config") or "config/audio_cpp_server.shared.json")
+        backend = _read_json(server if server.is_absolute() else ROOT / server).get("backend")
+        if backend == "cpu":
+            return "CPU"
+        if backend != "cuda":
+            return "実行方式未確認"
         try:
             result = subprocess.run(
                 ["nvidia-smi", "--query-gpu=name", "--format=csv,noheader"],
                 capture_output=True, text=True, timeout=3, check=True,
             )
-            return result.stdout.splitlines()[0].strip() or "CUDA device 0"
+            return result.stdout.splitlines()[0].strip() or "GPU名を確認できません"
         except Exception:
-            return "CUDA device 0"
+            return "GPU名を確認できません"
 
     def profile(self, name=None, engine_name="standard"):
         engine_name = normalize_engine(engine_name)
@@ -148,7 +170,7 @@ class State:
             profile["default_voice_path"] = voice["path"] if voice["type"] == "reference_wav" else ""
             profile["default_speaker_embedding_path"] = voice["path"] if voice["type"] == "speaker_embedding" else ""
         backend = AudioCppBackend(
-            os.environ.get("IRODORI_AUDIO_CPP_API_URL", config.get("irodori_audiocpp_api_url", "http://127.0.0.1:8091/v1/audio/speech")),
+            runtime_setting("IRODORI_AUDIO_CPP_API_URL", config.get("irodori_audiocpp_api_url", "http://127.0.0.1:8091/v1/audio/speech")),
             config.get("irodori_audiocpp_model", "irodori-500m-v3-q8"),
             config.get("irodori_audiocpp_num_steps", 40),
             config.get("irodori_audiocpp_seed", 1234),
@@ -177,7 +199,7 @@ def stop_api(handler):
     API_STOPPING.set()
     try:
         with SYNTHESIS_LOCK:
-            bases = {os.environ.get("IRODORI_AUDIO_CPP_API_URL", config.get("irodori_audiocpp_api_url", "http://127.0.0.1:8091/v1/audio/speech")).split("/v1/", 1)[0].rstrip("/") for config in STATE.engine_configs.values()}
+            bases = {runtime_setting("IRODORI_AUDIO_CPP_API_URL", config.get("irodori_audiocpp_api_url", "http://127.0.0.1:8091/v1/audio/speech")).split("/v1/", 1)[0].rstrip("/") for config in STATE.engine_configs.values()}
             for base in bases:
                 try:
                     response = requests.post(base + "/shutdown", json={}, timeout=15)
@@ -272,7 +294,7 @@ def voice_change(action, message):
         name = str(message.get("name") or voice_id).strip()
         if not name or len(name) > 256:
             raise ValueError("表示名は1文字以上256文字以下にしてください。")
-        managed_root = Path(os.environ.get("IRODORI_VOICE_STORAGE", str(ROOT / "IrodoriVoiceReader/voices"))).resolve()
+        managed_root = Path(runtime_setting("IRODORI_VOICE_STORAGE", str(ROOT / "IrodoriVoiceReader/voices"))).resolve()
         folder = (managed_root / voice_id).resolve()
         if not folder.is_relative_to(managed_root):
             raise ValueError("Voice保存先が正しくありません。")

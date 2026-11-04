@@ -342,8 +342,8 @@ async function refreshApi() {
   try { statuses = await api.runtime.sendMessage({ type: "engine-health" }); } catch (_) {}
   const selectedState = statuses?.[selectedEngine] || ApiState.normalize(selectedEngine, {});
   if (statuses?.standard && statuses?.voice_stable) {
-    $("standardHealth").textContent = `通常版: ${ApiState.text(statuses.standard)}（8765）`;
-    $("stableHealth").textContent = `声質安定版: ${ApiState.text(statuses.voice_stable)}（共通入口8765）`;
+    $("standardHealth").textContent = `通常版: ${ApiState.text(statuses.standard)}（${new URL(Processor.apiUrlForEngine("standard")).port}）`;
+    $("stableHealth").textContent = `声質安定版: ${ApiState.text(statuses.voice_stable)}（共通入口${new URL(Processor.apiUrlForEngine("voice_stable")).port}）`;
   }
   if (transition || (selectedState.state === "starting" && selectedState.startupActive)) {
     for (const id of ["apiStart", "apiStop", "apiRefresh"]) $(id).disabled = true;
@@ -403,8 +403,8 @@ async function refreshApi() {
 async function refreshEngineHealth() {
   try {
     const result = await api.runtime.sendMessage({ type: "engine-health" });
-    $("standardHealth").textContent = `通常版: ${ApiState.text(result.standard)}（8765）`;
-    $("stableHealth").textContent = `声質安定版: ${ApiState.text(result.voice_stable)}（共通入口8765）`;
+    $("standardHealth").textContent = `通常版: ${ApiState.text(result.standard)}（${new URL(Processor.apiUrlForEngine("standard")).port}）`;
+    $("stableHealth").textContent = `声質安定版: ${ApiState.text(result.voice_stable)}（共通入口${new URL(Processor.apiUrlForEngine("voice_stable")).port}）`;
   } catch (_) {
     $("standardHealth").textContent = "通常版: 確認失敗";
     $("stableHealth").textContent = "声質安定版: 確認失敗";

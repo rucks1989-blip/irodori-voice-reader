@@ -5,8 +5,8 @@
 
   const LABELS = Object.freeze({ standard: "通常版", voice_stable: "声質安定版" });
   const ENDPOINTS = Object.freeze({
-    standard: "http://127.0.0.1:8765",
-    voice_stable: "http://127.0.0.1:8765"
+    standard: root.IrodoriInstallConfig?.apiBase || "http://127.0.0.1:8765",
+    voice_stable: root.IrodoriInstallConfig?.apiBase || "http://127.0.0.1:8765"
   });
 
   function label(engine) {

@@ -535,8 +535,8 @@ async function checkApiConnection() {
 async function refreshEngineHealth() {
   try {
     const result = await api.runtime.sendMessage({ type: "engine-health" });
-    $("standardHealth").textContent = `通常版: ${ApiState.text(result.standard)}（8765）`;
-    $("stableHealth").textContent = `声質安定版: ${ApiState.text(result.voice_stable)}（共通入口8765）`;
+    $("standardHealth").textContent = `通常版: ${ApiState.text(result.standard)}（${new URL(Processor.apiUrlForEngine("standard")).port}）`;
+    $("stableHealth").textContent = `声質安定版: ${ApiState.text(result.voice_stable)}（共通入口${new URL(Processor.apiUrlForEngine("voice_stable")).port}）`;
   } catch (error) {
     $("standardHealth").textContent = `通常版: 確認失敗`;
     $("stableHealth").textContent = `声質安定版: 確認失敗`;

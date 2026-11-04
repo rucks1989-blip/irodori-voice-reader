@@ -1,11 +1,11 @@
-$ErrorActionPreference = "Stop"
+﻿$ErrorActionPreference = "Stop"
 $root = $PSScriptRoot
 $pidPath = Join-Path $root "logs\kurisu_voice_api\server.pid"
 if (Test-Path -LiteralPath $pidPath) {
     $apiPid = 0
     if ([int]::TryParse((Get-Content -LiteralPath $pidPath -Raw).Trim(), [ref]$apiPid)) {
         $process = Get-CimInstance Win32_Process -Filter "ProcessId = $apiPid" -ErrorAction SilentlyContinue
-        if ($null -ne $process -and $process.CommandLine -like "*kurisu_voice_api.py*") {
+        if ($null -ne $process -and ([string]$process.CommandLine).IndexOf((Join-Path $root 'kurisu_voice_api.py'),[StringComparison]::OrdinalIgnoreCase) -ge 0 -and $process.Name -in @('python.exe','pythonw.exe')) {
             Stop-Process -Id $apiPid -Force -ErrorAction SilentlyContinue
         }
     }

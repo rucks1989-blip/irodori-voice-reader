@@ -34,20 +34,18 @@ with zipfile.ZipFile(cpu, "w", zipfile.ZIP_DEFLATED) as archive:
         if path.is_file() and path.name.lower().startswith(("license", "copying", "notice")):
             archive.write(path, "licenses/" + path.relative_to(args.upstream_license.parent).as_posix())
     archive.write(ROOT / "THIRD_PARTY_NOTICES.md", "THIRD_PARTY_NOTICES.md")
-xpi = dist / "IrodoriVoiceReader-Firefox-1.2.23-signed.xpi"
+xpi = dist / ("IrodoriVoiceReader-Firefox-" + manifest["firefoxExtensionVersion"] + "-signed.xpi")
 with zipfile.ZipFile(args.signed_firefox) as archive:
     package_manifest = json.loads(archive.read("manifest.json"))
-    if package_manifest["browser_specific_settings"]["gecko"]["id"] != "irodori-voice-reader@local" or package_manifest["version"] != manifest["extensionVersion"]:
+    if package_manifest["browser_specific_settings"]["gecko"]["id"] != "irodori-voice-reader@local" or package_manifest["version"] != manifest["firefoxExtensionVersion"]:
         raise SystemExit("Unexpected signed extension ID/version")
     if not any(name in archive.namelist() for name in ["META-INF/mozilla.rsa", "META-INF/cose.sig"]):
         raise SystemExit("XPI signature files missing")
-    for source in (ROOT / "firefox-extension").rglob("*"):
-        if not source.is_file():
-            continue
-        name = source.relative_to(ROOT / "firefox-extension").as_posix()
-        good = json.loads(source.read_bytes()) == package_manifest if name == "manifest.json" else source.read_bytes() == archive.read(name)
-        if not good:
-            raise SystemExit("Signed XPI/source mismatch: " + name)
+    # This pinned signed XPI is a legacy reference, not the isolated extension.
+    # Never change or re-sign the existing artifact in this helper.
+    expected = next(a for a in manifest["assets"] if a["kind"] == "firefox")
+    if hashlib.sha256(args.signed_firefox.read_bytes()).hexdigest() != expected["sha256"]:
+        raise SystemExit("Signed XPI differs from pinned release asset")
 shutil.copyfile(args.signed_firefox, xpi)
 manifest["assets"] = [
     {"name": cpu.name, "kind": "backend", "backend": "cpu", "arch": "", "sha256": hashlib.sha256(cpu.read_bytes()).hexdigest()},

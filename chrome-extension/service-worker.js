@@ -1,5 +1,7 @@
 /* Chrome MV3 lifecycle/API adapter; TTS and queue logic remain in background.js. */
 "use strict";
+importScripts("install-config.js");
+const NATIVE_HOST = globalThis.IrodoriInstallConfig.nativeHost;
 const OFFSCREEN_URL = chrome.runtime.getURL("offscreen.html");
 let creating = null;
 let lastQueueStatus = "";
@@ -59,7 +61,7 @@ async function invoke(method, args) {
       // Its last selected mode belongs to the other client; a fresh Chrome
       // profile must not replace that client's startup intent just to connect.
       if (request?.command === "start_engine_async" && request.reason === "extension_initialize") {
-        const status = await chrome.runtime.sendNativeMessage("io.github.irodori.voice_reader.chrome", {
+        const status = await chrome.runtime.sendNativeMessage(NATIVE_HOST, {
           command: "status", engine: request.engine
         });
         const engine = status?.engines?.[request.engine];
@@ -67,7 +69,7 @@ async function invoke(method, args) {
           return { ...status, engine: request.engine, running: true, reusedSharedApi: true };
         }
       }
-      return chrome.runtime.sendNativeMessage("io.github.irodori.voice_reader.chrome", args[1]);
+      return chrome.runtime.sendNativeMessage(NATIVE_HOST, args[1]);
     }
     case "runtime.broadcast":
       await chrome.runtime.sendMessage({ ...args[0], __irodoriBroadcast: true }).catch(() => {});

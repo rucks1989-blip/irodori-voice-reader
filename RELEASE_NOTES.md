@@ -1,3 +1,11 @@
+# 未リリース: installer-rework
+
+mainの拡張機能を基準に、Chrome/Firefox双方の独立接続先、専用Native Host、任意ビルド選択、安全な中止処理を統合しました。
+完成配布版ではありません。Firefox署名、GPU完成品配布、ブラウザー上の実動作確認が残っています。
+[検証結果](docs/integration-validation.md)を参照してください。Releaseは作成していません。
+
+以下は旧版の記録です。
+
 # 別PC導入試験版 0.1.0-private.1
 
 ## 最初に取得するもの

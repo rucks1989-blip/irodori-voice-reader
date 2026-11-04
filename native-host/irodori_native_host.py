@@ -74,7 +74,12 @@ def log_event(event: str, **fields) -> None:
         pass
 
 
+ISOLATED_ENVIRONMENT = False
+
+
 def _native_log_dir() -> Path:
+    if ISOLATED_ENVIRONMENT:
+        return Path(__file__).with_name("logs")
     local_app_data = os.environ.get("LOCALAPPDATA", "").strip()
     if local_app_data:
         return Path(local_app_data) / "IrodoriVoiceReader" / "NativeHost" / "logs"
@@ -82,6 +87,8 @@ def _native_log_dir() -> Path:
 
 
 def _timing_log_dir() -> Path:
+    if ISOLATED_ENVIRONMENT:
+        return Path(__file__).with_name("timing_logs")
     local_app_data = os.environ.get("LOCALAPPDATA", "").strip()
     if local_app_data:
         return Path(local_app_data) / "IrodoriVoiceReader" / "TimingLogs"
@@ -461,7 +468,7 @@ def _async_guard_is_active(value: dict | None) -> bool:
     return alive
 
 
-def _terminate_recorded_process(pid: object, engine: str, role: str) -> bool:
+def _terminate_recorded_process(pid: object, engine: str, role: str, config: dict) -> bool:
     """Terminate only a PID recorded by our detached launcher."""
     alive, _ = _process_status(pid)
     if not alive:
@@ -472,11 +479,27 @@ def _terminate_recorded_process(pid: object, engine: str, role: str) -> bool:
         return False
     try:
         if os.name == "nt":
+            # A saved PID can be reused. Verify the launcher command belongs to
+            # this exact root before terminating it; never taskkill a PID tree.
+            command = f"""
+$item = Get-CimInstance Win32_Process -Filter 'ProcessId = {numeric_pid}' -ErrorAction SilentlyContinue
+if ($null -eq $item) {{ exit 0 }}
+$line = [string]$item.CommandLine
+if ($line -match '-EncodedCommand\\s+([A-Za-z0-9+/=]+)') {{
+    try {{ $line = [Text.Encoding]::Unicode.GetString([Convert]::FromBase64String($Matches[1])) }} catch {{ exit 1 }}
+}}
+$expected = {_ps_literal(config["root"] / "start_kurisu_voice_api.ps1")}
+if ($item.Name -notin @('powershell.exe','pwsh.exe') -or $line.IndexOf($expected, [StringComparison]::OrdinalIgnoreCase) -lt 0) {{ exit 1 }}
+Stop-Process -Id $item.ProcessId -Force -ErrorAction Stop
+"""
+            encoded = base64.b64encode(command.encode("utf-16le")).decode("ascii")
             result = subprocess.run(
-                ["taskkill.exe", "/PID", str(numeric_pid), "/T", "/F"],
+                ["powershell.exe", "-NoProfile", "-NonInteractive", "-EncodedCommand", encoded],
                 stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                timeout=10, creationflags=CREATE_NO_WINDOW,
+                timeout=10, creationflags=CREATE_NO_WINDOW, env=_script_environment(config),
             )
+            if result.returncode != 0:
+                return False
             log_event("async_start_process_cancelled", engine=engine, role=role,
                       pid=numeric_pid, returncode=result.returncode)
         else:
@@ -508,7 +531,7 @@ def _cancel_async_startup(config: dict, engine: str, reason: str) -> dict:
             pids.append((pid, role))
     cancelled = False
     for pid, role in pids:
-        cancelled = _terminate_recorded_process(pid, engine, role) or cancelled
+        cancelled = _terminate_recorded_process(pid, engine, role, config) or cancelled
     state = str(value.get("state") or "")
     if cancelled or state in {"launching", "running", "launch_complete", "ready"}:
         value.update({
@@ -558,14 +581,20 @@ def _stop_owned_engine_processes(config: dict, engine: str) -> list[int]:
     root = _ps_literal(config["root"])
     api_names = "@(" + ",".join(_ps_literal(name) for name in ("kurisu_voice_api.py", "kurisu_voice_stable_api.py")) + ")"
     backend = _ps_literal(_configured_backend_executable(config, engine))
+    api_script = _ps_literal(config["root"] / "kurisu_voice_api.py")
+    api_python = _ps_literal(config["root"] / ".venv" / "Scripts" / "python.exe")
+    backend_config = _ps_literal(config["root"] / "config" / "audio_cpp_server.shared.json")
     command = f"""
 $root = [IO.Path]::GetFullPath({root})
 $apiNames = {api_names}
+$apiScript = {api_script}
+$apiPython = {api_python}
+$backendConfig = {backend_config}
 $backend = [IO.Path]::GetFullPath({backend})
 $items = @(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object {{
     $line = [string]$_.CommandLine
-    $apiMatch = $line -and $line.IndexOf($root, [StringComparison]::OrdinalIgnoreCase) -ge 0 -and @($apiNames | Where-Object {{ $line.IndexOf($_, [StringComparison]::OrdinalIgnoreCase) -ge 0 }}).Count -gt 0
-    $exeMatch = $_.ExecutablePath -and ([IO.Path]::GetFullPath([string]$_.ExecutablePath) -ieq $backend)
+    $apiMatch = $_.Name -in @('python.exe','pythonw.exe') -and $line.IndexOf($apiScript, [StringComparison]::OrdinalIgnoreCase) -ge 0
+    $exeMatch = $_.ExecutablePath -and ([IO.Path]::GetFullPath([string]$_.ExecutablePath) -ieq $backend) -and $line.IndexOf($backendConfig, [StringComparison]::OrdinalIgnoreCase) -ge 0
     $apiMatch -or $exeMatch
 }})
 foreach ($item in $items) {{
@@ -582,7 +611,7 @@ foreach ($item in $items) {{
             [powershell, "-NoLogo", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
              "-EncodedCommand", encoded],
             stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
-            timeout=15, creationflags=CREATE_NO_WINDOW,
+            timeout=15, creationflags=CREATE_NO_WINDOW, env=_script_environment(config),
         )
     except (OSError, subprocess.SubprocessError) as error:
         log_event("owned_process_sweep_error", engine=engine, error_type=type(error).__name__, error=str(error))
@@ -638,7 +667,7 @@ def _async_start_status(config: dict, engine: str, health_state: dict | None = N
     if state == "running":
         alive, exit_code = _process_status(value.get("pid"))
         if not alive:
-            if exit_code == 0:
+            if exit_code in (0, None) and not (value.get("stderr") and _text_tail(Path(value["stderr"]))):
                 # The fixed PowerShell launcher intentionally exits after it
                 # has spawned the resident API/backend.  Health may become OK
                 # a little later, so this is not a startup failure.
@@ -711,13 +740,24 @@ def write_message(value: dict) -> None:
 
 
 def load_config() -> dict:
+    global ISOLATED_ENVIRONMENT
     path = Path(__file__).with_name("config.json")
     value = json.loads(path.read_text(encoding="utf-8"))
+    ISOLATED_ENVIRONMENT = bool(value.get("isolated_environment", False))
+    if ISOLATED_ENVIRONMENT:
+        for key in ("health_url", "backend_health_url"):
+            if not re.fullmatch(r"http://127\.0\.0\.1:[0-9]{1,5}/health", str(value.get(key, ""))):
+                raise ValueError("独立環境の接続先は専用ループバックURLが必要です。")
+        for definition in ENGINE_DEFINITIONS.values():
+            definition["api_health_url"] = value["health_url"]
+            definition["backend_health_url"] = value["backend_health_url"]
     root = Path(value["irodori_root"]).resolve()
     if not root.is_dir():
         raise FileNotFoundError(f"Irodoriフォルダーがありません: {root}")
     return {
         "root": root,
+        "chrome_extension_id": value.get("chrome_extension_id", "aeaichhflmacmifblidbpojgfemjijlb"),
+        "firefox_extension_id": value.get("firefox_extension_id", EXPECTED_EXTENSION_ID),
         "health_url": value.get("health_url", "http://127.0.0.1:8765/health"),
         "backend_health_url": value.get("backend_health_url", "http://127.0.0.1:8091/health"),
         "start_task": value.get("start_task", ""),
@@ -776,7 +816,7 @@ def backend_health(config: dict) -> dict:
 
 
 def _script_environment(config: dict, engine: str = "standard") -> dict:
-    env = dict(os.environ)
+    env = {key: value for key, value in os.environ.items() if key.upper() != "PSMODULEPATH"}
     env.update({"PYTHONUTF8": "1", "PYTHONIOENCODING": "utf-8"})
     return env
 
@@ -876,7 +916,7 @@ def _launch_script_async(config: dict, filename: str, engine: str = "standard", 
         "$OutputEncoding = New-Object System.Text.UTF8Encoding($false); "
         "[Console]::OutputEncoding = $OutputEncoding; "
         f"$p = Start-Process -FilePath {_ps_literal(powershell)} "
-        f"-ArgumentList @('-NoLogo','-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',{_ps_literal(script)}) "
+        f"-ArgumentList @('-NoLogo','-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',{_ps_literal(chr(34) + str(script) + chr(34))}) "
         f"-WorkingDirectory {_ps_literal(config['root'])} "
         f"-RedirectStandardOutput {_ps_literal(stdout_path)} "
         f"-RedirectStandardError {_ps_literal(stderr_path)} -WindowStyle Hidden -PassThru; "
@@ -953,7 +993,7 @@ def _launch_script_async(config: dict, filename: str, engine: str = "standard", 
                 state.update({"state": "ready", "exit_code": exit_code})
                 _write_json_file(state_path, state)
                 return state
-            if exit_code == 0:
+            if exit_code in (0, None) and not _text_tail(stderr_path):
                 # The launcher can finish successfully just after spawning
                 # the resident API.  Keep polling health instead of turning a
                 # normal launcher exit into a false startup failure.
@@ -1485,7 +1525,7 @@ def _reload_api(config: dict) -> dict:
             data=b"{}",
             headers={
                 "Content-Type": "application/json",
-                "Origin": "chrome-extension://aeaichhflmacmifblidbpojgfemjijlb",
+                "Origin": "chrome-extension://" + str(config.get("chrome_extension_id") or "aeaichhflmacmifblidbpojgfemjijlb"),
             },
             method="POST",
         )
@@ -2140,7 +2180,7 @@ def handle(message: dict, config: dict) -> dict:
 
 
 def verify_invoker() -> None:
-    if len(sys.argv) >= 3 and sys.argv[2] and sys.argv[2] != EXPECTED_EXTENSION_ID:
+    if len(sys.argv) >= 3 and sys.argv[2] and sys.argv[2] != str(load_config().get("firefox_extension_id") or EXPECTED_EXTENSION_ID):
         raise PermissionError("許可されていない拡張機能です。")
 
 

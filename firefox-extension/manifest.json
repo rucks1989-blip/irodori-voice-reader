@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "name": "Irodori Voice Reader",
-  "version": "1.2.24",
+  "version": "1.2.25",
   "description": "ChatGPT・Gemini・Muse・選択文章をローカルIrodori-TTSで読み上げます。",
   "browser_specific_settings": {
     "gecko": {
@@ -26,6 +26,7 @@
   ],
   "background": {
     "scripts": [
+      "install-config.js",
       "api-state.js",
       "text-processor.js",
       "voice-readiness.js",
@@ -66,13 +67,13 @@
       "suggested_key": {
         "default": "Alt+Shift+I"
       },
-      "description": "\u9078\u629e\u7bc4\u56f2\u3092Irodori\u3067\u8aad\u307f\u4e0a\u3052"
+      "description": "選択範囲をIrodoriで読み上げ"
     },
     "stop-reading": {
       "suggested_key": {
         "default": "Alt+Shift+S"
       },
-      "description": "\u8aad\u307f\u4e0a\u3052\u3092\u505c\u6b62"
+      "description": "読み上げを停止"
     }
   }
 }

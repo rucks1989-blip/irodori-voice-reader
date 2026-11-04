@@ -9,24 +9,48 @@ function Save-Json([string]$Path, $Value) {
     [IO.File]::WriteAllText($temporary, ($Value | ConvertTo-Json -Depth 30), $Utf8)
     Move-Item -LiteralPath $temporary -Destination $Path -Force
 }
-function Confirm([string]$Message) {
-    Add-Type -AssemblyName System.Windows.Forms
-    return [Windows.Forms.MessageBox]::Show($Message, 'Irodori Voice Reader', 'YesNo', 'Question', 'Button2') -eq 'Yes'
+function Show-SetupDialog([string]$Kind,[string]$Message,[string]$Filter='') {
+    $dialogRoot=Join-Path $env:LOCALAPPDATA 'IrodoriVoiceReader\Installer\Dialogs'
+    New-Item -ItemType Directory -Force -Path $dialogRoot | Out-Null
+    $source=Join-Path $PSScriptRoot 'setup-dialog.cs'
+    $hash=(Get-FileHash $source -Algorithm SHA256).Hash.Substring(0,16)
+    $exe=Join-Path $dialogRoot ("SetupDialog-$hash.exe")
+    if(-not(Test-Path $exe)){
+        Add-Type -Path $source -ReferencedAssemblies @('System.Windows.Forms','System.Drawing','System.Web.Extensions') -OutputAssembly $exe -OutputType WindowsApplication
+    }
+    $request=Join-Path $dialogRoot ([guid]::NewGuid().ToString('N')+'.json')
+    Save-Json $request @{kind=$Kind;message=$Message;filter=$Filter}
+    $process=Add-SetupProcess (Start-Process $exe -ArgumentList @(('"'+$request+'"')) -PassThru -WindowStyle Hidden)
+    while(-not $process.WaitForExit(200)){Assert-SetupActive}
+    if($process.ExitCode -ne 0 -or -not(Test-Path ($request+'.result'))){throw 'セットアップ画面を確認できませんでした。'}
+    $answer=Get-Content ($request+'.result') -Raw -Encoding UTF8 | ConvertFrom-Json
+    return [string]$answer.value
 }
-function Run([string]$Exe, [string[]]$Arguments) {
-    $saved=$ErrorActionPreference
-    try{
-        $ErrorActionPreference='Continue'
-        $lines=@(& $Exe @Arguments 2>&1 | ForEach-Object {Write-Host $_;[string]$_})
-        $code=$LASTEXITCODE
-    }finally{$ErrorActionPreference=$saved}
-    if($env:IVR_SETUP_LOG_ROOT -and (Test-Path $env:IVR_SETUP_LOG_ROOT)){
-        [IO.File]::WriteAllText((Join-Path $env:IVR_SETUP_LOG_ROOT 'last-command.log'),($lines -join "`r`n"),$Utf8)
-    }
-    if ($code -notin @(0,3010)) {
-        $tail=($lines | Select-Object -Last 16) -join "`r`n"
-        throw "コマンドの終了コード: $code ($([IO.Path]::GetFileName($Exe)))`r`n$tail"
-    }
+function Confirm([string]$Message) { return (Show-SetupDialog 'confirm' $Message) -eq 'yes' }
+function Assert-SetupActive {
+    if($script:CancelRequest -and (Test-Path ($script:CancelRequest+'.cancel'))){throw [OperationCanceledException]::new('セットアップを安全に中止しました。再実行できます。')}
+}
+function Add-SetupProcess($Process){
+    [void]$Process.Handle
+    if($script:SetupJob){try{$script:SetupJob.Add($Process.Handle)}catch{if(-not $Process.HasExited){$Process.Kill();$Process.WaitForExit()};throw}}
+    return $Process
+}
+function Quote-WindowsArgument([string]$Value){
+    return '"'+([regex]::Replace([regex]::Replace($Value,'(\\*)"','$1$1\"'),'(\\+)$','$1$1'))+'"'
+}
+function Run([string]$Exe,[string[]]$Arguments){
+    Assert-SetupActive
+    $logRoot=if($env:IVR_SETUP_LOG_ROOT){$env:IVR_SETUP_LOG_ROOT}else{$env:TEMP}
+    $out=Join-Path $logRoot ('command-'+[guid]::NewGuid().ToString('N')+'.stdout.log')
+    $err=$out+'.stderr.log'
+    $launchArguments=if([IO.Path]::GetFileName($Exe) -ieq 'cmd.exe'){($Arguments -join ' ')}else{($Arguments | ForEach-Object {Quote-WindowsArgument $_}) -join ' '}
+    $p=Add-SetupProcess (Start-Process $Exe -ArgumentList $launchArguments -PassThru -WindowStyle Hidden -RedirectStandardOutput $out -RedirectStandardError $err)
+    try{while(-not $p.WaitForExit(200)){Assert-SetupActive};$code=$p.ExitCode}
+    finally{if(-not $p.HasExited){$p.Kill();$p.WaitForExit()}}
+    $lines=@(Get-Content $out -ErrorAction SilentlyContinue)+@(Get-Content $err -ErrorAction SilentlyContinue)
+    $lines | ForEach-Object {Write-Host $_}
+    if($env:IVR_SETUP_LOG_ROOT){[IO.File]::WriteAllText((Join-Path $logRoot 'last-command.log'),($lines -join "`r`n"),$Utf8)}
+    if($code -notin @(0,3010)){throw ("コマンド終了コード: $code ($Exe)`r`n"+(($lines | Select-Object -Last 16) -join "`r`n"))}
 }
 function Get-Verified([string]$Url, [string]$Destination, [string]$Sha256, [long]$Bytes = 0) {
     if ($Url -notmatch '^https://') { throw 'HTTPS以外の取得元は利用しません。' }
@@ -39,8 +63,7 @@ function Get-Verified([string]$Url, [string]$Destination, [string]$Sha256, [long
     $partial = "$Destination.partial"
     $curl = Get-Command curl.exe -ErrorAction SilentlyContinue
     if (-not $curl) { throw 'Windows標準のcurl.exeが見つかりません。Windows Updateを確認してください。' }
-    & $curl.Source --location --fail --retry 3 --retry-delay 2 --proto '=https' --proto-redir '=https' --continue-at - --output $partial $Url
-    if ($LASTEXITCODE -ne 0) { throw "ダウンロード失敗。再実行すると再開します (curl=$LASTEXITCODE)。" }
+    Run $curl.Source @('--location','--fail','--retry','3','--retry-delay','2','--proto','=https','--proto-redir','=https','--continue-at','-','--output',$partial,$Url)
     if ($Bytes -gt 0 -and (Get-Item -LiteralPath $partial).Length -ne $Bytes) { throw 'ダウンロードの容量が想定と一致しません。' }
     if ((Get-FileHash -LiteralPath $partial -Algorithm SHA256).Hash -ne $Sha256) {
         Move-Item -LiteralPath $partial -Destination ($partial + '.rejected-' + [guid]::NewGuid().ToString('N'))
@@ -83,10 +106,10 @@ function Install-Winget([string]$Id, [string[]]$Extra = @()) {
     if (-not $wg) { throw 'wingetがありません。Microsoft Storeで「アプリ インストーラー」を更新してください。' }
     Run $wg.Source (@('install','--id',$Id,'--exact','--source','winget','--accept-package-agreements','--accept-source-agreements','--disable-interactivity') + $Extra)
 }
-function Assert-FreePorts {
-    foreach ($port in @(8765,8091)) {
+function Assert-FreePorts([int[]]$Ports=@(8765,8091)) {
+    foreach ($port in $Ports) {
         if (Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue) {
-            throw "ポート$port は使用中です。既存Irodoriまたは他のアプリを本人の操作で終了してから再試行してください。自動停止は行いません。"
+            throw "ポート$port は使用中です。今回の専用ポートが他のアプリに使われています。既存プロセスは停止しません。"
         }
     }
 }
@@ -94,4 +117,56 @@ function Assert-LocalDirectory([string]$Path) {
     $full = [IO.Path]::GetFullPath($Path).TrimEnd('\')
     if ($full -match '^[\\]{2}' -or $full -match '[%!]') { throw 'ネットワーク共有または % ! を含む保存先は、この試験版では利用できません。' }
     return $full
+}
+
+function Find-FreePort([int]$Start) {
+    for($candidate=$Start;$candidate -lt $Start+1000;$candidate++){
+        $listener=New-Object Net.Sockets.TcpListener([Net.IPAddress]::Loopback,$candidate)
+        try{$listener.Start();return $candidate}catch{}finally{$listener.Stop()}
+    }
+    throw '空きポートを確保できませんでした。'
+}
+function Get-ExistingEnvironment {
+    foreach($folder in @('NativeHost','ChromeNativeHost')){
+        $config=Join-Path $env:LOCALAPPDATA "IrodoriVoiceReader\$folder\config.json"
+        if(Test-Path $config){"既存Native Host: $folder"}
+    }
+    foreach($key in @('HKCU:\Software\Google\Chrome\NativeMessagingHosts','HKCU:\Software\Mozilla\NativeMessagingHosts','HKLM:\Software\Google\Chrome\NativeMessagingHosts','HKLM:\Software\Mozilla\NativeMessagingHosts')){
+        Get-ChildItem $key -ErrorAction SilentlyContinue | Where-Object PSChildName -match 'irodori' | ForEach-Object {"既存登録: $($_.PSChildName)"}
+    }
+    foreach($port in @(8765,8091)){
+        if(Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue){"既存ポート使用中: $port"}
+    }
+    Get-CimInstance Win32_Process | Where-Object { $_.Name -match 'audiocpp|python' -and $_.CommandLine -match 'irodori|kurisu_voice_api|audio.cpp|audiocpp' } | ForEach-Object {"既存エンジン/API: PID $($_.ProcessId) ($($_.Name))"}
+}
+
+function Select-Browsers {
+    $choice=Show-SetupDialog 'browsers' 'Chromeのみ / Firefoxのみ / 両方から選んでください。'
+    if($choice -notin @('chrome','firefox','both')){throw 'ブラウザー選択を中止しました。'}
+    return $choice
+}
+
+function Get-BackendChoice([ValidateSet('auto','cpu','cuda')][string]$Requested,[string]$GpuArch){
+    if($Requested -ne 'auto'){return $Requested}
+    if($GpuArch){return 'cuda'}
+    return 'cpu'
+}
+
+$script:SetupJob=$null
+$script:CancelRequest=$null
+function Start-SetupCancellation {
+    if(-not ('IvrSetupJob' -as [type])){Add-Type -Path (Join-Path $PSScriptRoot 'setup-job.cs')}
+    $script:SetupJob=New-Object IvrSetupJob
+    $dialogRoot=Join-Path $env:LOCALAPPDATA 'IrodoriVoiceReader\Installer\Dialogs'
+    New-Item -ItemType Directory -Force $dialogRoot | Out-Null
+    $source=Join-Path $PSScriptRoot 'setup-dialog.cs'
+    $exe=Join-Path $dialogRoot ('SetupDialog-'+(Get-FileHash $source).Hash.Substring(0,16)+'.exe')
+    if(-not(Test-Path $exe)){Add-Type -Path $source -ReferencedAssemblies @('System.Windows.Forms','System.Drawing','System.Web.Extensions') -OutputAssembly $exe -OutputType WindowsApplication}
+    $script:CancelRequest=Join-Path $dialogRoot ([guid]::NewGuid().ToString('N')+'.json')
+    Save-Json $script:CancelRequest @{kind='progress';message=''}
+    [void](Start-Process $exe -ArgumentList @(('"'+$script:CancelRequest+'"')) -WindowStyle Hidden -PassThru)
+}
+function Stop-SetupCancellation {
+    if($script:CancelRequest){[IO.File]::WriteAllText(($script:CancelRequest+'.done'),'done')}
+    if($script:SetupJob){$script:SetupJob.Dispose();$script:SetupJob=$null}
 }

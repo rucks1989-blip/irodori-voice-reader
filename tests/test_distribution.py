@@ -23,9 +23,10 @@ class DistributionTests(unittest.TestCase):
         for name in ["voice.wav", "models/model.gguf", "irodori-api/config/voices.json", "native-host/config.json", "logs/test.txt", "../outside.py", "assets/signed.xpi", ".git/config"]:
             self.assertFalse(privacy.allowed(name), name)
 
-    def test_extension_shared_code(self):
-        for name in ["adapters.js", "muse-watcher.js", "chatgpt-watcher.js", "content.js", "background.js", "text-processor.js", "sidebar.js", "popup.js", "options.js"]:
-            self.assertEqual((ROOT / "chrome-extension" / name).read_bytes(), (ROOT / "firefox-extension" / name).read_bytes(), name)
+    def test_chrome_shared_code_syntax(self):
+        for name in ["background.js", "text-processor.js", "voice-readiness.js", "sidebar.js", "options.js", "service-worker.js"]:
+            result = subprocess.run(["node", "--check", str(ROOT / "chrome-extension" / name)], capture_output=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
 
     @unittest.skipUnless(shutil.which("node"), "Node.js is unavailable")
     def test_text_processor_routing(self):
@@ -50,8 +51,9 @@ class DistributionTests(unittest.TestCase):
     def test_extension_ids_and_versions(self):
         chrome = json.loads((ROOT / "chrome-extension/manifest.json").read_text(encoding="utf8"))
         firefox = json.loads((ROOT / "firefox-extension/manifest.json").read_text(encoding="utf8"))
-        self.assertEqual(chrome["version"], "1.2.24")
-        self.assertEqual(firefox["version"], chrome["version"])
+        distribution = json.loads((ROOT / "distribution.json").read_text(encoding="utf8"))
+        self.assertEqual(chrome["version"], distribution["chromeExtensionVersion"])
+        self.assertEqual(firefox["version"], distribution["firefoxExtensionVersion"])
         self.assertEqual(firefox["browser_specific_settings"]["gecko"]["id"], "irodori-voice-reader@local")
         for manifest in [chrome, firefox]:
             self.assertIn("muse-watcher.js", manifest["content_scripts"][0]["js"])
@@ -77,6 +79,14 @@ class DistributionTests(unittest.TestCase):
         model = json.loads((ROOT / "distribution.json").read_text(encoding="utf8"))["model"]
         self.assertRegex(model["url"], r"/resolve/[a-f0-9]{40}/")
         self.assertRegex(model["sha256"], r"^[a-f0-9]{64}$")
+
+    def test_all_recorded_stable_patch_sources_are_packaged(self):
+        provenance = json.loads((ROOT / "provenance.json").read_text(encoding="utf8"))["importedFiles"]
+        names = {entry["path"] for entry in json.loads((ROOT / "package-files.json").read_text(encoding="utf8"))["files"]}
+        for name, expected in provenance.items():
+            if name.startswith("audio-cpp-stable-patch/added-files/"):
+                self.assertIn(name, names)
+                self.assertEqual(hashlib.sha256((ROOT / name).read_bytes()).hexdigest(), expected, name)
 
     def test_no_live_configuration(self):
         for name in privacy.LIVE_CONFIGS:

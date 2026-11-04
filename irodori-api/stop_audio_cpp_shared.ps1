@@ -34,7 +34,7 @@ $process = Get-CimInstance Win32_Process -Filter "ProcessId = $serverPid" -Error
 if ($null -ne $process -and $process.ExecutablePath) {
     try {
         $actual = [IO.Path]::GetFullPath($process.ExecutablePath)
-        if ($actual -eq $exe) {
+        if ($actual -eq $exe -and ([string]$process.CommandLine).IndexOf((Resolve-Configured $runtimeConfig.audio_cpp_shared_config "config\audio_cpp_server.shared.json"),[StringComparison]::OrdinalIgnoreCase) -ge 0) {
             Stop-Process -Id $serverPid -Force -ErrorAction SilentlyContinue
             Write-Host "[audio.cpp] 共有サーバーを停止しました（pid=$serverPid）。irodori-UI の音声も使えなくなります。"
         } else {

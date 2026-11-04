@@ -10,35 +10,15 @@
     },
     {
       "path": ".github/workflows/check.yml",
-      "sha256": "54aa485d088ae8e9dfb283cd195f002e34f1698be6f342f435aa9b4605dc797d"
+      "sha256": "dabf544eeb9e77acb7ab14dfb602b90c776cfa744807068560e6e97e11a5e5c2"
     },
     {
       "path": ".gitignore",
-      "sha256": "b993bfd630f096a86b6643c804a86958d4bb87ffa52e086b6049abaf097bf37e"
+      "sha256": "598214610c97382b01bcbb329a45dc0f2bb072bd2b6a50b89e3289430d4e7013"
     },
     {
       "path": "AI-support.bat",
       "sha256": "bfe56442a9e00cb8569ba9fd15de9cd06ae07c2b1d83fbee9625d511a268dee2"
-    },
-    {
-      "path": "LICENSE",
-      "sha256": "1e03f5b076c45c184838f0831ebd953c625255f986e919b46646d05264fa5343"
-    },
-    {
-      "path": "README.md",
-      "sha256": "f0441d15154e36560caaaf1088928f029abc6af0379caae1804ddea5f8b0866f"
-    },
-    {
-      "path": "RELEASE_NOTES.md",
-      "sha256": "b7a30667ae3d68c05b75e005f492800c45a06ad0762d61565e5de8acc08d375d"
-    },
-    {
-      "path": "THIRD_PARTY_NOTICES.md",
-      "sha256": "7daf10269ec452bc10a5b84ff02e6d82f2459f84ff0aa00b91e99c6a5272f928"
-    },
-    {
-      "path": "audio-cpp-patch/README.md",
-      "sha256": "c0f7bed818c007d58ea0b670b2ccd92221ca6d29a6ab2a59f1bb76a068fa3928"
     },
     {
       "path": "audio-cpp-patch/apply_shared_session_patch.py",
@@ -49,12 +29,16 @@
       "sha256": "804cb62fb142941f11a7e8ccdcf358486e65e2134ad937c0ec7f95e908e1b2b1"
     },
     {
+      "path": "audio-cpp-patch/README.md",
+      "sha256": "c0f7bed818c007d58ea0b670b2ccd92221ca6d29a6ab2a59f1bb76a068fa3928"
+    },
+    {
       "path": "audio-cpp-patch/speaker_embedding_loader.inc",
       "sha256": "39aded225d0e58834a5069de1de8007316b6254980f3e833ad35daf878201d4b"
     },
     {
-      "path": "audio-cpp-stable-patch/README.md",
-      "sha256": "e498ac93a18b086c5e0471809c8bb935a6e4c45618ffb4d1f39c8f4dbb4b7238"
+      "path": "audio-cpp-stable-patch/added-files/include/engine/models/irodori_tts/audio_quality.h",
+      "sha256": "3fd058d2eabb3e068fe604a54128232b0d435e95f722da5eccff6b108fbf99fc"
     },
     {
       "path": "audio-cpp-stable-patch/added-files/src/framework/runtime/invest_registry.cpp",
@@ -63,6 +47,10 @@
     {
       "path": "audio-cpp-stable-patch/added-files/src/framework/runtime/invest_registry_impl.cpp",
       "sha256": "09fd32a73448eeefa700e1bcff1caacf62a777a187cab56ff3790cf6887e2545"
+    },
+    {
+      "path": "audio-cpp-stable-patch/added-files/src/models/irodori_tts/audio_quality.cpp",
+      "sha256": "7b7db7393f4f9fe67e0d1548aa9df1b422f4ac4e25f6368811c689e0307a2848"
     },
     {
       "path": "audio-cpp-stable-patch/added-files/tests/irodori_tts/irodori_tts_invest_warm_bench.cpp",
@@ -75,6 +63,10 @@
     {
       "path": "audio-cpp-stable-patch/added-files/tests/unittests/test_irodori_audio_quality.cpp",
       "sha256": "12adb68f1be030fa8e36fc0e4339d6bf8e8e3a8af06cf75c4ef447def11dcb8d"
+    },
+    {
+      "path": "audio-cpp-stable-patch/README.md",
+      "sha256": "e498ac93a18b086c5e0471809c8bb935a6e4c45618ffb4d1f39c8f4dbb4b7238"
     },
     {
       "path": "audio-cpp-stable-patch/speaker-embedding-dump.patch",
@@ -90,7 +82,7 @@
     },
     {
       "path": "chrome-extension/api-state.js",
-      "sha256": "9c34aebada10f1a6270576b29ab85faf30eede1e116a84a65da48f95e69c17a7"
+      "sha256": "f10096182a1fc633696fc3e48556b9c74e727ba9c18f936bc944130ad4489478"
     },
     {
       "path": "chrome-extension/background.js",
@@ -125,8 +117,12 @@
       "sha256": "32b2da0817fa4497f6fed293342bd89883cce4af3cc49564098a9856b1dcf814"
     },
     {
+      "path": "chrome-extension/install-config.js",
+      "sha256": "57af96412364d0147f6875807726f1b4ac73381ecbb89e405144897ffe171c37"
+    },
+    {
       "path": "chrome-extension/manifest.json",
-      "sha256": "aae44e31608ebf9c602f573dc384fbbe94acf955d570e1085b0db5f6a80b8ebc"
+      "sha256": "6351a8b396f54dc3bd5f01b13a1b3601e959abada8cf0ed638f4ea4e799e7045"
     },
     {
       "path": "chrome-extension/muse-watcher.js",
@@ -138,7 +134,7 @@
     },
     {
       "path": "chrome-extension/offscreen.html",
-      "sha256": "567f6900b4b0e6d03daf93456b02d60fecea63b7a2d82198fa850873524af086"
+      "sha256": "f2227bd7e0c162f310addf4f757219f4f796e34e20ff41e63180ef51f8c285ec"
     },
     {
       "path": "chrome-extension/options.css",
@@ -146,11 +142,11 @@
     },
     {
       "path": "chrome-extension/options.html",
-      "sha256": "ec67feafb328ebcfc1b710e6fe7618d3ff22491aa842448b08d7ec709ed79dd2"
+      "sha256": "375d16df4f53a7e634b67dd5ffc4d05459e6adf77c1e868be287da6b380d314f"
     },
     {
       "path": "chrome-extension/options.js",
-      "sha256": "4f6bfc96692da3adbdcdd2638b99b96ab02bd9ade6c98bde917302c912086c17"
+      "sha256": "74b0a9858365c5842b62e24682fe08cd259d14a7ee1ffb0d9151f2fe8089f8d0"
     },
     {
       "path": "chrome-extension/popup.css",
@@ -158,7 +154,7 @@
     },
     {
       "path": "chrome-extension/popup.html",
-      "sha256": "de8326e767fc2c9ab8c8ada7e2ec813a21da2ce860f6a2cb5eaaecd6e51dcfa6"
+      "sha256": "f35394f8ede1b4f4f274cf3cb71d91ee323810db8c8324fc8ef33d3321ba90a7"
     },
     {
       "path": "chrome-extension/popup.js",
@@ -166,7 +162,7 @@
     },
     {
       "path": "chrome-extension/service-worker.js",
-      "sha256": "7e426ce18cc62b3066b5a3617c324f1986dc801293fd0c8f2888b53ad6c3d71c"
+      "sha256": "cdc2527217527d3b7917be9c5a5f10befc1da286ca05e47148faf99d0e3a0aed"
     },
     {
       "path": "chrome-extension/sidebar.css",
@@ -174,15 +170,15 @@
     },
     {
       "path": "chrome-extension/sidebar.html",
-      "sha256": "e61c41cfe848242cbb75b1724bab08385545b1341010c01d46d057483be64498"
+      "sha256": "be3f4c9093d690b1228a2e335d4fdf4cb5b7a194f4e50b4ec8842284d849a528"
     },
     {
       "path": "chrome-extension/sidebar.js",
-      "sha256": "3f6c7e4b64e6d3b587ebe36971f99bf32f1f2958f0b6706ef84306b7dba60424"
+      "sha256": "14c7fe12ebe2d6fcc081d26f28a2dc7a47cfa7a138ed0e8586e45a7721e764a7"
     },
     {
       "path": "chrome-extension/text-processor.js",
-      "sha256": "4fc501ce3df32e33f26f73ab1d39d8ced109e56a348f03a9c86da656e40be11f"
+      "sha256": "2af2a5f3c92ae2ee44b86ef12ba4a15e3489106542b9f19aa9c0aa5df42f1255"
     },
     {
       "path": "chrome-extension/voice-management.css",
@@ -194,7 +190,7 @@
     },
     {
       "path": "distribution.json",
-      "sha256": "b29111c9943d8e3df2068cd1f5bf6888f966c3d8cbe20696d4c93e1020dc020b"
+      "sha256": "51f4d46b656cdde084384fc3c9d3a2e978a66c4d33d8cba5d530339cdd25118c"
     },
     {
       "path": "docs/browser-install.md",
@@ -209,16 +205,28 @@
       "sha256": "54b6774bf4a5acd4bc6d15148120b108c4a4caf05afe75e9da3d7b027446da2d"
     },
     {
+      "path": "docs/installer-validation.md",
+      "sha256": "db1cf504bdcf35624a837dd70dec3c70b9dafe513f741b6109544ca015ab22b6"
+    },
+    {
+      "path": "docs/integration-validation.md",
+      "sha256": "9ef566e5ebb9325f0e40fa9cce505513b8ab062779d3a16f4c891b1f891fef83"
+    },
+    {
+      "path": "docs/version-audit.md",
+      "sha256": "bcb945eec0b556e3bfc6c7eeeec797cc1b8fa5d45089c124960b15625522a24e"
+    },
+    {
       "path": "firefox-extension/adapters.js",
       "sha256": "526bfc8744ab8a56add7366a658187044b532ea2a189f12ed546ea69da2b1a6e"
     },
     {
       "path": "firefox-extension/api-state.js",
-      "sha256": "9c34aebada10f1a6270576b29ab85faf30eede1e116a84a65da48f95e69c17a7"
+      "sha256": "f10096182a1fc633696fc3e48556b9c74e727ba9c18f936bc944130ad4489478"
     },
     {
       "path": "firefox-extension/background.js",
-      "sha256": "abd55cd2b0e8594a87914b2994745e09db3f315389656a40967b19b3e4a10a4a"
+      "sha256": "5b9950574390540611cd58f87cfa66cccfbefd89e83cf8178110f641e2c34705"
     },
     {
       "path": "firefox-extension/character-mapping.css",
@@ -241,8 +249,12 @@
       "sha256": "32b2da0817fa4497f6fed293342bd89883cce4af3cc49564098a9856b1dcf814"
     },
     {
+      "path": "firefox-extension/install-config.js",
+      "sha256": "d9f157304d6ecd5530094d90b7117ed3b4ef20e68fad751c9d1ec68bcafc2e9a"
+    },
+    {
       "path": "firefox-extension/manifest.json",
-      "sha256": "e76f1abf033f14dc06fab1184367d3f1f76a705837d09b52cddd2331789e71df"
+      "sha256": "1a21e0a1712009f11b5ca72ee8558a83ba05ce12c6b41473901a274fb58017f7"
     },
     {
       "path": "firefox-extension/muse-watcher.js",
@@ -254,11 +266,11 @@
     },
     {
       "path": "firefox-extension/options.html",
-      "sha256": "b26060c25ce4e7c4cc65f6ef2adcf4f5c5cbf56a0fe808219f2dbb69b069cf0d"
+      "sha256": "e8cc87bc6603784ec3ff51f4be816003ee4589e986a320c255ead9c5b8d2a449"
     },
     {
       "path": "firefox-extension/options.js",
-      "sha256": "4f6bfc96692da3adbdcdd2638b99b96ab02bd9ade6c98bde917302c912086c17"
+      "sha256": "74b0a9858365c5842b62e24682fe08cd259d14a7ee1ffb0d9151f2fe8089f8d0"
     },
     {
       "path": "firefox-extension/popup.css",
@@ -278,15 +290,15 @@
     },
     {
       "path": "firefox-extension/sidebar.html",
-      "sha256": "74fde153c9a75a4330e45fb9cb6fd3677feefe9e86c03f9782287d7d098675da"
+      "sha256": "e8ba8e59539a0712bc7cab78d27370fa8205a3294a096d1b18eb2d6b7ec42c8b"
     },
     {
       "path": "firefox-extension/sidebar.js",
-      "sha256": "3f6c7e4b64e6d3b587ebe36971f99bf32f1f2958f0b6706ef84306b7dba60424"
+      "sha256": "14c7fe12ebe2d6fcc081d26f28a2dc7a47cfa7a138ed0e8586e45a7721e764a7"
     },
     {
       "path": "firefox-extension/text-processor.js",
-      "sha256": "4fc501ce3df32e33f26f73ab1d39d8ced109e56a348f03a9c86da656e40be11f"
+      "sha256": "2af2a5f3c92ae2ee44b86ef12ba4a15e3489106542b9f19aa9c0aa5df42f1255"
     },
     {
       "path": "firefox-extension/voice-management.css",
@@ -370,7 +382,7 @@
     },
     {
       "path": "irodori-api/kurisu_voice_api.py",
-      "sha256": "47e45593d71101eb676e7b6a1c29886f7addd18b44d915b7ac01a3508d5d10af"
+      "sha256": "c1e6b617f7adeabde918366a65c20987ed4315957c89def986566db9b13234e4"
     },
     {
       "path": "irodori-api/kurisu_voice_stable_api.py",
@@ -382,7 +394,7 @@
     },
     {
       "path": "irodori-api/start_audio_cpp_shared.ps1",
-      "sha256": "2c4df1547cac29e043eb8add8176482021e772014e30b68d2924db6a63681be6"
+      "sha256": "c6f6229a8794805d94935e14eea2d7a108bdf3dff916dbb12b6609de0a08f7a8"
     },
     {
       "path": "irodori-api/start_audiocpp_irodori.ps1",
@@ -394,7 +406,7 @@
     },
     {
       "path": "irodori-api/start_kurisu_voice_api.ps1",
-      "sha256": "9870d0718ea2f5ab7f47d5f12437035e9267c291172f285c26bdb332754484a0"
+      "sha256": "9f4def39fa5c6bb626a79e4bf9dfdcf9b73315ae5fd25ccd02b349fa78eba38d"
     },
     {
       "path": "irodori-api/start_kurisu_voice_stable_api.ps1",
@@ -402,7 +414,7 @@
     },
     {
       "path": "irodori-api/stop_audio_cpp_shared.ps1",
-      "sha256": "f41069c8006b459c2038f3549aa09f0f90fd07b572ccc781306fe1e1e2dcdce2"
+      "sha256": "94bd6232c06ac786dee35f10f91fede7c9c64a5219f030a1caad577dada2fdc7"
     },
     {
       "path": "irodori-api/stop_audiocpp_irodori.ps1",
@@ -414,7 +426,7 @@
     },
     {
       "path": "irodori-api/stop_kurisu_voice_api.ps1",
-      "sha256": "233e65bb82726934d1568b35fcb8823fcb476e87d45b13e1403da0e9dd2abec9"
+      "sha256": "e5359da5e27c4aef428e831cb7687d2c1c2abd276e32be6154a6b1050cc21399"
     },
     {
       "path": "irodori-api/stop_kurisu_voice_stable_api.ps1",
@@ -427,6 +439,10 @@
     {
       "path": "irodori-api/tests/test_api_request_security.py",
       "sha256": "9343ae4b67edb430df6ff834410d9e6aecc4b06a0a4280aa1f8d80f801e590cd"
+    },
+    {
+      "path": "irodori-api/tests/test_execution_device.py",
+      "sha256": "dbfdc6d5a96cce6aa2952ae530231f216ab63d355b4f0193ecad71103da33da9"
     },
     {
       "path": "irodori-api/tests/test_planner_boundaries.py",
@@ -445,24 +461,44 @@
       "sha256": "ba7f511cf3850ccbb3a9c95bfad6dd5e4b4f43b329d9c638097c6f22e1731a37"
     },
     {
+      "path": "LICENSE",
+      "sha256": "1e03f5b076c45c184838f0831ebd953c625255f986e919b46646d05264fa5343"
+    },
+    {
       "path": "native-host/chrome_native_host.py",
-      "sha256": "09a4278293022c2dab9f43c51c82dec31e5ca209d8f35486e4618e45b25d3136"
+      "sha256": "1f182f48c55ec751a51626b4a5b53b49681c738302c17bc3ec0b90b10b49f5a6"
     },
     {
       "path": "native-host/irodori_native_host.py",
-      "sha256": "b7ba30b65000e6baba0c19fd9802ee40facc5c3973a6f91faad9bb814ebe46a8"
+      "sha256": "5053514e84770c5fa6eec16d7b029c08457fbd2ab29728d4a63dde7ed04becdf"
     },
     {
       "path": "provenance.json",
       "sha256": "0c5e9c6551161894a8217a64d19920b58370afc9eb567c8fc5d846de2f3966d0"
     },
     {
+      "path": "README.md",
+      "sha256": "dcb56450f2b2bc9ec4da3228134f1b96b57d6a9c36578706333135e689319dff"
+    },
+    {
+      "path": "RELEASE_NOTES.md",
+      "sha256": "090c0c3aa16e81bb870cdaa140b2665181c0069c997b67b8881c1e198a512b3b"
+    },
+    {
       "path": "scripts/build-backend.ps1",
-      "sha256": "fabe97b14e984f89bea1737d4dfbf19f09fee61df0606f8da714c4c945c13628"
+      "sha256": "8a1886afa6b1938cf66313ace12640145d5876322b542273b27a32d6d08b1e96"
     },
     {
       "path": "scripts/common.ps1",
-      "sha256": "55f3c0f305a07753b079ac4a5550f44b5b7dc3a80ffb3788d12fbdad14e03b4c"
+      "sha256": "60a6bb5719c6529d7c43014fbd9d7497af693b6c2053967f3ae448459f6a35c0"
+    },
+    {
+      "path": "scripts/configure-chrome.ps1",
+      "sha256": "d4dfc1a3738b62440c9b25f2d9d60af2ee70d4bd830fe861ce00115ef01b0b6b"
+    },
+    {
+      "path": "scripts/install-files.ps1",
+      "sha256": "a194e8ba89a60e39694059cf6a67bb722223cda232962aa0a915217ec701b9aa"
     },
     {
       "path": "scripts/make-inventory.py",
@@ -474,31 +510,43 @@
     },
     {
       "path": "scripts/prepare-assets.py",
-      "sha256": "479b89b4e677e4c1fc6959df42c0ef2d85d28d9e82b4de4afd5a3e0d3faf6da3"
+      "sha256": "bdcacb72b63e409bd8372e1163fd82fac41dc61ee00e9b3aed6c479e3abad542"
     },
     {
       "path": "scripts/privacy_scan.py",
-      "sha256": "fe63504ca44f6f234bf10ca68b67afc502aa263d33cc4c69a3e2b3e7cd49aa45"
+      "sha256": "0838563eb0e8d6e1a3a2eda2bcf9a28adfe0f65e0767ab737499c86530f73665"
     },
     {
       "path": "scripts/register-hosts.ps1",
-      "sha256": "e7ef0c564434eddfae22e6be37dccc49eb34ba0613031f78f2d8a37cdf1fdeb6"
+      "sha256": "7ef13f98192ab1da54c3ef23a8c0c1e5f00801893c2528d9d877a97bca000b8c"
+    },
+    {
+      "path": "scripts/setup-dialog.cs",
+      "sha256": "715c5bb3db7273273d5bdfb459aab18967bdd2ce5a747c851e197be5dfd095d0"
+    },
+    {
+      "path": "scripts/setup-job.cs",
+      "sha256": "42225f363d44592a78320af5aad713cee16b109fa349e6fc10d08b7af972268a"
     },
     {
       "path": "scripts/setup.ps1",
-      "sha256": "82b8faf2944391f88153829c94f2749d7977687af581e6c5de3d21b0f6519a7b"
+      "sha256": "688e294f1636cb70563be9d7bfde27f789b5d6f4687e2af8d08529184f68d9c5"
     },
     {
       "path": "scripts/support.ps1",
-      "sha256": "921b8b53ff767e4eeb0b823d6290e9eb603e94fa6abb4de528d42cfecbb40ac9"
+      "sha256": "0d4112e9d47bfd56c661d6aacc48b59498b0740680a8bb1f69d41ce615f6f2e0"
     },
     {
       "path": "scripts/validate.ps1",
       "sha256": "099bfb6cd577fe781d45fb0436cdbe7ba0c63a322fc88eadc454d345c4a1baa5"
     },
     {
+      "path": "scripts/verify-tts.py",
+      "sha256": "f455ba555defe7d633d815d78e6c7221ad83b634a543f196520c971e71282eae"
+    },
+    {
       "path": "setup.bat",
-      "sha256": "a15dce30f24557782e1260ac60ebfd7db13e2661d36df88cc7aab74ec6adc273"
+      "sha256": "b8dcda95b069ce8d7525a949b8701658a9e9d4d2c4ce67fc3a1d7ac5d4fd71b2"
     },
     {
       "path": "tests/smoke_backend.py",
@@ -510,11 +558,15 @@
     },
     {
       "path": "tests/test_distribution.py",
-      "sha256": "712446808d0a91a8c521badc502c978b7d3d2dc5ba7232d6ef8af989b831741a"
+      "sha256": "d7337dc60b0139aa7e288cd4ea20a6fb4e2ee301bd71c4cb7b03e3dccd3bbb48"
     },
     {
       "path": "tests/test_installer_windows.py",
-      "sha256": "af4a7330790497429f9dc80af3c5ad0cda7e4b80013efe547fbbb890338c9bf4"
+      "sha256": "76f25ff98f4531393cf5690fe06f086b8365506a8a4081dae3e74c0cb1381bd4"
+    },
+    {
+      "path": "tests/test_isolated_pipeline.py",
+      "sha256": "7cccccc605934139797116de27481504317ba629fb71ce3adab9ac611d79f33d"
     },
     {
       "path": "tests/test_native_host_safety.py",
@@ -527,6 +579,10 @@
     {
       "path": "tests/test_text_processor.js",
       "sha256": "58c221161c164f878b8eb4f1bd11302cf18385c8f86a197a16b125df52105676"
+    },
+    {
+      "path": "THIRD_PARTY_NOTICES.md",
+      "sha256": "d194958831ce81e87e5333f6353850fb4d62b4309805e2f31b200838657cdd43"
     }
   ]
 }

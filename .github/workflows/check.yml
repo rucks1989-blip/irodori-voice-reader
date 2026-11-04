@@ -15,6 +15,9 @@ jobs:
       - name: PowerShell syntax and encoding
         shell: powershell
         run: .\scripts\validate.ps1
+      - name: Install API test dependencies
+        shell: powershell
+        run: python -m pip install -r irodori-api/requirements.txt
       - name: Privacy and source tests
         shell: powershell
         run: |
@@ -25,8 +28,6 @@ jobs:
       - name: API unit tests
         shell: powershell
         run: |
-          python -m pip install -r irodori-api/requirements.txt
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           Push-Location irodori-api
           python -m unittest discover -s tests -v
           $code = $LASTEXITCODE

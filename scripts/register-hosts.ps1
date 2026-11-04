@@ -1,40 +1,39 @@
-﻿param([Parameter(Mandatory=$true)][string]$InstallRoot)
+﻿param([Parameter(Mandatory=$true)][string]$InstallRoot,[ValidateSet('chrome','firefox','both')][string]$Browsers='chrome',[switch]$PlanOnly)
 . (Join-Path $PSScriptRoot 'common.ps1')
 $apiRoot=Join-Path $InstallRoot 'irodori-api'
 $python=Join-Path $apiRoot '.venv\Scripts\python.exe'
 if(-not(Test-Path $python)){throw '専用Python環境がありません。setup.batから準備してください。'}
-$base=Join-Path $env:LOCALAPPDATA 'IrodoriVoiceReader'
-$specs=@(
-    @{folder='NativeHost';host='io.github.irodori.voice_reader';registry='HKCU:\Software\Mozilla\NativeMessagingHosts\io.github.irodori.voice_reader';entry='irodori_native_host.py'},
-    @{folder='ChromeNativeHost';host='io.github.irodori.voice_reader.chrome';registry='HKCU:\Software\Google\Chrome\NativeMessagingHosts\io.github.irodori.voice_reader.chrome';entry='chrome_native_host.py'}
-)
-# Validate both targets before writing either. Existing installs are never adopted
-# or overwritten just because they use the same fixed extension ID.
+$identity=Get-Content (Join-Path $InstallRoot 'chrome-identity.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+if($identity.extensionId -notmatch '^[a-p]{32}$' -or $identity.hostName -cne ('io.github.irodori.voice_reader.chrome.i'+$identity.extensionId)){throw '専用Native Host識別情報が不正です。既存登録は変更しません。'}
+$specs=@()
+if($Browsers -in @('chrome','both')){$specs+=@{folder='chrome-host';host=$identity.hostName;registry=('HKCU:\Software\Google\Chrome\NativeMessagingHosts\'+$identity.hostName);entry='chrome_native_host.py'}}
+if($Browsers -in @('firefox','both')){$specs+=@{folder='firefox-host';host=('io.github.irodori.voice_reader.firefox.i'+$identity.extensionId);registry=('HKCU:\Software\Mozilla\NativeMessagingHosts\io.github.irodori.voice_reader.firefox.i'+$identity.extensionId);entry='irodori_native_host.py'}}
 foreach($spec in $specs){
-    $config=Join-Path (Join-Path $base $spec.folder) 'config.json'
-    if(Test-Path $config){
-        $old=Get-Content $config -Raw -Encoding UTF8 | ConvertFrom-Json
-        if([IO.Path]::GetFullPath($old.irodori_root) -ne [IO.Path]::GetFullPath($apiRoot)){throw '別のIrodori Voice Readerヘルパーが登録済みです。既存環境は変更しません。別PCまたは別Windowsユーザーで試してください。'}
-    }
+    $spec.folderPath=Join-Path $InstallRoot $spec.folder
+    $spec.manifestPath=Join-Path $spec.folderPath ($spec.host+'.json')
+    $spec.launchPath=Join-Path $spec.folderPath 'launch.bat'
+    $spec.config=@{firefox_extension_id=('irodori-'+$identity.extensionId+'@isolated.local');isolated_environment=$true;irodori_root=$apiRoot;health_url="http://127.0.0.1:$($identity.apiPort)/health";backend_health_url="http://127.0.0.1:$($identity.backendPort)/health";start_task='';chrome_extension_id=$identity.extensionId;startup_timeout_seconds=420;startup_poll_interval_seconds=2}
+    $spec.manifest=@{name=$spec.host;description='Irodori Voice Reader isolated local controller';path=$spec.launchPath;type='stdio'}
+    if($spec.folder -eq 'firefox-host'){$spec.manifest.allowed_extensions=@('irodori-'+$identity.extensionId+'@isolated.local')}else{$spec.manifest.allowed_origins=@("chrome-extension://$($identity.extensionId)/")}
+}
+if($PlanOnly){ConvertTo-Json -InputObject @($specs) -Depth 15;return}
+foreach($spec in $specs){
+    $machineKey=$spec.registry.Replace('HKCU:','HKLM:')
+    if(Test-Path $machineKey){throw 'PC全体の既存Native Host登録を検出しました。上書きしません。'}
+    $expected=$spec.manifestPath
     if(Test-Path $spec.registry){
-        $oldManifest=(Get-Item $spec.registry).GetValue('')
-        $expected=Join-Path (Join-Path $base $spec.folder) ($spec.host+'.json')
-        if($oldManifest -ne $expected){throw '別のNative Host登録を検出しました。自動上書きはしません。'}
+        if((Get-Item $spec.registry).GetValue('') -ne $expected){throw '既存Native Host登録は変更しません。対象の独立環境の登録先を確認してください。'}
     }
 }
 foreach($spec in $specs){
-    $folder=Join-Path $base $spec.folder
+    $folder=$spec.folderPath
     New-Item -ItemType Directory -Force -Path $folder | Out-Null
     foreach($name in @('irodori_native_host.py','chrome_native_host.py')){Copy-Item (Join-Path $InstallRoot "native-host\$name") -Destination $folder -Force}
     $launch=Join-Path $folder 'launch.bat'
     [IO.File]::WriteAllText($launch,"@echo off`r`nchcp 65001 >nul`r`n`"$python`" -u `"$(Join-Path $folder $spec.entry)`" %*`r`n",$Utf8)
-    Save-Json (Join-Path $folder 'config.json') @{irodori_root=$apiRoot;start_task='';chrome_extension_id='aeaichhflmacmifblidbpojgfemjijlb';startup_timeout_seconds=420;startup_poll_interval_seconds=2}
-    $manifest=@{name=$spec.host;description='Irodori Voice Reader local controller';path=$launch;type='stdio'}
-    if($spec.folder -eq 'NativeHost'){$manifest.allowed_extensions=@('irodori-voice-reader@local')}else{$manifest.allowed_origins=@('chrome-extension://aeaichhflmacmifblidbpojgfemjijlb/')}
-    $path=Join-Path $folder ($spec.host+'.json')
-    Save-Json $path $manifest
+    Save-Json (Join-Path $folder 'config.json') $spec.config
+    $path=$spec.manifestPath
+    Save-Json $path $spec.manifest
     New-Item -Path $spec.registry -Force | Out-Null
     Set-Item -Path $spec.registry -Value $path
 }
-# Native Host already supports direct script launching. No scheduled task,
-# startup registration, firewall exception or machine-wide PATH is needed.

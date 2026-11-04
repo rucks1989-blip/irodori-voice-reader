@@ -1,4 +1,5 @@
-$ErrorActionPreference = "Stop"
+﻿$ErrorActionPreference = "Stop"
+$ProgressPreference = "SilentlyContinue"
 $root = $PSScriptRoot
 $bundleTemp = Join-Path $root "cache\temp"
 New-Item -ItemType Directory -Force -Path $bundleTemp | Out-Null
@@ -28,11 +29,20 @@ if (-not (Test-Path -LiteralPath $backendStartPath)) {
     throw "TTS backend start script not found: $backendStartPath"
 }
 & $backendStartPath
-$health = "http://127.0.0.1:8765/health"
+$apiPort=8765
+$apiSettings=Join-Path $root 'config\api.json'
+if(Test-Path $apiSettings){$apiPort=[int](Get-Content $apiSettings -Raw -Encoding UTF8 | ConvertFrom-Json).port}
+$health = "http://127.0.0.1:$apiPort/health"
+$existingConnection=Get-NetTCPConnection -LocalPort $apiPort -ErrorAction SilentlyContinue | Where-Object {$_.OwningProcess -gt 0} | Select-Object -First 1
+if($existingConnection){
+    $owner=Get-CimInstance Win32_Process -Filter "ProcessId = $($existingConnection.OwningProcess)" -ErrorAction SilentlyContinue
+    $expectedScript=Join-Path $root 'kurisu_voice_api.py'
+    if(-not $owner -or ([string]$owner.CommandLine).IndexOf($expectedScript,[StringComparison]::OrdinalIgnoreCase) -lt 0){throw "Port $apiPort belongs to another environment. It will not be reused or stopped."}
+}
 try {
     $ready = Invoke-RestMethod -Uri $health -TimeoutSec 2
     if ($ready.status -eq "ok") {
-        Write-Host "[Kurisu Voice API] mode=unified port=8765 model=$($ready.model) reference=wav,speaker_embedding device=$($ready.device) (already ready)"
+        Write-Host "[Kurisu Voice API] mode=unified port=$apiPort model=$($ready.model) reference=wav,speaker_embedding device=$($ready.device) (already ready)"
         return
     }
 } catch {}
@@ -57,7 +67,7 @@ while ([DateTime]::UtcNow -lt $deadline) {
     try {
         $ready = Invoke-RestMethod -Uri $health -TimeoutSec 3
         if ($ready.status -eq "ok") {
-            Write-Host "[Kurisu Voice API] mode=unified port=8765 model=$($ready.model) reference=wav,speaker_embedding device=$($ready.device) pid=$($process.Id)"
+            Write-Host "[Kurisu Voice API] mode=unified port=$apiPort model=$($ready.model) reference=wav,speaker_embedding device=$($ready.device) pid=$($process.Id)"
             return
         }
     } catch {}
