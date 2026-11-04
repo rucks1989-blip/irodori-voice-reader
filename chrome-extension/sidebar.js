@@ -306,6 +306,11 @@ async function refreshVoices() {
   }
 }
 
+function helperCanStop(helper) {
+  return Boolean(helper && (helper.running || helper.backendRunning ||
+    Object.values(helper.engines || {}).some((engine) => engine.api?.running)));
+}
+
 async function refreshApi() {
   const card = $("apiCard");
   card.className = "card api checking";
@@ -349,7 +354,7 @@ async function refreshApi() {
     for (const id of ["apiStart", "apiStop", "apiRefresh"]) $(id).disabled = true;
     card.className = "card api checking";
     $("apiState").textContent = `${selectedLabel} 起動中`;
-    $("apiGuide").textContent = `${runtimeStatus.endpoint || Processor.apiUrlForEngine(selectedEngine)} に接続しています…`;
+    $("apiGuide").textContent = `${runtimeStatus?.endpoint || Processor.apiUrlForEngine(selectedEngine)} に接続しています…`;
   }
   let helper = null;
   try {
@@ -365,38 +370,40 @@ async function refreshApi() {
     $("apiStop").disabled = true;
   }
   if (transition || (selectedState.state === "starting" && selectedState.startupActive)) return;
+  // The shared API or audio.cpp can remain running after a partial startup.
+  const canStop = helperCanStop(helper);
   if (selectedState.state === "connected") try {
     const health = await api.runtime.sendMessage({ type: "health" });
     card.className = "card api connected";
     $("apiState").textContent = `${selectedLabel} 接続済み`;
     $("apiGuide").textContent = `${health.backend} / ${health.device} / ${health.model}`;
     $("apiStart").disabled = true;
-    $("apiStop").disabled = false;
+    $("apiStop").disabled = !canStop;
     await refreshVoices();
   } catch (_) {
     card.className = "card api disconnected";
     $("apiState").textContent = `${selectedLabel} 起動失敗`;
     $("apiGuide").textContent = helper ? "「API起動」を押すと音声モデルを常駐起動します。" : "ローカルヘルパーを導入するとFirefoxから起動できます。";
     $("apiStart").disabled = !helper;
-    $("apiStop").disabled = true;
+    $("apiStop").disabled = !canStop;
   } else if (selectedState.state === "error") {
     card.className = "card api disconnected";
     $("apiState").textContent = `${selectedLabel} 起動失敗`;
     $("apiGuide").textContent = selectedState.error || "起動処理に失敗しました。";
     $("apiStart").disabled = !helper;
-    $("apiStop").disabled = true;
+    $("apiStop").disabled = !canStop;
   } else if (selectedState.state === "starting") {
     card.className = "card api checking";
     $("apiState").textContent = `${selectedLabel} 起動中`;
     $("apiGuide").textContent = "backendは応答していますが、API health待ちです。必要なら起動を再試行できます。";
     $("apiStart").disabled = !helper;
-    $("apiStop").disabled = true;
+    $("apiStop").disabled = !canStop;
   } else {
     card.className = "card api disconnected";
     $("apiState").textContent = `${selectedLabel} 停止中`;
     $("apiGuide").textContent = helper ? "「API起動」を押すと音声モデルを常駐起動します。" : "ローカルヘルパーを導入するとFirefoxから起動できます。";
     $("apiStart").disabled = !helper;
-    $("apiStop").disabled = true;
+    $("apiStop").disabled = !canStop;
   }
 }
 
@@ -447,13 +454,16 @@ async function controlApi(command) {
     if (command === "start" && (helperState?.state === "connected" || helperState?.state === "starting" || helper.running || helper.currentEngine === engine)) {
       throw new Error("選択中のAPIは既に稼働しています。");
     }
-    if (command === "stop" && !helper.running && !helper.backendRunning) {
+    if (command === "stop" && !helperCanStop(helper)) {
       throw new Error("選択中のAPIは既に停止しています。");
     }
     const result = command === "start"
-      ? await api.runtime.sendMessage({ type: "native-control", command: "start", engine })
+      ? await api.runtime.sendMessage({ type: "native-control", command: "start", engine, reason: "manual_api_start" })
       : await api.runtime.sendMessage({ type: "native-control", command: "stop", engine });
-    message(result.message || (command === "start" ? "APIを起動しました。" : "APIを停止しました。"));
+    if (result.cancelled) throw new Error("APIの起動要求は取り消されました。状態を確認してから再試行してください。");
+    message(result.message || (command === "start"
+      ? (result.starting ? "APIの起動を開始しました。" : "APIを起動しました。")
+      : "APIを停止しました。"));
   } catch (error) {
     message(error.message, true);
   } finally {

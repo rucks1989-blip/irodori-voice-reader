@@ -174,7 +174,7 @@
     },
     {
       "path": "chrome-extension/sidebar.js",
-      "sha256": "14c7fe12ebe2d6fcc081d26f28a2dc7a47cfa7a138ed0e8586e45a7721e764a7"
+      "sha256": "744642d0005eb6a0c839365dfc4be5e3c87ca91b3b87f1057ef43cc4aab1397c"
     },
     {
       "path": "chrome-extension/text-processor.js",
