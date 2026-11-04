@@ -73,3 +73,12 @@ python -m unittest discover -s irodori-api/tests
 
 モデル、Voice素材、ブラウザープロファイル、個人設定、生成音声、ログ、ローカル絶対パス、ビルド生成物はコミットしません。
 利用条件は [LICENSE](LICENSE)、外部依存条件は [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) を参照してください。
+
+## 通常版のみの導入（更新）
+
+工程4では通常版を先に準備します。通常版の完成品が配布一式になければ、既存のGPU対応 `audiocpp_server.exe` を指定でき、DLLとともに新しい環境へコピーします。元の環境は変更しません。対応GPUの判断は最終的に実際の音声生成で確認し、GPUごとに必ず別の実行ファイルを要求するわけではありません。
+声質安定版は「今回は導入しない／完成品を使用／任意ビルド」から選択します。未導入は正常な選択です。通常版だけで導入完了できます。GPU推論にCUDAソースビルドは必須ではありません。
+
+コマンド実行では `setup.bat -Browsers chrome -StableMode skip -Backend cuda -BackendDirectory "完成品のフォルダー"` を使用できます。`-ModelPath "モデルファイル" -ReferenceWav "参照WAV"` も指定できます。対話を省略する検証用指定は `-Unattended -NoOpenGuide` です。
+声質安定版完成品は `-StableMode prebuilt -StableBackendDirectory "完成品のフォルダー"`、明示的な再構築は `-StableMode build` です。通常版の任意ビルドは安定化パッチを適用しません。声質安定版の追加失敗時は通常版を保持して継続します。
+未導入モードへの要求は「声質安定版はインストールされていないため、現在使用できません。」と返し、通常版へ自動変換しません。拡張UI・既存の声質安定版設定は削除しません。

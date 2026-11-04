@@ -8,7 +8,7 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 DENIED_PARTS = {".git", ".venv", "__pycache__", "logs", "models", "downloads", "build-cache", "build-output", "dist", ".state", "ai-support", "assets"}
 DENIED_SUFFIXES = {".wav", ".mp3", ".flac", ".safetensors", ".gguf", ".ckpt", ".pth", ".exe", ".dll", ".xpi", ".zip", ".log", ".pyc"}
-LIVE_CONFIGS = {"irodori-api/config/api.json", "irodori-api/config/config.json", "irodori-api/config/config.voice_stable.json", "irodori-api/config/voices.json", "irodori-api/config/runtime.json", "irodori-api/config/audio_cpp_server.shared.json", "native-host/config.json"}
+LIVE_CONFIGS = {"irodori-api/config/capabilities.json","irodori-api/config/api.json", "irodori-api/config/config.json", "irodori-api/config/config.voice_stable.json", "irodori-api/config/voices.json", "irodori-api/config/runtime.json", "irodori-api/config/audio_cpp_server.shared.json", "native-host/config.json"}
 PATTERNS = [
     re.compile(r"\bgh[pousr]_[A-Za-z0-9_]{20,}\b"),
     re.compile(r"\bgithub_pat_[A-Za-z0-9_]{20,}\b"),

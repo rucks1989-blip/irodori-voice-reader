@@ -4,6 +4,7 @@ param(
     [Parameter(Mandatory=$true)][string]$WorkRoot,
     [ValidateSet('cpu','cuda')][string]$Backend='cpu',
     [string]$CudaArch='',
+    [switch]$StandardOnly,
     [switch]$AllowToolInstall
 )
 . (Join-Path $PSScriptRoot 'common.ps1')
@@ -64,7 +65,7 @@ $patchInputs=@($patchFiles | ForEach-Object {Join-Path $Root $_})
 $patchInputs+=@(Get-ChildItem (Join-Path $Root 'audio-cpp-stable-patch\added-files') -Recurse -File | Sort-Object FullName | ForEach-Object {$_.FullName})
 $patchHash = ($patchInputs | ForEach-Object { (Get-FileHash $_ -Algorithm SHA256).Hash }) -join ''
 $digest = [BitConverter]::ToString([Security.Cryptography.SHA256]::Create().ComputeHash([Text.Encoding]::UTF8.GetBytes($patchHash))).Replace('-','').Substring(0,16)
-$cache = Join-Path $WorkRoot ('b\'+$manifest.audioCppCommit.Substring(0,7)+'-'+$digest.Substring(0,8))
+$cache = Join-Path $WorkRoot ('b\'+$manifest.audioCppCommit.Substring(0,7)+$(if($StandardOnly){'-standard'}else{''})+'-'+$digest.Substring(0,8))
 $source = Join-Path $cache 'source'
 $marker = Join-Path $cache 'patched.json'
 if (-not (Test-Path $marker)) {
@@ -78,6 +79,7 @@ if (-not (Test-Path $marker)) {
     Run $git.Source @('-C',$source,'checkout','--detach','FETCH_HEAD')
     $head = & $git.Source -C $source rev-parse HEAD
     if ($head.Trim() -ne $manifest.audioCppCommit) { throw 'audio.cppのコミット検査に失敗しました。' }
+    if(-not $StandardOnly){
     foreach ($relative in @('audio-cpp-stable-patch\stable-rescue.patch','audio-cpp-stable-patch\speaker-embedding-dump.patch')) {
         $file = Join-Path $Root $relative
         Run $git.Source @('-C',$source,'apply','--check',$file)
@@ -86,14 +88,14 @@ if (-not (Test-Path $marker)) {
     Copy-Item (Join-Path $Root 'audio-cpp-stable-patch\added-files\*') -Destination $source -Recurse -Force
     Run $Python @((Join-Path $Root 'audio-cpp-patch\apply_speaker_embedding_patch.py'),$source)
     Run $Python @((Join-Path $Root 'audio-cpp-patch\apply_speaker_embedding_patch.py'),$source,'--check')
+    }
     Save-Json $marker @{ source=$source; commit=$head.Trim(); patchHash=$digest }
 } else {
     $source = (Get-Content $marker -Raw -Encoding UTF8 | ConvertFrom-Json).source
-    Run $Python @((Join-Path $Root 'audio-cpp-patch\apply_speaker_embedding_patch.py'),$source,'--check')
+    if(-not $StandardOnly){Run $Python @((Join-Path $Root 'audio-cpp-patch\apply_speaker_embedding_patch.py'),$source,'--check')}
 }
 $sharedPatch=Join-Path $Root 'audio-cpp-patch\apply_shared_session_patch.py'
-Run $Python @($sharedPatch,$source)
-Run $Python @($sharedPatch,$source,'--check')
+if(-not $StandardOnly){Run $Python @($sharedPatch,$source);Run $Python @($sharedPatch,$source,'--check')}
 $preset=if($Backend -eq 'cuda'){'windows-cuda-release'}else{'windows-cpu-release'}
 $buildArguments=@('-NoProfile','-ExecutionPolicy','Bypass','-File',(Join-Path $source 'scripts\build_windows.ps1'),'-Preset',$preset,'-Target','audiocpp_server','-VsInstall',$vs,'-Jobs','2')
 $buildArguments+=@('-CpuArch','baseline','-NativeCpu','OFF','-Llamafile','OFF')
@@ -110,5 +112,5 @@ if($Backend -eq 'cuda'){
         Get-ChildItem (Join-Path $cuda 'bin') -Filter $pattern -File | Copy-Item -Destination $output -Force
     }
 }
-Save-Json (Join-Path $output 'build.json') @{ commit=$manifest.audioCppCommit; patchHash=$digest; sharedSessionPatchSha256=(Get-FileHash $sharedPatch -Algorithm SHA256).Hash; backend=$Backend; arch=$CudaArch; exeSha256=(Get-FileHash $exe -Algorithm SHA256).Hash }
+Save-Json (Join-Path $output 'build.json') @{ standardOnly=[bool]$StandardOnly; stableSupported=(-not $StandardOnly); commit=$manifest.audioCppCommit; patchHash=$digest; sharedSessionPatchSha256=(Get-FileHash $sharedPatch -Algorithm SHA256).Hash; backend=$Backend; arch=$CudaArch; exeSha256=(Get-FileHash $exe -Algorithm SHA256).Hash }
 Write-Output $output

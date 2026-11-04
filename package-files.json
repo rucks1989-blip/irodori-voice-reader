@@ -14,7 +14,7 @@
     },
     {
       "path": ".gitignore",
-      "sha256": "598214610c97382b01bcbb329a45dc0f2bb072bd2b6a50b89e3289430d4e7013"
+      "sha256": "44b65af89135b998911c0d91df8607bdac2d91ffb71c0c5e7d1cc75b66bbe62e"
     },
     {
       "path": "AI-support.bat",
@@ -210,7 +210,7 @@
     },
     {
       "path": "docs/integration-validation.md",
-      "sha256": "634221a0c61927f1f6d733bc72b0d337d9666a33e16e3500b07013364eda4c59"
+      "sha256": "dec68bd934d8287413ad697d7a3a3b1f53c4d844fb3cb6996207b0613cb63c4c"
     },
     {
       "path": "docs/version-audit.md",
@@ -382,7 +382,7 @@
     },
     {
       "path": "irodori-api/kurisu_voice_api.py",
-      "sha256": "aa666777dd93db4ffc9ad878d6f28e587b7af8fe36cd0b6423fe762779a21b5b"
+      "sha256": "c80b230108800b89edaa76342a6d4e9fb8d59e248b91f8c68923bfcf244c5fd6"
     },
     {
       "path": "irodori-api/kurisu_voice_stable_api.py",
@@ -394,7 +394,7 @@
     },
     {
       "path": "irodori-api/start_audio_cpp_shared.ps1",
-      "sha256": "c6f6229a8794805d94935e14eea2d7a108bdf3dff916dbb12b6609de0a08f7a8"
+      "sha256": "356880284b231d6f43725351bd82ad1adb5d1dedef9581a7c926c20eef5fc442"
     },
     {
       "path": "irodori-api/start_audiocpp_irodori.ps1",
@@ -442,7 +442,7 @@
     },
     {
       "path": "irodori-api/tests/test_execution_device.py",
-      "sha256": "dbfdc6d5a96cce6aa2952ae530231f216ab63d355b4f0193ecad71103da33da9"
+      "sha256": "d32c0b52309080f0d47933835c2a18479abffb16b792b03e32f4c337d4fe6fdc"
     },
     {
       "path": "irodori-api/tests/test_planner_boundaries.py",
@@ -470,7 +470,7 @@
     },
     {
       "path": "native-host/irodori_native_host.py",
-      "sha256": "5053514e84770c5fa6eec16d7b029c08457fbd2ab29728d4a63dde7ed04becdf"
+      "sha256": "6b53b2d07046dd3473bcec651eedcff6795d0900559d9071b9162b271f20e77e"
     },
     {
       "path": "provenance.json",
@@ -478,7 +478,7 @@
     },
     {
       "path": "README.md",
-      "sha256": "dcb56450f2b2bc9ec4da3228134f1b96b57d6a9c36578706333135e689319dff"
+      "sha256": "cefc683f624595daacb5587971a1abf3e4e2d5571ea68200f0f2e6517c957e58"
     },
     {
       "path": "RELEASE_NOTES.md",
@@ -486,11 +486,11 @@
     },
     {
       "path": "scripts/build-backend.ps1",
-      "sha256": "8a1886afa6b1938cf66313ace12640145d5876322b542273b27a32d6d08b1e96"
+      "sha256": "aeaa63d75a90094389f0a5495a303b8b6ea8434af38aa12ca0ad44f4f3c58bee"
     },
     {
       "path": "scripts/common.ps1",
-      "sha256": "0c92a80fa61de09b87f1a071f6c5a91a18455b31c5949287dbd50910d1edb1be"
+      "sha256": "d28b38f926e6023511055e6e18cf9385c6b9c66688a2766b894d5b1aa4bf4930"
     },
     {
       "path": "scripts/configure-chrome.ps1",
@@ -514,7 +514,7 @@
     },
     {
       "path": "scripts/privacy_scan.py",
-      "sha256": "0838563eb0e8d6e1a3a2eda2bcf9a28adfe0f65e0767ab737499c86530f73665"
+      "sha256": "dc6f915c3f55abfeb10fe285b5f9401da9fa4b666b921fe1cbc7e0222c7820b6"
     },
     {
       "path": "scripts/register-hosts.ps1",
@@ -522,7 +522,7 @@
     },
     {
       "path": "scripts/setup-dialog.cs",
-      "sha256": "715c5bb3db7273273d5bdfb459aab18967bdd2ce5a747c851e197be5dfd095d0"
+      "sha256": "6a7fb792adca18254a0492d0e8b8c4b2ec9d4e16d8073c69992f6f1b187fb963"
     },
     {
       "path": "scripts/setup-job.cs",
@@ -530,7 +530,7 @@
     },
     {
       "path": "scripts/setup.ps1",
-      "sha256": "110d0083c5c1adf63aa08b2c8437d44d20ef3684b6c8aadc43481e95a294353e"
+      "sha256": "01e89c9afbb59b8b1896bb236fa187ba8d0d8f9fbdfeda34648aaa71259bd75d"
     },
     {
       "path": "scripts/support.ps1",
@@ -539,6 +539,10 @@
     {
       "path": "scripts/validate.ps1",
       "sha256": "099bfb6cd577fe781d45fb0436cdbe7ba0c63a322fc88eadc454d345c4a1baa5"
+    },
+    {
+      "path": "scripts/verify-backend.py",
+      "sha256": "7a5e045853252fa1b615e1f9b05b1d6a714e435d9e2831cd72900a7801f62536"
     },
     {
       "path": "scripts/verify-tts.py",
@@ -566,7 +570,7 @@
     },
     {
       "path": "tests/test_isolated_pipeline.py",
-      "sha256": "288deea091f320fc60af017cf5fdd1bdb543a344e4b93db34201ee06fdae12a8"
+      "sha256": "853634c68559bf4c387fd6e6a062a6804886b4dbb3179ae969e11859bec97fbc"
     },
     {
       "path": "tests/test_native_host_safety.py",

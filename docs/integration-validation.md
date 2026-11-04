@@ -55,3 +55,16 @@ GPU DLLの依存候補はCUDA runtime、cuBLAS、cuBLASLt、cuFFTとVC++ runtime
 実PCでブラウザー選択ダイアログが非表示のまま入力待ちになる状態を確認した。対話ダイアログと中止画面の起動をNormalへ修正し、確認待ちの内容もコンソールへ表示するようにした。
 修正後に実際のsetup.batを起動し、Computer UseでChromeのみを選ぶ画面と「次へ」から導入開始確認画面への遷移を確認した。今回の起動確認は「いいえ」で終了した。全工程の導入成功とは別の確認である。
 外部コマンドの出力を終了後まで隠す処理も修正し、標準出力・標準エラーを逐次表示、5秒ごとに処理継続中の実行名とPID、開始時にログ保存先を表示する。実際の7秒待機コマンドでSTART、継続表示、ENDの順を確認した。
+
+## 通常版のみの実機導入（2026-11-04）
+
+`setup.bat -Browsers chrome -Unattended -NewEnvironment -NoOpenGuide -StableMode skip -Backend cuda -BackendDirectory <既存GPU完成品フォルダー> -ModelPath <検証済みモデル> -ReferenceWav <合成した検証用WAV>` を実際に実行した。
+新しい導入先と専用Native Hostを作成し、工程7/7、completed=true、voiceTest=trueまで完了した。既存環境の完成品とDLLは読み取り・コピーのみ。CUDAビルド、CUDA Toolkit導入、安定化パッチの適用は一切行っていない。
+GPUログはRTX 3060、compute capability 8.6とCUDA graph warmupを示した。通常版の生成WAVは48000Hz、3.84秒、RMS約0.151886で非無音だった。capabilitiesはstandard=true、voice_stable=false。
+登録したNative Hostへ実際のフレーム形式でstart_engine_async / voice_stable要求を送り、未導入メッセージとok=falseを確認した。通常版への切り替えや裏でのビルドは行っていない。
+これはChrome拡張を新規追加して再生まで確認した試験ではない。Firefoxのみ／両方は登録計画のコードテスト、声質安定完成品・ビルドの追加経路はコード検証が中心で、全パターンの実機完走とは区別する。
+通常版と追加版は別の導入条件を持つ。追加の完成品は共有サーバーの2モデル経路を生成確認してから採用するが、声質安定アルゴリズムの有効性そのものをWAVの存在だけで証明しない。
+
+追加の実機試験では同じ独立環境へ再実行し、`-StableMode prebuilt -StableBackendDirectory <存在しない候補>` で声質安定版の追加を失敗させた。通常版を保持して続行し、再度GPU WAV生成・工程7/7・正常終了を確認した。自動実行時も今回起動した子プロセスをJobへ登録する。
+未導入の声質安定版へのHTTP要求はエラーメッセージを返し、バックエンドへの要求件数が増えないことを結合テストで確認。ソーステスト32件・APIテスト22件成功。署名済みFirefoxへの操作や既存拡張UIの変更はしていない。
+声質安定版のビルド実行・成功する完成品追加・Firefoxのみ／両方の今回の全工程再実行は未実施。ビルド分岐は明示選択からのみ到達し、通常版ビルドでは安定化パッチを適用しない経路に分離した。

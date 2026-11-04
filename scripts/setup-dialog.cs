@@ -41,11 +41,11 @@ public static class SetupDialog {
                 form.Text="Irodori Voice Reader — ブラウザーを選択";form.ClientSize=new Size(510,180);form.StartPosition=FormStartPosition.CenterScreen;form.FormBorderStyle=FormBorderStyle.FixedDialog;form.MaximizeBox=false;
                 var label=new Label {Text=request["message"],Left=20,Top=20,Width=470,Height=30};
                 var choices=new ComboBox {Left=20,Top=65,Width=470,DropDownStyle=ComboBoxStyle.DropDownList};
-                choices.Items.AddRange(request["kind"]=="backend" ? new object[]{"対応完成品を用意して再開","このPC向けにビルド（任意）","中止"} : new object[]{"Chromeのみ","Firefoxのみ","ChromeとFirefoxの両方"});choices.SelectedIndex=0;
+                choices.Items.AddRange(request["kind"]=="stable" ? new object[]{"今回は導入しない（通常版のみ）","声質安定版の完成品を使用","声質安定版をビルド（任意）"} : request["kind"]=="backend" ? new object[]{"対応完成品を用意して再開","このPC向けにビルド（任意）","中止"} : new object[]{"Chromeのみ","Firefoxのみ","ChromeとFirefoxの両方"});choices.SelectedIndex=0;
                 var ok=new Button {Text="次へ",Left=310,Top=125,DialogResult=DialogResult.OK};
                 var cancel=new Button {Text="中止",Left=410,Top=125,DialogResult=DialogResult.Cancel};
                 form.Controls.AddRange(new Control[]{label,choices,ok,cancel});form.AcceptButton=ok;form.CancelButton=cancel;
-                if(form.ShowDialog()==DialogResult.OK)value=(request["kind"]=="backend" ? new[]{"obtain","build","cancel"} : new[]{"chrome","firefox","both"})[choices.SelectedIndex];
+                if(form.ShowDialog()==DialogResult.OK)value=(request["kind"]=="stable" ? new[]{"skip","prebuilt","build"} : request["kind"]=="backend" ? new[]{"obtain","build","cancel"} : new[]{"chrome","firefox","both"})[choices.SelectedIndex];
             }
         }
         File.WriteAllText(args[0]+".result",json.Serialize(new Dictionary<string,string>{{"value",value}}),new UTF8Encoding(false));

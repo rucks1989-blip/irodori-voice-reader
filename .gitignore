@@ -29,3 +29,5 @@ native-host/config.json
 .env*
 
 irodori-api/config/api.json
+
+irodori-api/config/capabilities.json

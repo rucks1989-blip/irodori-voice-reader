@@ -293,6 +293,13 @@ vm.runInContext("invoke('runtime.sendNativeMessage',['io.github.irodori.voice_re
                                 self.fail(error.read().decode("utf8", errors="replace"))
                             self.assertEqual(wav[:4], b"RIFF")
                             self.assertEqual(wav[8:12], b"WAVE")
+                        (api / "config/capabilities.json").write_text(json.dumps({"standard": True, "voice_stable": False}))
+                        before = len(requests_seen)
+                        rejected = urllib.request.Request(url + "/tts", data=json.dumps({"text": "test", "engine": "voice_stable"}).encode(), headers={"Content-Type": "application/json", "Origin": "chrome-extension://"+"a"*32})
+                        with self.assertRaises(urllib.error.HTTPError) as caught:
+                            urllib.request.urlopen(rejected, timeout=5)
+                        self.assertIn("声質安定版はインストールされていない", caught.exception.read().decode("utf8"))
+                        self.assertEqual(len(requests_seen), before)
                         self.assertTrue((api / "logs/kurisu_voice_api/server.pid").exists())
                         reply = json.load(urllib.request.urlopen(urllib.request.Request(url + "/shutdown", data=b"{}", headers={"Content-Type": "application/json", "Origin": "chrome-extension://"+"a"*32}), timeout=10))
                         self.assertEqual(reply["status"], "stopping")

@@ -163,6 +163,10 @@ class State:
 
     def engine(self, profile_name=None, voice_id=None, speaker_tag_policy="profile", engine_name="standard"):
         engine_name = normalize_engine(engine_name)
+        capability_path = ROOT / "config" / "capabilities.json"
+        if engine_name == "voice_stable" and capability_path.is_file():
+            if not json.loads(capability_path.read_text(encoding="utf8")).get("voice_stable", False):
+                raise ValueError("声質安定版はインストールされていないため、現在使用できません。")
         config = self.engine_configs[engine_name]
         selected, profile = self.profile(profile_name, engine_name)
         if speaker_tag_policy == "preserve":

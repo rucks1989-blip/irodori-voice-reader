@@ -1,5 +1,5 @@
 ﻿[CmdletBinding()]
-param([string]$InstallRoot=(Join-Path $env:LOCALAPPDATA 'IrodoriVoiceReader\App'),[switch]$CheckOnly,[ValidateSet('auto','cpu','cuda')][string]$Backend='auto',[switch]$NewEnvironment,[ValidateSet('prompt','chrome','firefox','both')][string]$Browsers='prompt',[switch]$Unattended,[string]$ModelPath='',[string]$ReferenceWav='',[switch]$NoOpenGuide)
+param([string]$InstallRoot=(Join-Path $env:LOCALAPPDATA 'IrodoriVoiceReader\App'),[switch]$CheckOnly,[ValidateSet('auto','cpu','cuda')][string]$Backend='auto',[switch]$NewEnvironment,[ValidateSet('prompt','chrome','firefox','both')][string]$Browsers='prompt',[switch]$Unattended,[string]$ModelPath='',[string]$ReferenceWav='',[switch]$NoOpenGuide,[string]$BackendDirectory='', [ValidateSet('prompt','skip','prebuilt','build')][string]$StableMode='prompt',[string]$StableBackendDirectory='')
 . (Join-Path $PSScriptRoot 'common.ps1')
 . (Join-Path $PSScriptRoot 'install-files.ps1')
 $SourceRoot=Split-Path -Parent $PSScriptRoot
@@ -37,7 +37,7 @@ function Write-Guide([bool]$VoiceReady){
     $folder=Join-Path $InstallRoot 'docs'
     New-Item -ItemType Directory -Force -Path $folder | Out-Null
     $chrome=[Security.SecurityElement]::Escape((Join-Path $InstallRoot 'chrome-extension'))
-    $voice=if($VoiceReady){'音声生成テスト：通常版・声質安定版とも成功'}else{'音声生成テスト：未実施。使う声の登録が必要です。準備完了とは別の確認項目です。'}
+    $voice=if($VoiceReady){'音声生成テスト：導入済みモードのWAV生成成功'}else{'音声生成テスト：未実施。使う声の登録が必要です。準備完了とは別の確認項目です。'}
     $firefoxGuide=if($Browsers -in @('firefox','both')){'<section><h2>Firefox</h2><p>独立環境のソースと firefox-isolated-unsigned.xpi を作成しました。未署名のため通常版Firefoxへの恒久導入はまだできません。既存の署名済みXPIはこの独立環境へ流用しません。署名工程は未解決です。</p></section>'}else{''}
     $chromeGuide=if($Browsers -in @('chrome','both')){@"
 <section><h2>Chrome</h2><ol><li>アドレス欄に <code>chrome://extensions/</code> と入力して開きます。</li><li>右上の「デベロッパー モード」をONにします。</li><li>「パッケージ化されていない拡張機能を読み込む」を押します。</li><li>下の場所をコピーし、フォルダー選択画面でこのフォルダーを選びます。</li></ol>
@@ -73,7 +73,10 @@ try{
     if(-not(Confirm-Install "Irodori Voice Readerの導入を開始しますか？`r`n`r`n保存先は次の確認画面で表示します。`r`n・モデル約1.09GB、専用Python環境、音声生成プログラムを準備します。`r`n・完成品を優先します。不足時は取得・任意ビルド・中止から選べます。`r`n・後半で確認後に現在のWindowsユーザーへブラウザー接続ヘルパーを登録します。`r`n・拡張機能の追加は最後にご自身で行います。`r`n・音声や診断情報を自動送信しません。`r`n`r`nLICENSEとTHIRD_PARTY_NOTICES.mdの利用条件、および利用権限のある音声のみを使うことを確認してください。")){Write-Host '中止しました。';exit 0}
     New-Item -ItemType Directory -Force -Path $StateRoot | Out-Null
     try{$lock=[IO.File]::Open((Join-Path $StateRoot 'setup.lock'),'OpenOrCreate','ReadWrite','None')}catch{throw '別のセットアップが実行中です。終了後に再試行してください。'}
-    if(-not $Unattended){Start-SetupCancellation}
+    if(-not $Unattended){Start-SetupCancellation}else{
+        if(-not ('IvrSetupJob' -as [type])){Add-Type -Path (Join-Path $PSScriptRoot 'setup-job.cs')}
+        $script:SetupJob=New-Object IvrSetupJob
+    }
     $env:IVR_SETUP_LOG_ROOT=$StateRoot
     # Every new installation is a separate Chrome environment. Never adopt an old root.
     $sessionFile=Join-Path $StateRoot 'chrome-session.json'
@@ -125,7 +128,7 @@ try{
         }
     }
     Get-Verified $manifest.model.url $model $manifest.model.sha256 $manifest.model.bytes
-    Set-Step '4/7 通常版・声質安定版の共通エンジンを準備'
+    Set-Step '4/7 通常版を準備（声質安定版は任意）'
     $runtimeMissing=@(@('vcruntime140.dll','vcruntime140_1.dll','msvcp140.dll','vcomp140.dll') | Where-Object {-not(Test-Path (Join-Path $env:WINDIR "System32\$_"))})
     if($runtimeMissing.Count){
         if($Unattended){throw 'Visual C++ x64実行環境が必要です。自動実行ではシステムへ追加しません。'}
@@ -138,7 +141,13 @@ try{
     }
     $asset=Find-BackendAsset $Backend $gpu.arch
     $backendDir=Join-Path $api 'audio-cpp\bin'
-    if($asset){
+    if(-not $BackendDirectory -and -not $asset -and -not $Unattended){
+        $exeChoice=Show-SetupDialog 'file' '通常版のGPU完成品を指定できます。既存環境のaudiocpp_server.exeを選ぶと、必要DLLとともに独立環境へコピーします。未指定なら取得・任意ビルド・中止へ進みます。' 'audio.cpp|audiocpp_server.exe'
+        if($exeChoice -ne 'cancel'){$BackendDirectory=Split-Path $exeChoice -Parent}
+    }
+    if($BackendDirectory){
+        Copy-BackendRuntime $BackendDirectory $backendDir
+    }elseif($asset){
         $archive=Get-Asset $asset
         New-Item -ItemType Directory -Force -Path $backendDir | Out-Null
         Expand-Archive -LiteralPath $archive -DestinationPath $backendDir -Force
@@ -147,7 +156,7 @@ try{
         $choice=Show-SetupDialog 'backend' '対応完成品がありません。取得して再開するか、任意ビルドを選んでください。'
         if($choice -ne 'build'){throw '完成品を準備して再実行できます。ビルドは開始していません。'}
         if(-not(Confirm-Install '開発者向けビルドを開始します。CUDA Toolkit、C++ツール、数十GBの空き容量と数十分以上が必要な場合があります。続けますか？')){throw '任意ビルドを中止しました。'}
-        $buildArgs=@('-NoProfile','-ExecutionPolicy','Bypass','-File',(Join-Path $PSScriptRoot 'build-backend.ps1'),'-Python',$venv,'-WorkRoot',$StateRoot,'-Backend',$Backend,'-AllowToolInstall')
+        $buildArgs=@('-NoProfile','-ExecutionPolicy','Bypass','-File',(Join-Path $PSScriptRoot 'build-backend.ps1'),'-Python',$venv,'-WorkRoot',$StateRoot,'-Backend',$Backend,'-AllowToolInstall','-StandardOnly')
         if($Backend -eq 'cuda'){$buildArgs+=@('-CudaArch',$gpu.arch)}
         Run 'powershell.exe' $buildArgs
         $built=Join-Path $StateRoot ('build-output\'+$Backend+$(if($Backend -eq 'cuda'){'-sm'+$gpu.arch}else{''}))
@@ -155,14 +164,51 @@ try{
         New-Item -ItemType Directory -Force -Path $backendDir | Out-Null
         Get-ChildItem $built -File | Copy-Item -Destination $backendDir -Force
     }
+    $stableInstalled=$false
+    if($StableMode -eq 'prompt'){
+        $StableMode=if($Unattended){'skip'}else{Show-SetupDialog 'stable' '声質安定版を追加しますか？未導入でも通常版は利用できます。'}
+    }
+    if($StableMode -in @('prebuilt','build')){
+        $stableCandidate=Join-Path $StateRoot 'stable-candidate'
+        try{
+            if($StableMode -eq 'prebuilt'){
+                if(-not $StableBackendDirectory){
+                    if($Unattended){throw '声質安定版完成品の指定がありません。'}
+                    $selectedStable=Show-SetupDialog 'file' '通常・声質安定の両プロファイルに対応する完成品を選択してください。' 'audio.cpp|audiocpp_server.exe'
+                    if($selectedStable -eq 'cancel'){throw '声質安定版の指定を中止しました。'}
+                    $StableBackendDirectory=Split-Path $selectedStable -Parent
+                }
+                Copy-BackendRuntime $StableBackendDirectory $stableCandidate
+            }else{
+                $stableArgs=@('-NoProfile','-ExecutionPolicy','Bypass','-File',(Join-Path $PSScriptRoot 'build-backend.ps1'),'-Python',$venv,'-WorkRoot',(Join-Path $StateRoot 'stable-build'),'-Backend',$Backend,'-AllowToolInstall')
+                if($Backend -eq 'cuda'){$stableArgs+=@('-CudaArch',$gpu.arch)}
+                Run 'powershell.exe' $stableArgs
+                $stableBuilt=Join-Path $StateRoot ('stable-build\build-output\'+$Backend+$(if($Backend -eq 'cuda'){'-sm'+$gpu.arch}else{''}))
+                Copy-BackendRuntime $stableBuilt $stableCandidate
+            }
+            Test-StableCandidate $stableCandidate $model $Backend $BackendPort
+            $stableInstalled=$true
+        }catch{
+            Assert-SetupActive
+            Write-Host ('声質安定版の追加を見送り、通常版で継続します: '+$_.Exception.Message) -ForegroundColor Yellow
+        }
+    }
+    if($stableInstalled){
+        $standardRuntime=Join-Path $StateRoot 'standard-runtime'
+        Copy-BackendRuntime $backendDir $standardRuntime
+        $backendDir=$stableCandidate
+    }
+    Save-Json (Join-Path $api 'config\capabilities.json') @{standard=$true;voice_stable=$stableInstalled}
+    $enabledModes=if($stableInstalled){@('standard','voice_stable')}else{@('standard')}
+    $modelIds=if($stableInstalled){@('irodori-500m-v3-q8','irodori-500m-v3-q8-voice-stable-speaker')}else{@('irodori-500m-v3-q8')}
     foreach($name in @('config','config.voice_stable')){
         $path=Join-Path $api "config\$name.json"
         if(-not(Test-Path $path)){Copy-Item (Join-Path $api "config\$name.example.json") $path}
     }
     $voicesPath=Join-Path $api 'config\voices.json'
     if(-not(Test-Path $voicesPath)){Save-Json $voicesPath @{voices=@()}}
-    Save-Json (Join-Path $api 'config\runtime.json') @{backend_start_script='start_audio_cpp_shared.ps1';backend_stop_script='stop_audio_cpp_shared.ps1';audio_cpp_shared_executable='audio-cpp\bin\audiocpp_server.exe';audio_cpp_shared_config='config\audio_cpp_server.shared.json';audio_cpp_shared_cuda_bin='audio-cpp\bin';audio_cpp_shared_port=$BackendPort;stop_backend_with_api=$false}
-    $models=@('irodori-500m-v3-q8','irodori-500m-v3-q8-voice-stable-speaker') | ForEach-Object { @{id=$_;family='irodori_tts';path=$model;task='tts';mode='offline';session_options=@{'irodori_tts.mem_saver'='true';'irodori_tts.reference_cache_slots'='1'}} }
+    Save-Json (Join-Path $api 'config\runtime.json') @{backend_start_script='start_audio_cpp_shared.ps1';backend_stop_script='stop_audio_cpp_shared.ps1';audio_cpp_shared_executable=(Join-Path $backendDir 'audiocpp_server.exe');audio_cpp_shared_config='config\audio_cpp_server.shared.json';audio_cpp_shared_cuda_bin=$backendDir;audio_cpp_shared_port=$BackendPort;stop_backend_with_api=$false}
+    $models=@($modelIds) | ForEach-Object { @{id=$_;family='irodori_tts';path=$model;task='tts';mode='offline';session_options=@{'irodori_tts.mem_saver'='true';'irodori_tts.reference_cache_slots'='1'}} }
     Save-Json (Join-Path $api 'config\audio_cpp_server.shared.json') @{host='127.0.0.1';port=$BackendPort;backend=$Backend;device=0;threads=4;lazy_load=$false;models=@($models)}
     Set-Step '5/7 利用する声の登録と音声生成テスト'
     $voices=Get-Content $voicesPath -Raw -Encoding UTF8 | ConvertFrom-Json
@@ -176,6 +222,10 @@ try{
             Save-Json $voicesPath @{voices=@(@{id='my-voice';name='自分のVoice';reference_wav='voice_refs/my-voice.wav';enabled=$true})}
         }
     }
+    $retryNormal=$false
+    do{
+    $retryNormal=$false
+    try{
     Assert-FreePorts @($ApiPort,$BackendPort)
     try{
         # Track only the processes started for this test. Do not touch foreign PIDs.
@@ -193,7 +243,7 @@ try{
         }
         if(-not $health -or $health.status -ne 'ok'){throw 'モデルの起動確認がタイムアウトしました。GPUメモリとドライバー、またはCPU方式を確認してください。'}
         $modelsReply=Invoke-RestMethod "http://127.0.0.1:$BackendPort/v1/models" -TimeoutSec 5
-        foreach($id in @('irodori-500m-v3-q8','irodori-500m-v3-q8-voice-stable-speaker')){if(@($modelsReply.data.id) -notcontains $id){throw '共有エンジンに必要なモデルIDがありません。'}}
+        foreach($id in $modelIds){if(@($modelsReply.data.id) -notcontains $id){throw '共有エンジンに必要なモデルIDがありません。'}}
         $apiProcess=Start-Process $venv -ArgumentList @('"'+(Join-Path $api 'kurisu_voice_api.py')+'"') -WorkingDirectory $api -PassThru -WindowStyle Hidden -RedirectStandardOutput (Join-Path $StateRoot 'api.stdout.log') -RedirectStandardError (Join-Path $StateRoot 'api.stderr.log')
         [void](Add-SetupProcess $apiProcess)
         $ownedPids+=,$apiProcess
@@ -203,7 +253,7 @@ try{
         $list=Invoke-RestMethod "http://127.0.0.1:$ApiPort/voices" -TimeoutSec 5
         if(@($list.voices).Count -gt 0){
             $id=$list.voices[0].id
-            foreach($engine in @('standard','voice_stable')){
+            foreach($engine in $enabledModes){
                 $wav=Join-Path $StateRoot "test-$engine.wav"
                 $body=@{text='こんにちは。音声の動作確認です。';voice=$id;engine=$engine;speaker_tag_policy='preserve'} | ConvertTo-Json
                 $origin='chrome-extension://'+(Get-Content (Join-Path $InstallRoot 'chrome-identity.json') -Raw | ConvertFrom-Json).extensionId
@@ -212,12 +262,30 @@ try{
                 if($bytes.Length -le 44 -or [Text.Encoding]::ASCII.GetString($bytes,0,4) -ne 'RIFF' -or [Text.Encoding]::ASCII.GetString($bytes,8,4) -ne 'WAVE'){throw '正常なWAVを取得できませんでした。'}
             }
             $voiceReady=$true
-            if(-not $Unattended -and (Confirm-Install '通常版と声質安定版の音声ファイルを生成できました。テスト音声を再生しますか？')){(New-Object Media.SoundPlayer((Join-Path $StateRoot 'test-voice_stable.wav'))).PlaySync()}
+            if(-not $Unattended -and (Confirm-Install '選択したモードの音声ファイルを生成できました。テスト音声を再生しますか？')){(New-Object Media.SoundPlayer((Join-Path $StateRoot 'test-standard.wav'))).PlaySync()}
         }
     }finally{
         foreach($process in @($ownedPids | Select-Object -Last 2)){$process.Refresh();if(-not $process.HasExited){$process.Kill();$process.WaitForExit(10000) | Out-Null}}
         $ownedPids=@()
     }
+    }catch{
+        Assert-SetupActive
+        if(-not $stableInstalled){throw}
+        Write-Host ('声質安定版の生成確認に失敗しました。保存済みの通常版で導入を続行します: '+$_.Exception.Message) -ForegroundColor Yellow
+        $stableInstalled=$false
+        $enabledModes=@('standard');$modelIds=@('irodori-500m-v3-q8')
+        $backendDir=$standardRuntime
+        Save-Json (Join-Path $api 'config\capabilities.json') @{standard=$true;voice_stable=$false}
+        $runtime=Get-Content (Join-Path $api 'config\runtime.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+        $runtime.audio_cpp_shared_executable=Join-Path $backendDir 'audiocpp_server.exe'
+        $runtime.audio_cpp_shared_cuda_bin=$backendDir
+        Save-Json (Join-Path $api 'config\runtime.json') $runtime
+        $server=Get-Content (Join-Path $api 'config\audio_cpp_server.shared.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+        $server.models=@($server.models | Where-Object {$_.id -eq 'irodori-500m-v3-q8'})
+        Save-Json (Join-Path $api 'config\audio_cpp_server.shared.json') $server
+        $retryNormal=$true
+    }
+    }while($retryNormal)
     Set-Step '6/7 ブラウザー接続ヘルパーの登録'
     if($Browsers -in @('firefox','both')){
         $fxZip=Join-Path $StateRoot 'firefox-isolated.zip'

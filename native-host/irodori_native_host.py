@@ -795,10 +795,14 @@ def engine_health(config: dict, engine: str, api: dict | None = None, backend: d
         api = _http_health(f"{api_url}?engine={engine}")
     backend = backend if backend is not None else _http_health(definition["backend_health_url"])
     selected = _read_selected_engine()
+    capability_path = Path(config["root"]) / "config" / "capabilities.json"
+    installed = not (engine == "voice_stable" and capability_path.is_file() and not json.loads(capability_path.read_text(encoding="utf8")).get("voice_stable", False))
     return {
+        "installed": installed,
+        "error": None if installed else "声質安定版はインストールされていないため、現在使用できません。",
         "engine": engine,
         "label": definition["label"],
-        "running": api["running"] and backend["running"],
+        "running": installed and api["running"] and backend["running"],
         "api": api,
         "backend": backend,
         "endpoint": definition["api_health_url"].rsplit("/", 1)[0],
@@ -2064,6 +2068,11 @@ def _recover_stale_engine_transition(config: dict, intent: dict | None) -> dict 
 
 def handle(message: dict, config: dict) -> dict:
     command = message.get("command")
+    if command in {"start", "start_engine", "start_engine_async", "start_stable", "switch_engine", "switch_engine_async"}:
+        capability_path = Path(config["root"]) / "config" / "capabilities.json"
+        requested_mode = "voice_stable" if command == "start_stable" else _engine_name(message.get("engine"))
+        if requested_mode == "voice_stable" and capability_path.is_file() and not json.loads(capability_path.read_text(encoding="utf8")).get("voice_stable", False):
+            raise ValueError("声質安定版はインストールされていないため、現在使用できません。")
     if command == "status":
         requested = _engine_name(message.get("engine") or "standard")
         shared_api = _http_health(config["health_url"])

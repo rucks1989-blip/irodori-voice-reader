@@ -186,3 +186,38 @@ function Stop-SetupCancellation {
     if($script:CancelRequest){[IO.File]::WriteAllText(($script:CancelRequest+'.done'),'done')}
     if($script:SetupJob){$script:SetupJob.Dispose();$script:SetupJob=$null}
 }
+
+function Copy-BackendRuntime([string]$Source,[string]$Destination){
+    $src=[IO.Path]::GetFullPath($Source)
+    $dst=[IO.Path]::GetFullPath($Destination)
+    if($src -eq $dst){throw 'コピー元と専用保存先が同じです。'}
+    if(-not(Test-Path (Join-Path $src 'audiocpp_server.exe'))){throw '選択した完成品にaudiocpp_server.exeが見つかりません。'}
+    New-Item -ItemType Directory -Force -Path $dst | Out-Null
+    $runtimeFiles=@(Get-Item (Join-Path $src 'audiocpp_server.exe'))+@(Get-ChildItem -LiteralPath $src -Filter '*.dll' -File)
+    foreach($file in $runtimeFiles){
+        Assert-SetupActive
+        Write-Host ('実行ファイル・依存DLLを検査/配置中: '+$file.Name)
+        $target=Join-Path $dst $file.Name
+        if((Test-Path $target) -and (Get-FileHash $target).Hash -eq (Get-FileHash $file.FullName).Hash){continue}
+        Copy-Item -LiteralPath $file.FullName -Destination $target -Force
+    }
+}
+
+function Test-StableCandidate([string]$Directory,[string]$Model,[string]$Backend,[int]$Port){
+    $candidateConfig=Join-Path $Directory 'candidate.json'
+    $candidateModels=@('irodori-500m-v3-q8','irodori-500m-v3-q8-voice-stable-speaker') | ForEach-Object {@{id=$_;family='irodori_tts';path=$Model;task='tts';mode='offline';session_options=@{'irodori_tts.mem_saver'='true'}}}
+    Save-Json $candidateConfig @{host='127.0.0.1';port=$Port;backend=$Backend;models=@($candidateModels)}
+    Assert-FreePorts @($Port)
+    $p=Add-SetupProcess (Start-Process (Join-Path $Directory 'audiocpp_server.exe') -ArgumentList @('--config',('"'+$candidateConfig+'"')) -WorkingDirectory $Directory -PassThru -WindowStyle Hidden -RedirectStandardOutput (Join-Path $Directory 'candidate.stdout.log') -RedirectStandardError (Join-Path $Directory 'candidate.stderr.log'))
+    try{
+        $deadline=[DateTime]::UtcNow.AddMinutes(3);$ready=$false
+        while([DateTime]::UtcNow -lt $deadline){
+            Assert-SetupActive
+            if($p.HasExited){throw '声質安定版の完成品が起動できませんでした。通常版を保持します。'}
+            try{$h=Invoke-RestMethod "http://127.0.0.1:$Port/health" -TimeoutSec 2;if($h.status -eq 'ok'){$ready=$true;break}}catch{}
+            Start-Sleep -Milliseconds 300
+        }
+        if(-not $ready){throw '声質安定版の起動確認がタイムアウトしました。'}
+        Run (Get-Python) @((Join-Path $PSScriptRoot 'verify-backend.py'),"http://127.0.0.1:$Port")
+    }finally{if(-not $p.HasExited){$p.Kill();$p.WaitForExit()}}
+}

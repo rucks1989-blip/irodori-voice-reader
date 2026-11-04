@@ -19,3 +19,14 @@ class ExecutionDeviceTests(unittest.TestCase):
         with patch.object(api, "_read_json", return_value={"backend": "cuda"}), patch.object(api.subprocess, "run") as run:
             run.return_value.stdout = "Verified NVIDIA GPU\n"
             self.assertEqual(api.State._device_name(), "Verified NVIDIA GPU")
+
+    def test_missing_stable_rejected_before_engine_construction(self):
+        import tempfile, json
+        from pathlib import Path
+        api = importlib.import_module("kurisu_voice_api")
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder);(root/"config").mkdir()
+            (root/"config/capabilities.json").write_text(json.dumps({"standard":True,"voice_stable":False}))
+            with patch.object(api,"ROOT",root):
+                with self.assertRaisesRegex(ValueError,"声質安定版はインストールされていない"):
+                    api.State.__new__(api.State).engine(engine_name="voice_stable")

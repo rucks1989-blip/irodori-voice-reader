@@ -28,7 +28,7 @@ $cudaBin = Resolve-Configured $runtimeConfig.audio_cpp_shared_cuda_bin (Split-Pa
 $port = if ($null -ne $runtimeConfig.audio_cpp_shared_port) { [int]$runtimeConfig.audio_cpp_shared_port } else { 8091 }
 $healthUrl = "http://127.0.0.1:$port/health"
 $modelsUrl = "http://127.0.0.1:$port/v1/models"
-$requiredModelIds = @("irodori-500m-v3-q8", "irodori-500m-v3-q8-voice-stable-speaker")
+$requiredModelIds = @((Get-Content $config -Raw -Encoding UTF8 | ConvertFrom-Json).models | ForEach-Object {$_.id})
 $runtimeDir = Join-Path $root "logs\audio_cpp_shared"
 $pidPath = Join-Path $runtimeDir "server.pid"
 
