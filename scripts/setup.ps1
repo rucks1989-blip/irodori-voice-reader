@@ -20,13 +20,20 @@ function Set-Step([string]$Name){
     Save-Json $statePath @{version=$manifest.version;step=$Name;error='';completed=$false}
 }
 function Find-BackendAsset([string]$Kind,[string]$Arch){
-    return @($manifest.assets | Where-Object {$_.kind -eq 'backend' -and $_.backend -eq $Kind -and ($Kind -eq 'cpu' -or $_.arch -eq $Arch)}) | Select-Object -First 1
+    return @($manifest.assets | Where-Object {$_.kind -eq 'backend' -and $_.backend -eq $Kind -and ($Kind -eq 'cpu' -or $_.arch -eq '*' -or $_.arch -eq $Arch)}) | Select-Object -First 1
 }
 function Get-Asset($Asset){
     $local=Join-Path $SourceRoot ('assets\'+$Asset.name)
     if(Test-Path $local){
         if((Get-FileHash $local -Algorithm SHA256).Hash -ne $Asset.sha256){throw '配布パッケージ内のファイル検査に失敗しました。GitHubから取得し直してください。'}
         return $local
+    }
+    if($Asset.PSObject.Properties['url'] -and $Asset.url){
+        $cache=Join-Path $StateRoot ('downloads\'+$Asset.name)
+        Write-Host ('完成品を自動取得します: '+$Asset.name) -ForegroundColor Cyan
+        $size=if($Asset.PSObject.Properties['bytes']){[long]$Asset.bytes}else{0}
+        Get-Verified $Asset.url $cache $Asset.sha256 $size
+        return $cache
     }
     $uri='https://github.com/'+$manifest.repository+'/releases/tag/'+$manifest.release
     if($Unattended){throw ('配布ファイルがありません: '+$Asset.name)}
@@ -68,8 +75,24 @@ try{
     }
     if($Unattended -and $Browsers -eq 'prompt'){throw '自動実行では-Browsers chrome/firefox/bothを明示してください。'}
     if($Browsers -eq 'prompt'){$Browsers=Select-Browsers}
+    $sessionFile=Join-Path $StateRoot ($Browsers+'-session.json')
+    $session=$null
+    if(Test-Path $sessionFile){$session=Get-Content $sessionFile -Raw -Encoding UTF8 | ConvertFrom-Json}
+    if($session -and -not $NewEnvironment -and $session.browsers -eq $Browsers){
+        $action=if($Unattended){'resume'}else{Show-SetupDialog 'installation' ("前回の環境: "+$session.installRoot+"`r`n続きから再開するか、新しい別環境を作るか選んでください。")}
+        if($action -eq 'resume'){$InstallRoot=Assert-LocalDirectory $session.installRoot}
+        elseif($action -eq 'new'){$NewEnvironment=$true}
+        else{Write-Host '中止しました。';exit 0}
+    }
     $drive=New-Object IO.DriveInfo([IO.Path]::GetPathRoot($InstallRoot))
-    if($drive.AvailableFreeSpace -lt 5GB){throw '保存先に最低5GBの空き容量が必要です。任意ビルドではさらに数十GB必要です。'}
+    if($drive.AvailableFreeSpace -lt 5GB){
+        if($Unattended){throw '保存先に最低5GBの空き容量が必要です。-InstallRootで別ドライブを指定してください。'}
+        $alternative=Show-SetupDialog 'directory' '保存先ドライブの空き容量が5GB未満です。「参照」から空き容量のあるドライブのフォルダーを選択してください。'
+        if($alternative -eq 'cancel'){throw '保存先の選択を中止しました。'}
+        $InstallRoot=Assert-LocalDirectory (Join-Path $alternative 'IrodoriVoiceReader\App')
+        $drive=New-Object IO.DriveInfo([IO.Path]::GetPathRoot($InstallRoot))
+        if($drive.AvailableFreeSpace -lt 5GB){throw '選択したドライブにも5GB以上の空き容量が必要です。'}
+    }
     if(-not(Confirm-Install "Irodori Voice Readerの導入を開始しますか？`r`n`r`n保存先は次の確認画面で表示します。`r`n・モデル約1.09GB、専用Python環境、音声生成プログラムを準備します。`r`n・完成品を優先します。不足時は取得・任意ビルド・中止から選べます。`r`n・後半で確認後に現在のWindowsユーザーへブラウザー接続ヘルパーを登録します。`r`n・拡張機能の追加は最後にご自身で行います。`r`n・音声や診断情報を自動送信しません。`r`n`r`nLICENSEとTHIRD_PARTY_NOTICES.mdの利用条件、および利用権限のある音声のみを使うことを確認してください。")){Write-Host '中止しました。';exit 0}
     New-Item -ItemType Directory -Force -Path $StateRoot | Out-Null
     try{$lock=[IO.File]::Open((Join-Path $StateRoot 'setup.lock'),'OpenOrCreate','ReadWrite','None')}catch{throw '別のセットアップが実行中です。終了後に再試行してください。'}
@@ -78,15 +101,10 @@ try{
         $script:SetupJob=New-Object IvrSetupJob
     }
     $env:IVR_SETUP_LOG_ROOT=$StateRoot
-    # Every new installation is a separate Chrome environment. Never adopt an old root.
-    $sessionFile=Join-Path $StateRoot 'chrome-session.json'
-    $session=$null
-    if(Test-Path $sessionFile){$session=Get-Content $sessionFile -Raw -Encoding UTF8 | ConvertFrom-Json}
     if($session -and -not $NewEnvironment -and $session.browsers -eq $Browsers){
         if($session.PSObject.Properties['version'] -and $session.version -ne $manifest.version){throw '前回のセットアップと版が異なります。新規作成はsetup.bat -NewEnvironmentで開始してください。'}
         $InstallRoot=Assert-LocalDirectory $session.installRoot
         $ApiPort=[int]$session.apiPort;$BackendPort=[int]$session.backendPort
-        if(-not(Confirm-Install "前回の専用環境へセットアップを再開しますか？`r`n保存先: $InstallRoot`r`nAPI: $ApiPort / audio.cpp: $BackendPort`r`nVoiceとユーザー設定を保持します。")){Write-Host '中止しました。';exit 0}
     }else{
         $detected=@(Get-ExistingEnvironment)
         $detail=if($detected.Count){$detected -join "`r`n"}else{'既存環境は検出されませんでした。'}
@@ -151,6 +169,12 @@ try{
         $archive=Get-Asset $asset
         New-Item -ItemType Directory -Force -Path $backendDir | Out-Null
         Expand-Archive -LiteralPath $archive -DestinationPath $backendDir -Force
+        if($asset.PSObject.Properties['dependencies']){
+            foreach($dependency in $asset.dependencies){
+                $dependencyArchive=Get-Asset $dependency
+                Expand-Archive -LiteralPath $dependencyArchive -DestinationPath $backendDir -Force
+            }
+        }
     }else{
         if($Unattended){throw '対応する完成品がありません。対応完成品を準備して再実行してください。自動ビルドは行いません。'}
         $choice=Show-SetupDialog 'backend' '対応完成品がありません。取得して再開するか、任意ビルドを選んでください。'
@@ -301,6 +325,11 @@ try{
     Write-Host 'ローカル環境の準備が完了しました。ブラウザーで最後の追加手順を確認してください。' -ForegroundColor Green
 }catch{
     $message=$_.Exception.Message
+    if($_.Exception -is [OperationCanceledException]){
+        Save-Json $statePath @{version=$manifest.version;step=$step;error='';completed=$false;canceled=$true}
+        Write-Host '中止しました。再実行時に「再開」または「新しい別環境を作成」を選べます。' -ForegroundColor Yellow
+        exit 0
+    }
     Write-Host "`n停止した工程: $step`n$message" -ForegroundColor Red
     if(-not $CheckOnly){
         Save-Json $statePath @{version=$manifest.version;step=$step;error=$message;completed=$false}

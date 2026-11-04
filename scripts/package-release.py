@@ -1,4 +1,4 @@
-"""Create an offline starter from explicit source and hashed release assets."""
+"""Package source and bundled assets; pinned public assets can download during setup."""
 from pathlib import Path
 import hashlib
 import json
@@ -15,6 +15,8 @@ dist.mkdir(exist_ok=True)
 assets = []
 for asset in manifest["assets"]:
     path = dist / asset["name"]
+    if not path.is_file() and asset.get("url"):
+        continue  # setup downloads this pinned upstream artifact and dependencies
     if not path.is_file() or hashlib.sha256(path.read_bytes()).hexdigest() != asset["sha256"]:
         sys.exit(f"Missing/mismatched release asset: {asset['name']}")
     assets.append(path)

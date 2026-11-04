@@ -47,7 +47,8 @@ with zipfile.ZipFile(args.signed_firefox) as archive:
     if hashlib.sha256(args.signed_firefox.read_bytes()).hexdigest() != expected["sha256"]:
         raise SystemExit("Signed XPI differs from pinned release asset")
 shutil.copyfile(args.signed_firefox, xpi)
-manifest["assets"] = [
+remote_assets = [asset for asset in manifest["assets"] if asset.get("url")]
+manifest["assets"] = remote_assets + [
     {"name": cpu.name, "kind": "backend", "backend": "cpu", "arch": "", "sha256": hashlib.sha256(cpu.read_bytes()).hexdigest()},
     {"name": xpi.name, "kind": "firefox", "sha256": hashlib.sha256(xpi.read_bytes()).hexdigest()},
 ]

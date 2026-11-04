@@ -11,6 +11,24 @@
   },
   "assets": [
     {
+      "name": "audio-v0.9.3-bin-windows-x64-cuda13.3.zip",
+      "kind": "backend",
+      "role": "standard",
+      "backend": "cuda",
+      "arch": "*",
+      "url": "https://github.com/0xShug0/audio.cpp/releases/download/v0.9.3/audio-v0.9.3-bin-windows-x64-cuda13.3.zip",
+      "sha256": "0bd3988be10c31ec078c40df2bd0d4266e660804f6d5083aeb05d1309d091e43",
+      "bytes": 277336614,
+      "dependencies": [
+        {
+          "name": "audio-v0.9.3-cudart-windows-x64-cuda13.3.zip",
+          "url": "https://github.com/0xShug0/audio.cpp/releases/download/v0.9.3/audio-v0.9.3-cudart-windows-x64-cuda13.3.zip",
+          "sha256": "839eb20f684a8aab64895b1e466b32ce9b29dfc19dc1ce15b2ef35218512ac0a",
+          "bytes": 575457454
+        }
+      ]
+    },
+    {
       "name": "audio-cpp-stable-cpu-x64.zip",
       "kind": "backend",
       "backend": "cpu",

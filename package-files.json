@@ -190,7 +190,7 @@
     },
     {
       "path": "distribution.json",
-      "sha256": "51f4d46b656cdde084384fc3c9d3a2e978a66c4d33d8cba5d530339cdd25118c"
+      "sha256": "75f48118f120d70de53e2a279f03bdeea3b7e310b8e3d193b2499844a72ecdf5"
     },
     {
       "path": "docs/browser-install.md",
@@ -506,11 +506,11 @@
     },
     {
       "path": "scripts/package-release.py",
-      "sha256": "cf2935f724eeac8d9092b2d141e1e9ba1d6758800fc04788c5d4829b75c304f1"
+      "sha256": "ec17d9afba802049468a2cc077da611cd791aaf0ad6364a679ca7dfe83efc754"
     },
     {
       "path": "scripts/prepare-assets.py",
-      "sha256": "bdcacb72b63e409bd8372e1163fd82fac41dc61ee00e9b3aed6c479e3abad542"
+      "sha256": "a00ebe228700fea854a2a9fcf1606d6a12410c4138e5eb98a3e97a8037cb611e"
     },
     {
       "path": "scripts/privacy_scan.py",
@@ -522,7 +522,7 @@
     },
     {
       "path": "scripts/setup-dialog.cs",
-      "sha256": "6a7fb792adca18254a0492d0e8b8c4b2ec9d4e16d8073c69992f6f1b187fb963"
+      "sha256": "2d971dd13e0fc170f52ac8f8ebab6f74a7b44ba1c8553d50a1345b36efdefee5"
     },
     {
       "path": "scripts/setup-job.cs",
@@ -530,7 +530,7 @@
     },
     {
       "path": "scripts/setup.ps1",
-      "sha256": "01e89c9afbb59b8b1896bb236fa187ba8d0d8f9fbdfeda34648aaa71259bd75d"
+      "sha256": "4749ddef55494b931638dd2a75bbf3012a74927c0aba99373c0372ff424d853c"
     },
     {
       "path": "scripts/support.ps1",
