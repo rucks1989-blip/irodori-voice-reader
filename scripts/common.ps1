@@ -20,7 +20,8 @@ function Show-SetupDialog([string]$Kind,[string]$Message,[string]$Filter='') {
     }
     $request=Join-Path $dialogRoot ([guid]::NewGuid().ToString('N')+'.json')
     Save-Json $request @{kind=$Kind;message=$Message;filter=$Filter}
-    $process=Add-SetupProcess (Start-Process $exe -ArgumentList @(('"'+$request+'"')) -PassThru -WindowStyle Hidden)
+    Write-Host ("確認画面を待っています: "+$Message) -ForegroundColor Yellow
+    $process=Add-SetupProcess (Start-Process $exe -ArgumentList @(('"'+$request+'"')) -PassThru -WindowStyle Normal)
     while(-not $process.WaitForExit(200)){Assert-SetupActive}
     if($process.ExitCode -ne 0 -or -not(Test-Path ($request+'.result'))){throw 'セットアップ画面を確認できませんでした。'}
     $answer=Get-Content ($request+'.result') -Raw -Encoding UTF8 | ConvertFrom-Json
@@ -45,10 +46,25 @@ function Run([string]$Exe,[string[]]$Arguments){
     $err=$out+'.stderr.log'
     $launchArguments=if([IO.Path]::GetFileName($Exe) -ieq 'cmd.exe'){($Arguments -join ' ')}else{($Arguments | ForEach-Object {Quote-WindowsArgument $_}) -join ' '}
     $p=Add-SetupProcess (Start-Process $Exe -ArgumentList $launchArguments -PassThru -WindowStyle Hidden -RedirectStandardOutput $out -RedirectStandardError $err)
-    try{while(-not $p.WaitForExit(200)){Assert-SetupActive};$code=$p.ExitCode}
-    finally{if(-not $p.HasExited){$p.Kill();$p.WaitForExit()}}
+    Write-Host ("実行中: "+[IO.Path]::GetFileName($Exe)) -ForegroundColor Cyan
+    Write-Host ("ログ: "+$out)
+    $readers=@()
+    foreach($file in @($out,$err)){
+        $stream=[IO.File]::Open($file,[IO.FileMode]::Open,[IO.FileAccess]::Read,[IO.FileShare]::ReadWrite)
+        $readers+=New-Object IO.StreamReader($stream,[Text.Encoding]::UTF8,$true)
+    }
+    $lastNotice=[DateTime]::UtcNow
+    try{
+        while(-not $p.WaitForExit(200)){
+            Assert-SetupActive
+            foreach($reader in $readers){$chunk=$reader.ReadToEnd();if($chunk){Write-Host -NoNewline $chunk}}
+            if(([DateTime]::UtcNow-$lastNotice).TotalSeconds -ge 5){Write-Host ("処理継続中: "+[IO.Path]::GetFileName($Exe)+" / PID "+$p.Id);$lastNotice=[DateTime]::UtcNow}
+        }
+        $code=$p.ExitCode
+        foreach($reader in $readers){$chunk=$reader.ReadToEnd();if($chunk){Write-Host -NoNewline $chunk}}
+    }
+    finally{foreach($reader in $readers){$reader.Dispose()};if(-not $p.HasExited){$p.Kill();$p.WaitForExit()}}
     $lines=@(Get-Content $out -ErrorAction SilentlyContinue)+@(Get-Content $err -ErrorAction SilentlyContinue)
-    $lines | ForEach-Object {Write-Host $_}
     if($env:IVR_SETUP_LOG_ROOT){[IO.File]::WriteAllText((Join-Path $logRoot 'last-command.log'),($lines -join "`r`n"),$Utf8)}
     if($code -notin @(0,3010)){throw ("コマンド終了コード: $code ($Exe)`r`n"+(($lines | Select-Object -Last 16) -join "`r`n"))}
 }
@@ -164,7 +180,7 @@ function Start-SetupCancellation {
     if(-not(Test-Path $exe)){Add-Type -Path $source -ReferencedAssemblies @('System.Windows.Forms','System.Drawing','System.Web.Extensions') -OutputAssembly $exe -OutputType WindowsApplication}
     $script:CancelRequest=Join-Path $dialogRoot ([guid]::NewGuid().ToString('N')+'.json')
     Save-Json $script:CancelRequest @{kind='progress';message=''}
-    [void](Start-Process $exe -ArgumentList @(('"'+$script:CancelRequest+'"')) -WindowStyle Hidden -PassThru)
+    [void](Start-Process $exe -ArgumentList @(('"'+$script:CancelRequest+'"')) -WindowStyle Normal -PassThru)
 }
 function Stop-SetupCancellation {
     if($script:CancelRequest){[IO.File]::WriteAllText(($script:CancelRequest+'.done'),'done')}

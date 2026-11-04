@@ -210,7 +210,7 @@
     },
     {
       "path": "docs/integration-validation.md",
-      "sha256": "299411ce5f1910ad5922f57b672e0dacef449df223aae57b0c701909696dc49f"
+      "sha256": "634221a0c61927f1f6d733bc72b0d337d9666a33e16e3500b07013364eda4c59"
     },
     {
       "path": "docs/version-audit.md",
@@ -490,7 +490,7 @@
     },
     {
       "path": "scripts/common.ps1",
-      "sha256": "60a6bb5719c6529d7c43014fbd9d7497af693b6c2053967f3ae448459f6a35c0"
+      "sha256": "0c92a80fa61de09b87f1a071f6c5a91a18455b31c5949287dbd50910d1edb1be"
     },
     {
       "path": "scripts/configure-chrome.ps1",
