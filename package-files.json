@@ -78,7 +78,7 @@
     },
     {
       "path": "chrome-extension/adapters.js",
-      "sha256": "526bfc8744ab8a56add7366a658187044b532ea2a189f12ed546ea69da2b1a6e"
+      "sha256": "78ff4150db5677582bc0cde28f8ecf008e190d3a9159a4f49cf8454a4d3cef45"
     },
     {
       "path": "chrome-extension/api-state.js",
@@ -94,7 +94,7 @@
     },
     {
       "path": "chrome-extension/chatgpt-watcher.js",
-      "sha256": "faaa440f3d962bf5d8740991061fcbbe2d4a8e80dd9f50eedfa96de1c94dbef2"
+      "sha256": "d3673574f0bf3835b0748744b258a4b7c04815f0e031bf0755c228d826855b32"
     },
     {
       "path": "chrome-extension/chrome-compat.js",

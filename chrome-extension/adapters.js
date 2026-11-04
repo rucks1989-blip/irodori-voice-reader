@@ -79,7 +79,10 @@ globalThis.IvrAdapters = (() => {
         userMessages() { return chatUsers(doc); },
         userText(node) {
           const role = node.matches('[data-message-author-role="user"]') ? node : node.querySelector('[data-message-author-role="user"]');
-          const body = node.querySelector('[data-user-message-copy]') || role || node.querySelector('[data-chatgpt-selection-message-id], [data-markdown-text-style="user-message"]') || node;
+          const bubble = '[data-user-message-copy], [data-markdown-text-style="user-message"], .whitespace-pre-wrap';
+          const owner = role || node;
+          const body = (owner.matches(bubble) ? owner : owner.querySelector(bubble)) ||
+            owner.querySelector('[data-chatgpt-selection-message-id]') || owner;
           return cleanBody(body, true);
         },
         text(node) {

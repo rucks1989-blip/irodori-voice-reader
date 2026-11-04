@@ -36,7 +36,7 @@ globalThis.IvrChatgptWatcher = (() => {
     function begin(editor) {
       context();
       if (!settings.chatgptEnabled || !editor) return;
-      const text = normalize(editor.value ?? editor.textContent);
+      const text = normalize(editor.value ?? editor.innerText ?? editor.textContent);
       if (!text) return;
       // The same send can emit keydown, click and submit in quick succession.
       if (pending && !pending.userId && pending.text === text) return;
