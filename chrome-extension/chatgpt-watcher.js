@@ -5,7 +5,7 @@ globalThis.IvrChatgptWatcher = (() => {
   const editorSelector = '#prompt-textarea, textarea[data-mobile-composer-prompt], textarea[name="prompt-textarea"], [contenteditable="true"][data-lexical-editor]';
   function start({ api, doc, win, getAdapter, request, hash, toast, settleMs = 1200, scanMs = 100 }) {
     let settings = { chatgptEnabled: false, readCodeBlocks: false };
-    let route = "", draft = "", pending = null, serial = 0, timer = 0, scanTimer = 0, observer = null, interval = 0, stopped = false;
+    let route = "", chatPath = "", pending = null, serial = 0, timer = 0, scanTimer = 0, observer = null, interval = 0, stopped = false;
     const fallbackIds = new WeakMap();
     let fallbackSequence = 0;
     const adapter = () => getAdapter(settings);
@@ -15,31 +15,29 @@ globalThis.IvrChatgptWatcher = (() => {
       if (!fallbackIds.has(node)) fallbackIds.set(node, `node-${++fallbackSequence}`);
       return fallbackIds.get(node);
     };
-    const reset = () => { ++serial; pending = null; draft = ""; win.clearTimeout(timer); timer = 0; };
+    const reset = () => { ++serial; pending = null; win.clearTimeout(timer); timer = 0; };
     function context() {
       const current = adapter()?.conversationId() || "";
-      if (current === route) return;
+      const path = win.location.pathname;
+      if (current === route && path === chatPath) return;
       // A brand-new conversation normally gets its ID after submission.
       // Preserve that one transition; switching between existing chats cancels.
-      const newConversation = pending && (route === "/" || route === "" || route === "/unauth-mweb/") && current !== route && current !== "/";
+      const newConversation = pending && !/\/c\/[^/]+/.test(chatPath) && /\/c\/[^/]+/.test(path);
       route = current;
+      chatPath = path;
       if (newConversation) pending.conversation = current;
       else reset();
     }
-    const editorFor = (target) => {
+    const editorFor = (target, explicitSend = false) => {
       if (target?.matches?.(editorSelector)) return target;
       const root = target?.closest?.('form, [data-composer-root], [data-testid="composer"]');
-      return root?.querySelector(editorSelector) || null;
+      return root?.querySelector(editorSelector) || (explicitSend ? doc.querySelector("#prompt-textarea") : null);
     };
-    function input(event) {
-      if (!settings.chatgptEnabled || !event.isTrusted || !event.target?.matches?.(editorSelector)) return;
-      draft = normalize(event.target.value ?? event.target.textContent);
-    }
     function begin(editor) {
       context();
       if (!settings.chatgptEnabled || !editor) return;
       const text = normalize(editor.value ?? editor.textContent);
-      if (!text || text !== draft) return;
+      if (!text) return;
       // The same send can emit keydown, click and submit in quick succession.
       if (pending && !pending.userId && pending.text === text) return;
       const a = adapter();
@@ -53,10 +51,10 @@ globalThis.IvrChatgptWatcher = (() => {
       if (!event.isTrusted) return;
       const button = event.target?.closest?.("button");
       if (!button || button.disabled) return;
-      const label = `${button.getAttribute("aria-label") || ""} ${button.getAttribute("title") || ""}`.trim();
-      if (!button.matches('[data-testid="send-button"], [data-composer-submit], button[type="submit"]') &&
-          !/^(?:send|send message|submit|送信|メッセージを送信(?:します)?)$/iu.test(label)) return;
-      begin(editorFor(button));
+      const explicitSend = button.matches('[data-testid="send-button"], [data-composer-submit], #composer-submit-button') ||
+        ["aria-label", "title"].some((attribute) => /^(?:send|send message|submit|送信|メッセージを送信(?:します)?)$/iu.test(button.getAttribute(attribute)?.trim() || ""));
+      if (!explicitSend && !button.matches('button[type="submit"]')) return;
+      begin(editorFor(button, explicitSend));
     }
     function keydown(event) {
       if (!event.isTrusted || event.key !== "Enter" || event.isComposing || event.shiftKey || !event.target?.matches?.(editorSelector)) return;
@@ -101,7 +99,7 @@ globalThis.IvrChatgptWatcher = (() => {
             pending.signature = ""; queueScan(); return;
           }
           const answer = { conversationId: pending.conversation, messageId: nodeId(refreshed, refreshedLast), textHash };
-          pending = null; draft = "";
+          pending = null;
           const result = await request("enqueue", { text, source: "chatgpt", answer });
           if (result?.queued) toast("ChatGPTの最新回答を読み上げます。");
         } catch (error) { toast(error.message, true); }
@@ -113,7 +111,6 @@ globalThis.IvrChatgptWatcher = (() => {
       for (const key of ["chatgptEnabled", "readCodeBlocks"]) if (changes[key]) { settings[key] = Boolean(changes[key].newValue); reset(); }
       queueScan();
     }
-    doc.addEventListener("input", input, true);
     doc.addEventListener("click", clicked, true);
     doc.addEventListener("keydown", keydown, true);
     doc.addEventListener("submit", submit, true);
@@ -121,7 +118,7 @@ globalThis.IvrChatgptWatcher = (() => {
     api.storage.onChanged.addListener(changed);
     api.storage.local.get(settings).then((value) => {
       if (stopped) return;
-      settings = value; route = adapter()?.conversationId() || "";
+      settings = value; context();
       observer = new win.MutationObserver(queueScan);
       observer.observe(doc.documentElement, { childList: true, subtree: true, characterData: true, attributes: true,
         attributeFilter: ["id", "data-message-id", "data-message-role", "data-message-streaming", "data-message-complete", "data-talvt-turn-state", "data-is-streaming", "data-conversation-role", "data-message-author-role", "aria-busy", "hidden"] });
@@ -129,7 +126,7 @@ globalThis.IvrChatgptWatcher = (() => {
     }).catch((error) => toast(error.message, true));
     return { stop() {
       stopped = true; reset(); win.clearTimeout(scanTimer); win.clearInterval(interval); observer?.disconnect();
-      doc.removeEventListener("input", input, true); doc.removeEventListener("click", clicked, true);
+      doc.removeEventListener("click", clicked, true);
       doc.removeEventListener("keydown", keydown, true); doc.removeEventListener("submit", submit, true);
       win.removeEventListener("popstate", queueScan); api.storage.onChanged.removeListener(changed);
     } };
