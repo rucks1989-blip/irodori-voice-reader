@@ -94,7 +94,7 @@
     },
     {
       "path": "chrome-extension/chatgpt-watcher.js",
-      "sha256": "d3673574f0bf3835b0748744b258a4b7c04815f0e031bf0755c228d826855b32"
+      "sha256": "9b9953c87c7eb8035599643ae585996f95bef630587e22fdbc14d65450232466"
     },
     {
       "path": "chrome-extension/chrome-compat.js",

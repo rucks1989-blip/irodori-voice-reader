@@ -4,11 +4,17 @@ globalThis.IvrChatgptWatcher = (() => {
   const normalize = (value) => String(value || "").normalize("NFC").replace(/\s+/gu, " ").trim();
   const editorSelector = '#prompt-textarea, textarea[data-mobile-composer-prompt], textarea[name="prompt-textarea"], [contenteditable="true"][data-lexical-editor]';
   function start({ api, doc, win, getAdapter, request, hash, toast, settleMs = 1200, scanMs = 100 }) {
-    let settings = { chatgptEnabled: false, readCodeBlocks: false };
+    let settings = { chatgptEnabled: false, readCodeBlocks: false, timingDebug: false };
     let route = "", chatPath = "", pending = null, serial = 0, timer = 0, scanTimer = 0, observer = null, interval = 0, stopped = false;
     const fallbackIds = new WeakMap();
     let fallbackSequence = 0;
     const adapter = () => getAdapter(settings);
+    function trace(event, fields = {}) {
+      if (!settings.timingDebug) return;
+      request("timing-log-event", {
+        event: { event, timestamp: new Date().toISOString(), site: "chatgpt", ...fields }
+      }).catch(() => {});
+    }
     const nodeId = (a, node) => {
       const id = a.messageId(node);
       if (id) return id;
@@ -45,6 +51,7 @@ globalThis.IvrChatgptWatcher = (() => {
       win.clearTimeout(timer); timer = 0;
       pending = { text, before: new Set(a.userMessages().map((node) => nodeId(a, node))),
         conversation: a.conversationId(), serial: ++serial, signature: "", userId: "", started: Date.now() };
+      trace("chatgpt_prompt_sent", { attempt: serial });
       queueScan();
     }
     function clicked(event) {
@@ -64,11 +71,16 @@ globalThis.IvrChatgptWatcher = (() => {
     function scan() {
       context();
       if (stopped || !settings.chatgptEnabled || !pending) return;
-      if (Date.now() - pending.started > 5 * 60 * 1000) { reset(); return; }
+      if (Date.now() - pending.started > 5 * 60 * 1000) {
+        trace("chatgpt_detection_timeout", { attempt: pending.serial, matchedUser: Boolean(pending.userId) });
+        reset();
+        return;
+      }
       const a = adapter(), latestUser = a.userMessages().at(-1);
       if (!latestUser) return;
       const userId = nodeId(a, latestUser);
       if (pending.before.has(userId) || normalize(a.userText(latestUser)) !== pending.text) return;
+      if (!pending.userId) trace("chatgpt_user_matched", { attempt: pending.serial });
       pending.userId = userId;
       const newest = a.candidates().filter((node) => latestUser.compareDocumentPosition(node) & 4).at(-1);
       if (!newest) return;
@@ -100,14 +112,20 @@ globalThis.IvrChatgptWatcher = (() => {
           }
           const answer = { conversationId: pending.conversation, messageId: nodeId(refreshed, refreshedLast), textHash };
           pending = null;
+          trace("chatgpt_answer_detected", { attempt: token });
           const result = await request("enqueue", { text, source: "chatgpt", answer });
+          trace("chatgpt_enqueue_result", { attempt: token, queued: Boolean(result?.queued), ignored: Boolean(result?.ignored) });
           if (result?.queued) toast("ChatGPTの最新回答を読み上げます。");
-        } catch (error) { toast(error.message, true); }
+        } catch (error) {
+          trace("chatgpt_enqueue_error", { attempt: token });
+          toast(error.message, true);
+        }
       }, settleMs);
     }
     function queueScan() { if (!stopped && !scanTimer) scanTimer = win.setTimeout(() => { scanTimer = 0; scan(); }, scanMs); }
     function changed(changes, area) {
       if (area !== "local") return;
+      if (changes.timingDebug) settings.timingDebug = Boolean(changes.timingDebug.newValue);
       for (const key of ["chatgptEnabled", "readCodeBlocks"]) if (changes[key]) { settings[key] = Boolean(changes[key].newValue); reset(); }
       queueScan();
     }
