@@ -210,7 +210,7 @@
     },
     {
       "path": "docs/integration-validation.md",
-      "sha256": "9ef566e5ebb9325f0e40fa9cce505513b8ab062779d3a16f4c891b1f891fef83"
+      "sha256": "299411ce5f1910ad5922f57b672e0dacef449df223aae57b0c701909696dc49f"
     },
     {
       "path": "docs/version-audit.md",
@@ -382,7 +382,7 @@
     },
     {
       "path": "irodori-api/kurisu_voice_api.py",
-      "sha256": "c1e6b617f7adeabde918366a65c20987ed4315957c89def986566db9b13234e4"
+      "sha256": "aa666777dd93db4ffc9ad878d6f28e587b7af8fe36cd0b6423fe762779a21b5b"
     },
     {
       "path": "irodori-api/kurisu_voice_stable_api.py",
@@ -566,7 +566,7 @@
     },
     {
       "path": "tests/test_isolated_pipeline.py",
-      "sha256": "7cccccc605934139797116de27481504317ba629fb71ce3adab9ac611d79f33d"
+      "sha256": "288deea091f320fc60af017cf5fdd1bdb543a344e4b93db34201ee06fdae12a8"
     },
     {
       "path": "tests/test_native_host_safety.py",

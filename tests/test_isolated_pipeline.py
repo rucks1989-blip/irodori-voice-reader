@@ -265,7 +265,7 @@ vm.runInContext("invoke('runtime.sendNativeMessage',['io.github.irodori.voice_re
                     reservation.bind(("127.0.0.1", 0))
                     port = reservation.getsockname()[1]
                 (api / "config/api.json").write_text(json.dumps({"port": port}))
-                environment = dict(os.environ, IRODORI_API_PORT="1", IRODORI_AUDIO_CPP_API_URL="http://127.0.0.1:1/forbidden", IRODORI_VOICES_CONFIG=str(target / "must-not-exist.json"), IRODORI_API_PID=str(target / "must-not-write.pid"))
+                environment = dict(os.environ, PYTHONIOENCODING="ascii:strict", IRODORI_API_PORT="1", IRODORI_AUDIO_CPP_API_URL="http://127.0.0.1:1/forbidden", IRODORI_VOICES_CONFIG=str(target / "must-not-exist.json"), IRODORI_API_PID=str(target / "must-not-write.pid"))
                 with (target / "api.log").open("wb") as log:
                     process = subprocess.Popen([sys.executable, str(api / "kurisu_voice_api.py")], cwd=api, env=environment, stdout=log, stderr=log, creationflags=0x08000000)
                     url = f"http://127.0.0.1:{port}"
@@ -287,7 +287,10 @@ vm.runInContext("invoke('runtime.sendNativeMessage',['io.github.irodori.voice_re
                             health = json.load(urllib.request.urlopen(url + "/health?engine=" + engine))
                             self.assertEqual(health["port"], port)
                             data = json.dumps({"text": "test", "engine": engine}).encode()
-                            wav = urllib.request.urlopen(urllib.request.Request(url + "/tts", data=data, headers={"Content-Type": "application/json", "Origin": "chrome-extension://"+"a"*32}), timeout=5).read()
+                            try:
+                                wav = urllib.request.urlopen(urllib.request.Request(url + "/tts", data=data, headers={"Content-Type": "application/json", "Origin": "chrome-extension://"+"a"*32}), timeout=5).read()
+                            except urllib.error.HTTPError as error:
+                                self.fail(error.read().decode("utf8", errors="replace"))
                             self.assertEqual(wav[:4], b"RIFF")
                             self.assertEqual(wav[8:12], b"WAVE")
                         self.assertTrue((api / "logs/kurisu_voice_api/server.pid").exists())

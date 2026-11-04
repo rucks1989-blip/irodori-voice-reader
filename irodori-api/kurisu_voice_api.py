@@ -3,6 +3,7 @@ import json
 import os
 import re
 import subprocess
+import sys
 import threading
 import time
 import requests
@@ -17,6 +18,12 @@ from kurisu_voice.profiles import load_profiles, profile_from_config
 from kurisu_voice.speakers import clear_speaker_cache
 from kurisu_voice.stable_trace import collect_trace, stable_trace_path, trace_offset
 from kurisu_voice.voices import VoiceRegistry
+
+# Redirected Windows logs can inherit a non-Unicode encoding. Diagnostics must
+# never turn a successful synthesis into HTTP 400 through UnicodeEncodeError.
+for _stream in (sys.stdout, sys.stderr):
+    if hasattr(_stream, "reconfigure"):
+        _stream.reconfigure(encoding="utf8", errors="backslashreplace")
 
 
 ROOT = Path(__file__).resolve().parent
