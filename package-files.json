@@ -230,7 +230,7 @@
     },
     {
       "path": "docs/setup-recovery-2026-11-05.md",
-      "sha256": "1cc1685d2166c74c4ca8f678f5e954c97fd4433478d42914db4b59a98077f6a4"
+      "sha256": "90e53b70dec5244e3160c84aeffa44f32f5fe9a3e7bb3ee0c681f354364734cf"
     },
     {
       "path": "docs/version-audit.md",
@@ -666,7 +666,7 @@
     },
     {
       "path": "tests/test_installer_windows.py",
-      "sha256": "8fa3c98038a5eccbce1186ee24d3199d8b7c926fabcae19b2570d37086360a85"
+      "sha256": "6dbc202e8c2affead0530d61047b51c422a719ed62a50a1870ef36c322fa2cb2"
     },
     {
       "path": "tests/test_isolated_pipeline.py",

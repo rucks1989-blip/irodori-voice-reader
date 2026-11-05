@@ -134,13 +134,21 @@ class InstallerWindowsTests(unittest.TestCase):
             code, out, err = ps("""
             . './scripts/common.ps1'
             $ast=[System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path './scripts/setup.ps1'),[ref]$null,[ref]$null)
-            foreach($name in @('Write-Guide','Set-FirefoxPackage','Get-Asset')){
+            foreach($name in @('Write-Guide','Set-FirefoxPackage')){
                 $fn=$ast.Find({param($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq $name},$true)
                 Invoke-Expression $fn.Extent.Text
             }
             $SourceRoot=(Get-Location).Path
             $manifest=Get-Content './distribution.json' -Raw -Encoding UTF8 | ConvertFrom-Json
             $InstallRoot='""" + escaped + """'
+            # This is a path/guide unit test, not a Mozilla trust test. Keep it
+            # independent of ignored release binaries absent from Git clones.
+            $fixture=Join-Path $InstallRoot 'guide-fixture.xpi'
+            [IO.File]::WriteAllText($fixture,'guide test fixture, not a signed extension',$Utf8)
+            $signedSpec=@($manifest.assets | Where-Object {(Get-DownloadProperty $_ 'role') -eq 'signed-install'})[0]
+            $signedSpec.sha256=(Get-FileHash $fixture).Hash
+            $signedSpec.bytes=(Get-Item $fixture).Length
+            function Get-Asset($Asset){return $fixture}
             $Unattended=$true;$NoOpenGuide=$true;$stableInstalled=$false
             $FirefoxXpiSigned=$false;$FirefoxXpiPath=''
             foreach($Browsers in @('chrome','firefox','both')){
