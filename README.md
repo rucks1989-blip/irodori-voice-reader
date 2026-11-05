@@ -1,10 +1,10 @@
 # Irodori Voice Reader（β）
 
+**[▶ これをダウンロードする.zip（Windows用一括導入ZIP）](https://github.com/rucks1989-blip/irodori-voice-reader/releases/download/v0.1.0-private.2/default.zip)**
+
 ChatGPT・Gemini・MuseなどのAIチャットの文章を、**好きなキャラクターの声で読み上げる**Windows向けツールです。Chrome・Firefoxで利用できます。
 
-## ダウンロード
-
-### **[▶ Windows用ZIPをダウンロードする](https://github.com/rucks1989-blip/irodori-voice-reader/releases/download/v0.1.0-private.2/default.zip)**
+## ダウンロード・導入
 
 **ZIPをすべて展開 → フォルダー内の `setup.bat` をダブルクリック → 画面の案内に従う。**
 
