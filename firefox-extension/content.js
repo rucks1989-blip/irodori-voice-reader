@@ -1,7 +1,7 @@
 "use strict";
 
 const api = typeof browser !== "undefined" ? browser : chrome;
-const trackedSite = ["chatgpt.com", "chat.openai.com", "muse.ai", "www.muse.ai"].includes(location.hostname);
+const trackedSite = ["chatgpt.com", "chat.openai.com", "gemini.google.com", "muse.ai", "www.muse.ai"].includes(location.hostname);
 const pending = new Map();
 const seen = new Set();
 const candidateLogKeys = new WeakMap();

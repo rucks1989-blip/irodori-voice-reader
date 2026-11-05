@@ -22,6 +22,9 @@ _NUMERIC = re.compile(r"^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$")
 def stable_trace_path(root: Path) -> Path:
     """Return the stable trace path without creating or changing anything."""
     root = Path(root).resolve()
+    shared = root / "logs" / "audio_cpp_shared" / "trace.log"
+    if shared.exists():
+        return shared
     preferred = root / "logs" / "audio_cpp_voice_stable_speaker" / "trace.log"
     if preferred.exists():
         return preferred

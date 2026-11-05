@@ -245,6 +245,7 @@ async function syncSettingsEditor() {
   try { draft = collect(false); } catch (_) { draft = current; }
   const remote = Processor.mergedSettings(await api.runtime.sendMessage({ type: "get-settings" }));
   if (sequence !== storageSyncSequence) return;
+  if (Array.isArray(remote.cachedVoices)) voices = remote.cachedVoices;
   const reconciled = Processor.reconcileSettingsEditor(remote, draft, lastSavedSettings || current);
   lastSavedSettings = remote;
   current = Processor.mergedSettings(reconciled.settings);
@@ -660,13 +661,14 @@ api.runtime.onMessage.addListener((event) => {
 });
 api.storage.onChanged.addListener(async (changes, area) => {
   if (area !== "local" || !changes) return;
-  const settingKeys = new Set([...Object.keys(Processor.DEFAULT_SETTINGS), "voiceDisplayNames"]);
+  const settingKeys = new Set([...Object.keys(Processor.DEFAULT_SETTINGS), "voiceDisplayNames", "cachedVoices"]);
   if (!Object.keys(changes).some((key) => settingKeys.has(key))) return;
   try { await syncSettingsEditor(); }
   catch (error) { message(`他画面の設定を読み込めません: ${error.message}`, true); }
 });
 
 (async () => {
+  await globalThis.IrodoriInstallReady;
   const initialized = await api.runtime.sendMessage({ type: "initialize" });
   current = initialized.settings;
   lastSavedSettings = Processor.mergedSettings(initialized.settings);

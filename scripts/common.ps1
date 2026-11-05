@@ -111,9 +111,14 @@ function Install-Winget([string]$Id, [string[]]$Extra = @()) {
 }
 function Assert-FreePorts([int[]]$Ports=@(8765,8091)) {
     foreach ($port in $Ports) {
-        if (Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue) {
-            throw "ポート$port は使用中です。今回の専用ポートが他のアプリに使われています。既存プロセスは停止しません。"
-        }
+        # Windows TCP snapshots can briefly retain a PID-0 listener after our
+        # candidate exits. Probe the actual exclusive bind instead; never stop
+        # or reuse a foreign process based on a stale snapshot.
+        $probe=New-Object Net.Sockets.TcpListener([Net.IPAddress]::Loopback,$port)
+        $probe.ExclusiveAddressUse=$true
+        try{$probe.Start()}
+        catch{throw "ポート$port は使用中です。今回の専用ポートが他のアプリに使われています。既存プロセスは停止しません。"}
+        finally{$probe.Stop()}
     }
 }
 function Assert-LocalDirectory([string]$Path) {
@@ -193,11 +198,15 @@ function Copy-BackendRuntime([string]$Source,[string]$Destination){
 }
 
 function Test-StableCandidate([string]$Directory,[string]$Model,[string]$Backend,[int]$Port){
+    # Do not reuse the final engine's port immediately after killing a probe:
+    # Windows may still report its closing listener during the next stage.
+    $Port=Find-FreePort ($Port+1)
     $candidateConfig=Join-Path $Directory 'candidate.json'
     $candidateModels=@('irodori-500m-v3-q8','irodori-500m-v3-q8-voice-stable-speaker') | ForEach-Object {@{id=$_;family='irodori_tts';path=$Model;task='tts';mode='offline';session_options=@{'irodori_tts.mem_saver'='true'}}}
     Save-Json $candidateConfig @{host='127.0.0.1';port=$Port;backend=$Backend;models=@($candidateModels)}
     Assert-FreePorts @($Port)
-    $p=Add-SetupProcess (Start-Process (Join-Path $Directory 'audiocpp_server.exe') -ArgumentList @('--config',('"'+$candidateConfig+'"')) -WorkingDirectory $Directory -PassThru -WindowStyle Hidden -RedirectStandardOutput (Join-Path $Directory 'candidate.stdout.log') -RedirectStandardError (Join-Path $Directory 'candidate.stderr.log'))
+    $candidateTrace=Join-Path $Directory ('candidate-'+[guid]::NewGuid().ToString('N')+'.trace.log')
+    $p=Add-SetupProcess (Start-Process (Join-Path $Directory 'audiocpp_server.exe') -ArgumentList @('--config',('"'+$candidateConfig+'"'),'--log','--log-file',('"'+$candidateTrace+'"')) -WorkingDirectory $Directory -PassThru -WindowStyle Hidden -RedirectStandardOutput (Join-Path $Directory 'candidate.stdout.log') -RedirectStandardError (Join-Path $Directory 'candidate.stderr.log'))
     try{
         $deadline=[DateTime]::UtcNow.AddMinutes(3);$ready=$false
         while([DateTime]::UtcNow -lt $deadline){
@@ -207,6 +216,6 @@ function Test-StableCandidate([string]$Directory,[string]$Model,[string]$Backend
             Start-Sleep -Milliseconds 300
         }
         if(-not $ready){throw '声質安定版の起動確認がタイムアウトしました。'}
-        Run (Get-Python) @((Join-Path $PSScriptRoot 'verify-backend.py'),"http://127.0.0.1:$Port")
+        Run (Get-Python) @((Join-Path $PSScriptRoot 'verify-backend.py'),"http://127.0.0.1:$Port",$candidateTrace)
     }finally{if(-not $p.HasExited){$p.Kill();$p.WaitForExit()}}
 }

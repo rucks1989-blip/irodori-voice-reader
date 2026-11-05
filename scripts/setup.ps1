@@ -13,6 +13,7 @@ $StateRoot=$SessionRoot
 $statePath=Join-Path $StateRoot 'state.json'
 $ApiPort=8765;$BackendPort=8091
 $step='開始前';$ownedPids=@();$lock=$null;$stableInstalled=$false;$stableNoticeShown=$false
+$FirefoxXpiSigned=$false;$FirefoxXpiPath=''
 function Get-InstallBaseDefault {
     $locationPath=Join-Path $SessionRoot 'location.json'
     if(Test-Path -LiteralPath $locationPath){
@@ -51,8 +52,18 @@ function Show-StableAbsentNotice([switch]$Dialog){
     $message='声質安定版はインストールされていません。通常版のみ利用できます。'
     if(-not $stableNoticeShown){Write-Host $message -ForegroundColor Yellow;$script:stableNoticeShown=$true}
     if($Dialog -and -not $Unattended){
-        [void](Show-SetupDialog 'notice' ($message+"`r`n`r`n声質安定版を追加する場合は、setup.bat -Repair を実行し、声質安定版の完成品を使用するか任意ビルドを選んでください。`r`n既存のVoice設定は保持します。"))
+        [void](Show-SetupDialog 'notice' ($message+"`r`n`r`nインストール先の「声質安定版追加する.bat」をダブルクリックすると後から追加できます。`r`n既存のVoice設定は保持します。`r`n保存先: $InstallRoot"))
     }
+}
+function Set-FirefoxPackage {
+    $signedSpec=@($manifest.assets | Where-Object {(Get-DownloadProperty $_ 'role') -eq 'signed-install'}) | Select-Object -First 1
+    if(-not $signedSpec){throw '配布情報に署名済みFirefox XPIがありません。署名済みXPIを含む配布ZIPを使用してください。'}
+    $script:FirefoxXpiPath=Join-Path $InstallRoot $signedSpec.name
+    if(-not (Test-DownloadFile $FirefoxXpiPath $signedSpec.sha256 $signedSpec.bytes)){
+        $signedXpi=Get-Asset $signedSpec
+        Import-VerifiedFile $signedXpi $FirefoxXpiPath $signedSpec.sha256 $signedSpec.bytes
+    }
+    $script:FirefoxXpiSigned=$true
 }
 function Confirm-Install([string]$Message){
     if($Unattended){Write-Host ('承諾済みの通常セットアップ処理: '+$Message);return $true}
@@ -86,8 +97,16 @@ function Write-Guide([bool]$VoiceReady){
     New-Item -ItemType Directory -Force -Path $folder | Out-Null
     $chrome=[Security.SecurityElement]::Escape((Join-Path $InstallRoot 'chrome-extension'))
     $voice=if($VoiceReady){'音声生成テスト：導入済みモードのWAV生成成功'}else{'音声生成テスト：未実施。使う声の登録が必要です。準備完了とは別の確認項目です。'}
-    $stableGuide=if($stableInstalled){'<p>声質安定版もインストールされています。</p>'}else{'<p><strong>声質安定版はインストールされていません。</strong>通常版のみ利用できます。声質安定版を追加する場合は、setup.bat -Repair を実行し、声質安定版の完成品を使用するか任意ビルドを選んでください。既存のVoice設定は保持します。</p>'}
-    $firefoxGuide=if($Browsers -in @('firefox','both')){'<section><h2>Firefox</h2><p>独立環境のソースと firefox-isolated-unsigned.xpi を作成しました。未署名のため通常版Firefoxへの恒久導入はまだできません。既存の署名済みXPIはこの独立環境へ流用しません。署名工程は未解決です。</p></section>'}else{''}
+    $stableGuide=if($stableInstalled){'<p>声質安定版もインストールされています。</p>'}else{'<p><strong>声質安定版はインストールされていません。</strong>通常版のみ利用できます。インストール先の「声質安定版追加する.bat」をダブルクリックすると後から追加できます。先にIrodori Voice Readerのエンジンを停止してください。既存のVoice設定は保持します。</p>'}
+    $firefoxGuide=''
+    if($Browsers -in @('firefox','both')){
+        $xpi=[Security.SecurityElement]::Escape($FirefoxXpiPath)
+        if($FirefoxXpiSigned){
+            $firefoxGuide='<section><h2>Firefox：Mozilla署名済みXPI</h2><ol><li>Firefoxで <code>about:addons</code> を開きます。</li><li>歯車ボタン →「ファイルからアドオンをインストール」を選びます。</li><li>下の署名済みXPIを選び、Firefoxの確認画面で追加／更新を許可してください。</li></ol><input readonly value="'+$xpi+'"><p>拡張IDは従来と同じです。同じFirefoxプロファイルへの更新では既存設定を保持します。XPIを展開・編集しないでください。接続先はFirefox専用Native Hostから取得します。</p></section>'
+        }else{
+            $firefoxGuide='<section><h2>Firefox：未署名</h2><p>firefox-isolated-unsigned.xpi は開発用の未署名ファイルです。通常版Firefoxへの恒久導入成功とは扱いません。署名済みXPIを含む配布物を入手して setup.bat -Repair で再開してください。署名検証を無効にする必要はありません。</p></section>'
+        }
+    }
     $chromeGuide=if($Browsers -in @('chrome','both')){@"
 <section><h2>Chrome</h2><ol><li>アドレス欄に <code>chrome://extensions/</code> と入力して開きます。</li><li>右上の「デベロッパー モード」をONにします。</li><li>「パッケージ化されていない拡張機能を読み込む」を押します。</li><li>下の場所をコピーし、フォルダー選択画面でこのフォルダーを選びます。</li></ol>
 <input id="path" readonly value="$chrome"><button onclick="const e=document.getElementById('path');e.select();try{document.execCommand('copy')}catch(x){}">選ぶフォルダーをコピー</button><p>このフォルダーは削除・移動しないでください。ダウンロードした導入用フォルダーとは別の場所です。</p></section>
@@ -105,7 +124,12 @@ $firefoxGuide
 <section><h2>うまくいかない場合</h2><p>まずREADMEの「困ったとき」を確認し、setup.batを再実行してください。解決しない場合だけ、配布フォルダーの <code>AI-support.bat</code> で相談文を作成できます。自動送信はしません。</p></section></html>
 "@
     [IO.File]::WriteAllText((Join-Path $folder 'finish.html'),$html,$Utf8)
-    if(-not $NoOpenGuide -and -not $Unattended -and $Browsers -in @('chrome','both')){Start-Process 'chrome.exe' -ArgumentList @(('"'+(Join-Path $folder 'finish.html')+'"'))}else{Write-Host (Join-Path $folder 'finish.html')}
+    $guidePath=Join-Path $folder 'finish.html'
+    Write-Host ('導入手順: '+$guidePath)
+    if($Browsers -in @('chrome','both')){Write-Host ('Chromeで選ぶフォルダー: '+(Join-Path $InstallRoot 'chrome-extension'))}
+    if($Browsers -in @('firefox','both')){Write-Host ('Firefox: about:addons → 歯車 → ファイルからアドオンをインストール → '+$FirefoxXpiPath)}
+    if(-not $stableInstalled){Write-Host ('「声質安定版追加する.bat」をダブルクリックすると後から追加できます。保存先: '+$InstallRoot)}
+    if(-not $NoOpenGuide -and -not $Unattended){Start-Process $guidePath}
 }
 try{
     if(-not[Environment]::Is64BitOperatingSystem -or $env:PROCESSOR_ARCHITECTURE -eq 'ARM64'){throw 'この試験版はWindows x64用です。ARM64版ではありません。'}
@@ -123,7 +147,7 @@ try{
     if(Test-Path $sessionFile){$session=Get-Content $sessionFile -Raw -Encoding UTF8 | ConvertFrom-Json}
     $resume=$false
     if($session -and -not $NewEnvironment -and $session.browsers -eq $Browsers){
-        $action=if($Unattended){'resume'}else{Show-SetupDialog 'installation' ("前回の環境: "+$session.installRoot+"`r`n続きから再開するか、新しい別環境を作るか選んでください。")}
+            $action=if($Unattended -or ($Repair -and $SessionDirectory)){'resume'}else{Show-SetupDialog 'installation' ("前回の環境: "+$session.installRoot+"`r`n続きから再開するか、新しい別環境を作るか選んでください。")}
         if($action -eq 'resume'){$resume=$true}
         elseif($action -eq 'new'){$NewEnvironment=$true}
         else{Write-Host '中止しました。';exit 0}
@@ -161,7 +185,8 @@ try{
     $env:IVR_SETUP_LOG_ROOT=$SessionRoot
     Write-Host ("保存先: "+$InstallRoot)
     # A completed environment is not an invitation to initialize it again.
-    # This read-only reuse path also works while its existing API is running.
+    # Refresh only maintenance files/guide on reuse, never the live runtime.
+    # This path also works while its existing API is running.
     $completedMarker=Join-Path $InstallRoot '.ivr-install.json'
     $runtimePath=Join-Path $InstallRoot 'irodori-api\config\runtime.json'
     if($resume -and -not $Repair -and (Test-Path $completedMarker) -and (Test-Path $runtimePath)){
@@ -170,7 +195,16 @@ try{
         $savedModel=Join-Path $InstallRoot ('irodori-api\models\'+$manifest.model.name)
         if($completed.state -eq 'runtime-ready' -and (Test-DownloadFile $savedModel $manifest.model.sha256 $manifest.model.bytes) -and (Test-Path -LiteralPath $savedRuntime.audio_cpp_shared_executable -PathType Leaf)){
             [void](Get-PackageFiles $SourceRoot)
+            Copy-MaintenanceFiles $SourceRoot $InstallRoot
+            $localSession=Join-Path $InstallRoot 'installer-session'
+            Save-Json (Join-Path $localSession ($Browsers+'-session.json')) $session
+            Save-Json (Join-Path $localSession 'installation.json') $session
             $stableInstalled=[bool]$completed.voiceStable
+            if($Browsers -in @('firefox','both')){
+                # Older completion markers lack firefoxXpiName, even though the
+                # signed file exists. Resolve the pinned filename, not that field.
+                Set-FirefoxPackage
+            }
             Write-Host '完了済み環境と検証済みモデルを再利用します。Voice・設定・Native Host・実行中APIは変更しません。再取得・再ビルドも行いません。修復／アプリ更新が必要な場合は setup.bat -Repair を使用してください。' -ForegroundColor Green
             Write-Guide ([bool]$completed.voiceTest)
             return
@@ -265,7 +299,9 @@ try{
         $exeChoice=Show-SetupDialog 'file' '通常版のGPU完成品を指定できます。既存環境のaudiocpp_server.exeを選ぶと、必要DLLとともに独立環境へコピーします。未指定なら取得・任意ビルド・中止へ進みます。' 'audio.cpp|audiocpp_server.exe'
         if($exeChoice -ne 'cancel'){$BackendDirectory=Split-Path $exeChoice -Parent}
     }
-    if($BackendDirectory){
+    if($resume -and -not $BackendDirectory -and (Test-Path (Join-Path $backendDir 'audiocpp_server.exe'))){
+        Write-Host '導入済みの通常版を保持・再利用します。再取得・再ビルドしません。'
+    }elseif($BackendDirectory){
         if([IO.Path]::GetFullPath($BackendDirectory) -ne [IO.Path]::GetFullPath($backendDir)){Copy-BackendRuntime $BackendDirectory $backendDir}
     }elseif($asset){
         $archive=Get-Asset $asset
@@ -446,14 +482,18 @@ try{
     }while($retryNormal)
     Set-Step '6/7 ブラウザー接続ヘルパーの登録'
     if($Browsers -in @('firefox','both')){
-        $fxZip=Join-Path $StateRoot 'firefox-isolated.zip'
-        Compress-Archive -Path (Join-Path $InstallRoot 'firefox-extension\*') -DestinationPath $fxZip -Force
-        Copy-Item $fxZip (Join-Path $InstallRoot 'firefox-isolated-unsigned.xpi') -Force
+        Set-FirefoxPackage
+        $signedSpec=@($manifest.assets | Where-Object {(Get-DownloadProperty $_ 'role') -eq 'signed-install'}) | Select-Object -First 1
+        Run $venv @((Join-Path $PSScriptRoot 'verify-firefox-xpi.py'),$FirefoxXpiPath,'--sha256',$signedSpec.sha256,'--bytes',[string]$signedSpec.bytes,'--version',$signedSpec.version)
+        Write-Host ('署名済みXPIを検証・配置しました。Firefoxでの追加／更新許可はまだ必要です: '+$FirefoxXpiPath)
     }
     if(-not(Confirm-Install "選択したブラウザー ($Browsers) の専用接続ヘルパーを現在のWindowsユーザーに登録しますか？`r`n専用フォルダーを使用します。既存Native Host登録は上書きしません。")){throw 'ヘルパーは未登録です。setup.batから再開できます。'}
     & (Join-Path $PSScriptRoot 'register-hosts.ps1') -InstallRoot $InstallRoot -Browsers $Browsers
     Set-Step '7/7 拡張機能を追加する案内'
-    Save-Json (Join-Path $InstallRoot '.ivr-install.json') @{version=$manifest.version;state='runtime-ready';voiceTest=$voiceReady;voiceStable=$stableInstalled}
+    $localSession=Join-Path $InstallRoot 'installer-session'
+    Save-Json (Join-Path $localSession ($Browsers+'-session.json')) $session
+    Save-Json (Join-Path $localSession 'installation.json') $session
+    Save-Json (Join-Path $InstallRoot '.ivr-install.json') @{version=$manifest.version;state='runtime-ready';voiceTest=$voiceReady;voiceStable=$stableInstalled;firefoxSigned=$FirefoxXpiSigned;firefoxXpiName=[IO.Path]::GetFileName($FirefoxXpiPath)}
     Save-Json $statePath @{version=$manifest.version;step='ローカル環境の準備完了・拡張機能の手動追加待ち';error='';completed=$true;voiceTest=$voiceReady;voiceStable=$stableInstalled}
     Show-StableAbsentNotice -Dialog
     Write-Guide $voiceReady

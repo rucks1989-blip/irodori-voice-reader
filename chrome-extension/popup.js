@@ -136,10 +136,12 @@ api.runtime.onMessage.addListener((message) => {
 api.storage.onChanged.addListener((changes, area) => {
   if (area !== "local") return;
   for (const [key, change] of Object.entries(changes)) popupSettings[key] = change.newValue;
+  if (changes.cachedVoices && Array.isArray(changes.cachedVoices.newValue)) popupVoices = changes.cachedVoices.newValue;
   renderSettings(popupSettings);
 });
 
 (async () => {
+  await globalThis.IrodoriInstallReady;
   const initialized = await api.runtime.sendMessage({ type: "initialize" });
   popupSettings = initialized.settings;
   popupVoices = initialized.voices || popupSettings.cachedVoices || [];

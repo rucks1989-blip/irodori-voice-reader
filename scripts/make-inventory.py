@@ -7,7 +7,13 @@ from privacy_scan import ROOT, allowed
 files = []
 # User-supplied standalone prototype, reviewed but not adopted as an installer
 # entry point. Preserve it locally without silently publishing it in releases.
-excluded_prototypes = {"download-irodori.ps1", "README.txt", "ダウンロード.bat"}
+excluded_prototypes = {
+    "download-irodori.ps1", "README.txt", "ダウンロード.bat",
+    # Existing local maintainer work is preserved, but installation never
+    # needs signing credentials or a second, unused maintenance implementation.
+    "Firefox拡張を署名する.bat", "scripts/sign-firefox.py",
+    "scripts/sign_distribution_firefox.ps1", "scripts/stable-maintenance.py",
+}
 for path in sorted(ROOT.rglob("*")):
     if not path.is_file():
         continue

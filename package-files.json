@@ -86,7 +86,7 @@
     },
     {
       "path": "chrome-extension/background.js",
-      "sha256": "abd55cd2b0e8594a87914b2994745e09db3f315389656a40967b19b3e4a10a4a"
+      "sha256": "f283cc0d026329d1d88112736eab67f51198aae801d1eaad09c039dd47807e0b"
     },
     {
       "path": "chrome-extension/character-mapping.css",
@@ -122,7 +122,7 @@
     },
     {
       "path": "chrome-extension/manifest.json",
-      "sha256": "6351a8b396f54dc3bd5f01b13a1b3601e959abada8cf0ed638f4ea4e799e7045"
+      "sha256": "91fdd771e4b847a87d40dd5595d6001289cd362fc8caeb21c024a3cd4233117a"
     },
     {
       "path": "chrome-extension/muse-watcher.js",
@@ -146,7 +146,7 @@
     },
     {
       "path": "chrome-extension/options.js",
-      "sha256": "74b0a9858365c5842b62e24682fe08cd259d14a7ee1ffb0d9151f2fe8089f8d0"
+      "sha256": "058b0a0e8c39ede462f69d56212373c010f3cf912a214f2e50ca3221319be9c4"
     },
     {
       "path": "chrome-extension/popup.css",
@@ -158,7 +158,7 @@
     },
     {
       "path": "chrome-extension/popup.js",
-      "sha256": "a0a649d3b743bf21e4b57b43929e4bdae7453d02066adc184e114cce606ec25e"
+      "sha256": "95b05b056255c771455b5cf45524fb46577ba0ff7c9786a952fbfb174af2f0ec"
     },
     {
       "path": "chrome-extension/service-worker.js",
@@ -174,11 +174,11 @@
     },
     {
       "path": "chrome-extension/sidebar.js",
-      "sha256": "744642d0005eb6a0c839365dfc4be5e3c87ca91b3b87f1057ef43cc4aab1397c"
+      "sha256": "0cd2b80af12c414ed8e4aff67e5bb5614391a0f68bc26d95788985766628bc94"
     },
     {
       "path": "chrome-extension/text-processor.js",
-      "sha256": "2af2a5f3c92ae2ee44b86ef12ba4a15e3489106542b9f19aa9c0aa5df42f1255"
+      "sha256": "650592d568294ee9fd4e9038c47509253fa7a4f27a69e210332f64acc4758a21"
     },
     {
       "path": "chrome-extension/voice-management.css",
@@ -190,7 +190,7 @@
     },
     {
       "path": "distribution.json",
-      "sha256": "53f7910fbf80807831bca176fffc8da1e4eb17931ac0a4361481a01c5f9cee4c"
+      "sha256": "9703d616d5227b15ab4d6e5bdec63d10974cc0d0dc6b7230d0a47c4c4384f371"
     },
     {
       "path": "docs/browser-install.md",
@@ -225,12 +225,20 @@
       "sha256": "5f06c8b50eece50c14fa3547eda90c416d8fe76823d846b9155011dd2995e9fd"
     },
     {
+      "path": "docs/licenses/NVIDIA-CUDA-12.6-EULA.html",
+      "sha256": "f9f1d448ea3fc0cf46197c570774b7cfe672c0bbe9ac6456444d65a9b487ba5a"
+    },
+    {
+      "path": "docs/setup-recovery-2026-11-05.md",
+      "sha256": "1cc1685d2166c74c4ca8f678f5e954c97fd4433478d42914db4b59a98077f6a4"
+    },
+    {
       "path": "docs/version-audit.md",
       "sha256": "bcb945eec0b556e3bfc6c7eeeec797cc1b8fa5d45089c124960b15625522a24e"
     },
     {
       "path": "firefox-extension/adapters.js",
-      "sha256": "526bfc8744ab8a56add7366a658187044b532ea2a189f12ed546ea69da2b1a6e"
+      "sha256": "3749d320e5aa96d21cc8b5422d2563cc18aad5473b7a576e770d75d43d27586c"
     },
     {
       "path": "firefox-extension/api-state.js",
@@ -238,19 +246,19 @@
     },
     {
       "path": "firefox-extension/background.js",
-      "sha256": "5b9950574390540611cd58f87cfa66cccfbefd89e83cf8178110f641e2c34705"
+      "sha256": "8b167d3799c77eb539aa169682dc2d2675bc0edc34cd8d0265d232f10051cff3"
     },
     {
       "path": "firefox-extension/character-mapping.css",
-      "sha256": "560d74643dc4a27c93312c38a423ad1a561bac6af0000d79e798066b0efc35a3"
+      "sha256": "99af4724e2ce6ac41ad3b0b770b9833e358fda7739ef3d6773efd79bb961379b"
     },
     {
       "path": "firefox-extension/chatgpt-watcher.js",
-      "sha256": "0955e7cd0ff231968f575ef53f63c9bb3ebbb5f36ef0c97fd3795db7bc7d454c"
+      "sha256": "436da7576da8be4ad7471490091b2b8ffee32805211c60ac15f2acfe21515071"
     },
     {
       "path": "firefox-extension/content.js",
-      "sha256": "34dd4e5631c4d720e09b3d913ebac54ed84f44c17ea29ccfc8dada19698743b8"
+      "sha256": "2f8b61fcf5655403110b6365ee6409f6ff6fa2b227d29b7c8dcff387a9a370eb"
     },
     {
       "path": "firefox-extension/engine-picker.css",
@@ -262,11 +270,11 @@
     },
     {
       "path": "firefox-extension/install-config.js",
-      "sha256": "d9f157304d6ecd5530094d90b7117ed3b4ef20e68fad751c9d1ec68bcafc2e9a"
+      "sha256": "313adce73a02c68f0755147481c5dc3de9078e61caab463a4e7277480a598720"
     },
     {
       "path": "firefox-extension/manifest.json",
-      "sha256": "1a21e0a1712009f11b5ca72ee8558a83ba05ce12c6b41473901a274fb58017f7"
+      "sha256": "5e8afdf5d4bdc32924d8796c76e896fe1774bd7db82370b1845d4627cf272308"
     },
     {
       "path": "firefox-extension/muse-watcher.js",
@@ -274,7 +282,7 @@
     },
     {
       "path": "firefox-extension/options.css",
-      "sha256": "518af3ffacdf8647b3f6aea602b84d3bc19be5ebc24d49074780b5f7a9eca2fb"
+      "sha256": "47566832af89d1d28f4dc262de3bcf3f9822756d3a69e32ed407feea07cf926a"
     },
     {
       "path": "firefox-extension/options.html",
@@ -282,23 +290,23 @@
     },
     {
       "path": "firefox-extension/options.js",
-      "sha256": "74b0a9858365c5842b62e24682fe08cd259d14a7ee1ffb0d9151f2fe8089f8d0"
+      "sha256": "7e0d01794d6aaf37f5837cd732554d93e42c8e391046483c4d9c6998f9b966c1"
     },
     {
       "path": "firefox-extension/popup.css",
-      "sha256": "ba3778e1bbb00c4e57e72d6bd7aaf3d6c9a698c02d44ad9dde97367febdea3e6"
+      "sha256": "5c2119c128ecbc5ecff347ad19d82138109644453e8152e214718034cbe97e75"
     },
     {
       "path": "firefox-extension/popup.html",
-      "sha256": "60110172b38bdce513c1f14f587c59193833fa715e602d857f8256d85feec76d"
+      "sha256": "c7b87d08ec73e970755047261d9987c6cb24ed1db37cedd8262db921a980d75b"
     },
     {
       "path": "firefox-extension/popup.js",
-      "sha256": "a0a649d3b743bf21e4b57b43929e4bdae7453d02066adc184e114cce606ec25e"
+      "sha256": "199b640a44fe3b99c9b1d25afee0ff9315a79514302733faa7947c6a268fd5cb"
     },
     {
       "path": "firefox-extension/sidebar.css",
-      "sha256": "5635c8904be453134825c23052d31aaf9743eaaf99476bd8dc91939e6df2327f"
+      "sha256": "3c55ca47bdd830b1ad6aeb6080533b4319bc71765574eecb31b419261900d104"
     },
     {
       "path": "firefox-extension/sidebar.html",
@@ -306,19 +314,19 @@
     },
     {
       "path": "firefox-extension/sidebar.js",
-      "sha256": "14c7fe12ebe2d6fcc081d26f28a2dc7a47cfa7a138ed0e8586e45a7721e764a7"
+      "sha256": "280dfea81ff6976c542cbde91627c7bbdeb616dc9913d6a25977de5bdcd10a96"
     },
     {
       "path": "firefox-extension/text-processor.js",
-      "sha256": "2af2a5f3c92ae2ee44b86ef12ba4a15e3489106542b9f19aa9c0aa5df42f1255"
+      "sha256": "ab61df550670d4b23b567e00838e35ad43577a1394650cde676bfa7272857d66"
     },
     {
       "path": "firefox-extension/voice-management.css",
-      "sha256": "9a10dc9a0e9c6e86d3163e185af36be9c022d1c1125c3222a699eaac291532d9"
+      "sha256": "1e8529b39277c66a20a6b17b23e44ea8d5e283d260f066e0e92b62525428cfb8"
     },
     {
       "path": "firefox-extension/voice-readiness.js",
-      "sha256": "622956c08c8a5f247361f62ec270d2837322fbc29f67bdccd5cc06e3ecf2f91c"
+      "sha256": "fcb4f8591c0acc5134cebefbde61d522152b13a6f148f94385af66e42e301e90"
     },
     {
       "path": "irodori-api/config/audio_cpp_server.shared.example.json",
@@ -386,7 +394,7 @@
     },
     {
       "path": "irodori-api/kurisu_voice/stable_trace.py",
-      "sha256": "4dcc1dd63ab76e9be69cd1e877bc6ee40ec5fddfc659fa344f61dc33e2346353"
+      "sha256": "2234e652405ad41df34f15025bdae94e0ee083e3eb55a16874dd3b804e595832"
     },
     {
       "path": "irodori-api/kurisu_voice/voices.py",
@@ -394,7 +402,7 @@
     },
     {
       "path": "irodori-api/kurisu_voice_api.py",
-      "sha256": "c80b230108800b89edaa76342a6d4e9fb8d59e248b91f8c68923bfcf244c5fd6"
+      "sha256": "5308fc200afbf0ed3307cc0ef8154073f4d5ae2a72ae419e9b2063789d0151e8"
     },
     {
       "path": "irodori-api/kurisu_voice_stable_api.py",
@@ -482,7 +490,7 @@
     },
     {
       "path": "native-host/irodori_native_host.py",
-      "sha256": "6b53b2d07046dd3473bcec651eedcff6795d0900559d9071b9162b271f20e77e"
+      "sha256": "5b1f8710e2e898aa312da28ef5370db03d8269b87bd6b96dbd76cdbaebe9b950"
     },
     {
       "path": "provenance.json",
@@ -490,15 +498,19 @@
     },
     {
       "path": "README.md",
-      "sha256": "7617c26a963e13a3ac41f3324756230575715ffdb348339b0644affd8026dfe1"
+      "sha256": "cf12b254e3d2178471cc4fe76dbc0229919bee88767261457afff2f059d58e11"
     },
     {
       "path": "RELEASE_NOTES.md",
-      "sha256": "090c0c3aa16e81bb870cdaa140b2665181c0069c997b67b8881c1e198a512b3b"
+      "sha256": "37f30b7629ec55b64730588391f516c5e0d15d05f0b2e4c47b073e47dd26dae0"
+    },
+    {
+      "path": "scripts/add-stable.ps1",
+      "sha256": "2a2200283349780ec572e4f3a656734f7277d32694c930583afa4ddc99789344"
     },
     {
       "path": "scripts/build-backend.ps1",
-      "sha256": "89d141917860ebc7782afa6908567eed525965a8b09f4d79fe883b3af88b5e93"
+      "sha256": "aa4527a94e3174ca8d99baac62867cc33f2c93d3665409c660e9e9b8302cbbbd"
     },
     {
       "path": "scripts/build-fingerprint.py",
@@ -506,15 +518,15 @@
     },
     {
       "path": "scripts/common.ps1",
-      "sha256": "337c9fcb9d5a5a89ecc3732f70e93c226e4dc609c8986f352312c38d4d7ffa04"
+      "sha256": "88b25d92421ef851a625f34afefd639637c28471f0a41cb8e910897ab8643a10"
     },
     {
       "path": "scripts/configure-chrome.ps1",
-      "sha256": "1c29039cf360382f194169e594092db46ea5a010151f91e0cca4175ebb7bbd1a"
+      "sha256": "d9c063634a49d0ef925576434135644ae4bc50898520642e6bc5fa4a0d9ebbf9"
     },
     {
       "path": "scripts/download-catalog.json",
-      "sha256": "e8b3813452e8d719bf9ca86361416a1f042f2bb4af97690a5c2d887b3b6bf3fa"
+      "sha256": "9d74982915818fb0737a1bbaa1d013b07ada2aa914bf2ab472a96288583d1641"
     },
     {
       "path": "scripts/download-file.py",
@@ -534,15 +546,15 @@
     },
     {
       "path": "scripts/install-files.ps1",
-      "sha256": "a194e8ba89a60e39694059cf6a67bb722223cda232962aa0a915217ec701b9aa"
+      "sha256": "96863c7d9e57eb5fe64b746e18e0b979e8e37fdf22e789e335a09a64a55f3aa8"
     },
     {
       "path": "scripts/make-download-catalog.py",
-      "sha256": "8399bb66e89927a1e8a2239b261db28666e720cbe42e317f7b677399e4a50046"
+      "sha256": "cd8f74b72381144c09c6892b607de0ac59cdde8f2165b8e2bbabfd376f3f08c7"
     },
     {
       "path": "scripts/make-inventory.py",
-      "sha256": "95ec2a1e63e1093b13b574fd55167737ae644d89dc1f99cc482c2d587c198367"
+      "sha256": "299ab92337190464f4399b38f3a68777d0242f7eb6a62ff7b099e46b0b689c19"
     },
     {
       "path": "scripts/package-release.py",
@@ -550,7 +562,7 @@
     },
     {
       "path": "scripts/prepare-assets.py",
-      "sha256": "a00ebe228700fea854a2a9fcf1606d6a12410c4138e5eb98a3e97a8037cb611e"
+      "sha256": "a2c8e40922bf77737dd68ae93a44ca2cf5d0e33278de0b81b974626661744acd"
     },
     {
       "path": "scripts/privacy_scan.py",
@@ -558,7 +570,7 @@
     },
     {
       "path": "scripts/register-hosts.ps1",
-      "sha256": "7ef13f98192ab1da54c3ef23a8c0c1e5f00801893c2528d9d877a97bca000b8c"
+      "sha256": "12dc3af9a685b44d6deca58c90b90fb0bd0edf0fc5198f30f77ea4c2cfd21553"
     },
     {
       "path": "scripts/setup-dialog.cs",
@@ -570,11 +582,15 @@
     },
     {
       "path": "scripts/setup.ps1",
-      "sha256": "35c169eab6583e5dad3b15f1f0154aa8a04a7d48386c24519ca1611434fd824f"
+      "sha256": "f4735bdab8860544c04a9ba1ff8902d34dbfc5c0ded24e00df56e9400f89098c"
     },
     {
       "path": "scripts/support.ps1",
       "sha256": "fc942cd7762f10c8e8524d777c6ef5d8916916d3c32996ec748b25a4bd366337"
+    },
+    {
+      "path": "scripts/sync-firefox.py",
+      "sha256": "e66cb7b728a5bccf0bc9c41053b0f9cf4978ca78fcb97923196a54f118a07e90"
     },
     {
       "path": "scripts/validate.ps1",
@@ -582,11 +598,15 @@
     },
     {
       "path": "scripts/verify-backend.py",
-      "sha256": "7a5e045853252fa1b615e1f9b05b1d6a714e435d9e2831cd72900a7801f62536"
+      "sha256": "0dcb9e56575f92c66adfdbd242de95eb0daf7105834dd9b7f47ffe33b7581f00"
+    },
+    {
+      "path": "scripts/verify-firefox-xpi.py",
+      "sha256": "5132f0a9d489bc4efb729efba7dba707bfc34ce65865a715d3f59eb77afe73cf"
     },
     {
       "path": "scripts/verify-tts.py",
-      "sha256": "f455ba555defe7d633d815d78e6c7221ad83b634a543f196520c971e71282eae"
+      "sha256": "df2ae9e92c30cc3082e25c1c0e47f04939f3c65b40b640113e96f0b870a29fbd"
     },
     {
       "path": "setup.bat",
@@ -599,6 +619,10 @@
     {
       "path": "tests/smoke_backend.py",
       "sha256": "172e57845bb1b6fbbc2335b679c591ae30da7442d87ecb1b50d313ecfd385613"
+    },
+    {
+      "path": "tests/test_backend_candidate.py",
+      "sha256": "b3dcbf69d401a9727b2dd619d44da848fa10f3db8ecdd2fc510fc76dd67d87dc"
     },
     {
       "path": "tests/test_chrome_chatgpt_adapter.html",
@@ -633,16 +657,24 @@
       "sha256": "83b385faaca3022de6eba999d6db55d8653efe6f7a62f1b405d6d25dca9816bc"
     },
     {
+      "path": "tests/test_firefox_bootstrap.js",
+      "sha256": "3c302360edc0347c2a39f8677a3ce15dc013022938aee65214b44e25e8605c8b"
+    },
+    {
+      "path": "tests/test_gpu_asset_packaging.py",
+      "sha256": "0267fed52326223308a2ea395f91ed39a72960c25e1bdf40e55800314f49f2b0"
+    },
+    {
       "path": "tests/test_installer_windows.py",
-      "sha256": "6b2ae55282e07ee21ef65498bc7ca1e8ab186d88e6c1d7f6057b8ec8e88e06af"
+      "sha256": "8fa3c98038a5eccbce1186ee24d3199d8b7c926fabcae19b2570d37086360a85"
     },
     {
       "path": "tests/test_isolated_pipeline.py",
-      "sha256": "853634c68559bf4c387fd6e6a062a6804886b4dbb3179ae969e11859bec97fbc"
+      "sha256": "e6bacbb78624923fa3c1e81240282dd3ba50df9ad586ce28461770d6ed7db849"
     },
     {
       "path": "tests/test_native_host_safety.py",
-      "sha256": "caf72160cab5d95610c3ce870c321f6119c80b021a6ec0b5ad08d6dd2cc6c298"
+      "sha256": "c3ba099f3ae7902e0eec5ad09d98cf042b90fb6b851051bc019bc3a32781085f"
     },
     {
       "path": "tests/test_speaker_delimiters.js",
@@ -653,8 +685,16 @@
       "sha256": "58c221161c164f878b8eb4f1bd11302cf18385c8f86a197a16b125df52105676"
     },
     {
+      "path": "tests/test_voice_live_updates.js",
+      "sha256": "17b01c3e938ff46dc87003966dd3f6d20366f1160074384ee1f4df664915e10a"
+    },
+    {
       "path": "THIRD_PARTY_NOTICES.md",
-      "sha256": "d194958831ce81e87e5333f6353850fb4d62b4309805e2f31b200838657cdd43"
+      "sha256": "a1f76d502cf5b758d1694a52013db4fbbaaa8cf7ce52bab8528d271406763fca"
+    },
+    {
+      "path": "\u58f0\u8cea\u5b89\u5b9a\u7248\u8ffd\u52a0\u3059\u308b.bat",
+      "sha256": "d0618504a677ccf84f8f8d7239e68d559f9fc5cafe895acc5b0f7970d88d5557"
     }
   ]
 }

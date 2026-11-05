@@ -17,6 +17,17 @@ def ps(script):
 
 @unittest.skipUnless(os.name == "nt", "Windows installer tests")
 class InstallerWindowsTests(unittest.TestCase):
+    def test_powershell_entrypoints_parse_using_windows_default_encoding(self):
+        code, out, err = ps("""
+        foreach($file in Get-ChildItem './scripts/*.ps1'){
+            $tokens=$null;$errors=$null
+            [void][Management.Automation.Language.Parser]::ParseFile($file.FullName,[ref]$tokens,[ref]$errors)
+            if($errors.Count){throw ($file.Name+': '+($errors.Message -join '; '))}
+        }
+        Write-Output 'Windows PowerShell parsing verified'
+        """)
+        self.assertEqual(code, 0, out + err)
+
     def test_preflight_is_read_only(self):
         state = Path(os.environ["LOCALAPPDATA"]) / "IrodoriVoiceReader/Installer/state.json"
         before = state.read_bytes() if state.exists() else None
@@ -25,8 +36,33 @@ class InstallerWindowsTests(unittest.TestCase):
         self.assertIn("診断のみ完了", out)
         self.assertEqual(state.read_bytes() if state.exists() else None, before)
 
+    def test_add_stable_bat_outside_installation_fails_without_installing(self):
+        result = subprocess.run('call "'+str(ROOT/'声質安定版追加する.bat')+'" <nul', shell=True,
+                                cwd=ROOT, capture_output=True, timeout=15)
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn(b'inside the installed folder', result.stdout)
+
+    def test_add_stable_propagates_repair_failure_despite_stale_capability(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            session = root / 'installer-session'
+            session.mkdir()
+            value = {'installRoot': str(root), 'browsers': 'chrome', 'version': 'different-version',
+                     'apiPort': 19876, 'backendPort': 19877}
+            for name in ('installation.json', 'chrome-session.json'):
+                (session/name).write_text(json.dumps(value), encoding='utf8')
+            config = root/'irodori-api/config'
+            config.mkdir(parents=True)
+            (config/'capabilities.json').write_text('{"voice_stable":true}', encoding='utf8')
+            escaped = folder.replace("'", "''")
+            code, out, err = ps("& './scripts/add-stable.ps1' -InstallRoot '"+escaped+"' -Unattended -NoOpenGuide")
+            self.assertNotEqual(code, 0, out + err)
+            self.assertNotIn('声質安定版を追加しました', out)
+
     def test_unattended_mode_requires_explicit_browser_without_opening_dialog(self):
-        code, out, err = ps("& './scripts/setup.ps1' -Unattended -NoOpenGuide")
+        with tempfile.TemporaryDirectory() as folder:
+            escaped = folder.replace("'", "''")
+            code, out, err = ps("& './scripts/setup.ps1' -Unattended -NoOpenGuide -SessionDirectory '" + escaped + "'")
         self.assertNotEqual(code, 0)
         self.assertIn('-Browsers', out + err)
 
@@ -75,6 +111,53 @@ class InstallerWindowsTests(unittest.TestCase):
         code, out, err = ps(". './scripts/common.ps1'; @( (Get-BackendChoice 'auto' '86'), (Get-BackendChoice 'auto' ''), (Get-BackendChoice 'cpu' '86'), (Get-BackendChoice 'cuda' '86') ) | ConvertTo-Json -Compress")
         self.assertEqual(code, 0, out + err)
         self.assertEqual(json.loads(out), ['cuda', 'cpu', 'cpu', 'cuda'])
+
+    def test_port_probe_rejects_live_listener_and_accepts_released_port(self):
+        code, out, err = ps("""
+        . './scripts/common.ps1'
+        $listener=New-Object Net.Sockets.TcpListener([Net.IPAddress]::Loopback,0)
+        $listener.Start();$port=$listener.LocalEndpoint.Port
+        try{
+            $rejected=$false
+            try{Assert-FreePorts @($port)}catch{$rejected=$true}
+            if(-not $rejected){throw 'Occupied port accepted'}
+            if(-not $listener.Server.IsBound){throw 'Foreign listener changed'}
+        }finally{$listener.Stop()}
+        Assert-FreePorts @($port)
+        Write-Output 'Port ownership preserved'
+        """)
+        self.assertEqual(code, 0, out + err)
+
+    def test_finish_guide_matches_each_browser_and_uses_pinned_xpi(self):
+        with tempfile.TemporaryDirectory() as folder:
+            escaped = folder.replace("'", "''")
+            code, out, err = ps("""
+            . './scripts/common.ps1'
+            $ast=[System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path './scripts/setup.ps1'),[ref]$null,[ref]$null)
+            foreach($name in @('Write-Guide','Set-FirefoxPackage','Get-Asset')){
+                $fn=$ast.Find({param($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq $name},$true)
+                Invoke-Expression $fn.Extent.Text
+            }
+            $SourceRoot=(Get-Location).Path
+            $manifest=Get-Content './distribution.json' -Raw -Encoding UTF8 | ConvertFrom-Json
+            $InstallRoot='""" + escaped + """'
+            $Unattended=$true;$NoOpenGuide=$true;$stableInstalled=$false
+            $FirefoxXpiSigned=$false;$FirefoxXpiPath=''
+            foreach($Browsers in @('chrome','firefox','both')){
+                if($Browsers -ne 'chrome'){Set-FirefoxPackage}
+                Write-Guide $false
+                Copy-Item (Join-Path $InstallRoot 'docs/finish.html') (Join-Path $InstallRoot ($Browsers+'.html'))
+            }
+            """)
+            self.assertEqual(code, 0, out + err)
+            for browser in ('chrome', 'firefox', 'both'):
+                html = (Path(folder) / (browser + '.html')).read_text(encoding='utf8')
+                self.assertEqual('<h2>Chrome</h2>' in html, browser != 'firefox')
+                self.assertEqual('about:addons' in html, browser != 'chrome')
+                self.assertIn('声質安定版追加する.bat', html)
+                if browser != 'chrome':
+                    self.assertIn('IrodoriVoiceReader-Firefox-1.2.27-signed.xpi', html)
+                    self.assertNotIn('未署名', html)
 
     def test_isolated_identity_and_endpoint_configuration(self):
         import shutil, hashlib

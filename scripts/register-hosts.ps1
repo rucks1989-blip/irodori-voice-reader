@@ -7,14 +7,14 @@ $identity=Get-Content (Join-Path $InstallRoot 'chrome-identity.json') -Raw -Enco
 if($identity.extensionId -notmatch '^[a-p]{32}$' -or $identity.hostName -cne ('io.github.irodori.voice_reader.chrome.i'+$identity.extensionId)){throw '専用Native Host識別情報が不正です。既存登録は変更しません。'}
 $specs=@()
 if($Browsers -in @('chrome','both')){$specs+=@{folder='chrome-host';host=$identity.hostName;registry=('HKCU:\Software\Google\Chrome\NativeMessagingHosts\'+$identity.hostName);entry='chrome_native_host.py'}}
-if($Browsers -in @('firefox','both')){$specs+=@{folder='firefox-host';host=('io.github.irodori.voice_reader.firefox.i'+$identity.extensionId);registry=('HKCU:\Software\Mozilla\NativeMessagingHosts\io.github.irodori.voice_reader.firefox.i'+$identity.extensionId);entry='irodori_native_host.py'}}
+if($Browsers -in @('firefox','both')){$specs+=@{folder='firefox-host';host='io.github.irodori.voice_reader.firefox';registry='HKCU:\Software\Mozilla\NativeMessagingHosts\io.github.irodori.voice_reader.firefox';entry='irodori_native_host.py'}}
 foreach($spec in $specs){
     $spec.folderPath=Join-Path $InstallRoot $spec.folder
     $spec.manifestPath=Join-Path $spec.folderPath ($spec.host+'.json')
     $spec.launchPath=Join-Path $spec.folderPath 'launch.bat'
-    $spec.config=@{firefox_extension_id=('irodori-'+$identity.extensionId+'@isolated.local');isolated_environment=$true;irodori_root=$apiRoot;health_url="http://127.0.0.1:$($identity.apiPort)/health";backend_health_url="http://127.0.0.1:$($identity.backendPort)/health";start_task='';chrome_extension_id=$identity.extensionId;startup_timeout_seconds=420;startup_poll_interval_seconds=2}
+    $spec.config=@{firefox_extension_id='irodori-voice-reader@local';isolated_environment=$true;irodori_root=$apiRoot;health_url="http://127.0.0.1:$($identity.apiPort)/health";backend_health_url="http://127.0.0.1:$($identity.backendPort)/health";start_task='';chrome_extension_id=$identity.extensionId;startup_timeout_seconds=420;startup_poll_interval_seconds=2}
     $spec.manifest=@{name=$spec.host;description='Irodori Voice Reader isolated local controller';path=$spec.launchPath;type='stdio'}
-    if($spec.folder -eq 'firefox-host'){$spec.manifest.allowed_extensions=@('irodori-'+$identity.extensionId+'@isolated.local')}else{$spec.manifest.allowed_origins=@("chrome-extension://$($identity.extensionId)/")}
+    if($spec.folder -eq 'firefox-host'){$spec.manifest.allowed_extensions=@('irodori-voice-reader@local')}else{$spec.manifest.allowed_origins=@("chrome-extension://$($identity.extensionId)/")}
 }
 if($PlanOnly){ConvertTo-Json -InputObject @($specs) -Depth 15;return}
 foreach($spec in $specs){

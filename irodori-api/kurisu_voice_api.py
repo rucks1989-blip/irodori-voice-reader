@@ -283,6 +283,7 @@ def voice_state():
             reference = item.get("speaker_embedding") or item.get("reference_wav") or item.get("safetensors") or ""
             kind = "speaker_embedding" if item.get("speaker_embedding") else ("safetensors" if item.get("safetensors") else "reference_wav")
             items.append({"id": item.get("id", ""), "name": item.get("name", item.get("id", "")), "type": kind,
+                          "enabled": item.get("enabled", True) is not False,
                           "reference": reference, "managed": item.get("managed_by") == "irodori-voice-reader", "fileExists": bool(reference and (ROOT / reference).resolve().is_file())})
         return {"ok": True, "voices": items, "disabledAutoVoices": value["disabled_auto_voices"]}
 
@@ -329,6 +330,8 @@ def voice_change(action, message):
             os.replace(temporary, file)
             reference = file.relative_to(ROOT).as_posix() if file.is_relative_to(ROOT) else str(file)
             record = {"id": voice_id, "name": name, "managed_by": "irodori-voice-reader", kind: reference}
+            if existing is not None:
+                record["enabled"] = existing.get("enabled", True) is not False
             if existing is None:
                 value["voices"].append(record)
             else:
@@ -339,7 +342,12 @@ def voice_change(action, message):
         if existing is None:
             raise ValueError("Voice登録が見つかりません。")
         if action == "update":
-            existing["name"] = name
+            if "name" in message:
+                existing["name"] = name
+            if "enabled" in message:
+                if not isinstance(message["enabled"], bool):
+                    raise ValueError("Voiceの有効・無効は真偽値で指定してください。")
+                existing["enabled"] = message["enabled"]
             _save_voice_config(value)
             return {"ok": True}
         if action == "delete":

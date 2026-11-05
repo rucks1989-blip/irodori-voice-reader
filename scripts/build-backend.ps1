@@ -10,11 +10,14 @@ param(
     [string]$CacheRoot='',
     [string]$VsInstall='',
     [string]$SourceArchive='',
+    [switch]$PortableCuda,
     [switch]$ConfigureOnly
 )
 . (Join-Path $PSScriptRoot 'common.ps1')
 $Root = Split-Path -Parent $PSScriptRoot
 $manifest = Get-Content (Join-Path $Root 'distribution.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+$portableArchitectures=@('61','70','75','80','86','89','90','100','120')
+if($PortableCuda -and $Backend -ne 'cuda'){throw '配布用の複数世代CUDAビルドは-Backend cudaで指定してください。CPU完成品と既存キャッシュは変更しません。'}
 function Find-Vs {
     if($VsInstall){
         if(-not(Test-Path (Join-Path $VsInstall 'VC\Tools\MSVC'))){throw '指定したC++ビルド環境が見つかりません。'}
@@ -28,7 +31,7 @@ function Find-Vs {
     return ''
 }
 function Find-Cuda {
-    if (-not $CudaArch -or $CudaArch -notmatch '^\d{2,3}$') { throw 'NVIDIA GPUの世代を確認できません。CPU方式を選択してください。' }
+    if (-not $PortableCuda -and (-not $CudaArch -or $CudaArch -notmatch '^\d{2,3}$')) { throw 'NVIDIA GPUの世代を確認できません。CPU方式を選択してください。' }
     $roots = @($env:CUDA_PATH,$env:CUDAToolkit_ROOT)
     $roots += @(Get-ChildItem 'C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA' -Directory -ErrorAction SilentlyContinue | Sort-Object Name -Descending | ForEach-Object { $_.FullName })
     foreach ($r in $roots) {
@@ -36,6 +39,11 @@ function Find-Cuda {
         $nvcc = Join-Path $r 'bin\nvcc.exe'
         if (Test-Path $nvcc) {
             $archs = @(& $nvcc --list-gpu-arch 2>$null)
+            if($PortableCuda){
+                $missing=@($portableArchitectures | Where-Object {$archs -notcontains ('compute_'+$_)})
+                if(-not $missing.Count){return $r}
+                continue
+            }
             if ($archs -contains "compute_$CudaArch") { return $r }
         }
     }
@@ -53,8 +61,9 @@ $patchHash=$legacyHash+$(if(-not $StandardOnly){(Get-FileHash $sharedPatch).Hash
 $digest=(Hash-Text $patchHash).Substring(0,16)
 if(-not $CacheRoot){$CacheRoot=Join-Path $WorkRoot 'b'}
 $mode=if($StandardOnly){'standard'}else{'stable'}
-$arch=if($Backend -eq 'cuda'){$CudaArch}else{''}
+$arch=if($PortableCuda){'portable'}elseif($Backend -eq 'cuda'){$CudaArch}else{''}
 $recipe="schema=2;commit=$($manifest.audioCppCommit);patch=$digest;mode=$mode;backend=$Backend;arch=$arch;cpu=baseline;native=OFF;llamafile=OFF;target=audiocpp_server;config=Release"
+if($PortableCuda){$recipe+=';sass='+($portableArchitectures -join ',')+';ptx=120'}
 $legacyRuntime=Join-Path $CacheRoot ($manifest.audioCppCommit.Substring(0,7)+'-'+$mode+'-'+$digest.Substring(0,8)+'-'+$Backend+$(if($arch){'-sm'+$arch}else{''}))
 # Short paths also save Windows CMake/Ninja object-file path budget. All recipe
 # fields remain in complete.json rather than being repeated in directory names.
@@ -127,7 +136,7 @@ if (-not (Test-Path $marker)) {
     # source path matters to CMake/Ninja. Never reset/clean a user's source.
     $legacy=Join-Path $CacheRoot ($manifest.audioCppCommit.Substring(0,7)+$(if($StandardOnly){'-standard'}else{''})+'-'+$legacyDigest.Substring(0,8)+'\patched.json')
     $adopted=$false
-    if(Test-Path $legacy){
+    if(-not $PortableCuda -and (Test-Path $legacy)){
         $old=Get-Content $legacy -Raw -Encoding UTF8 | ConvertFrom-Json
         if($old.commit -eq $manifest.audioCppCommit -and $old.patchHash -eq $legacyDigest -and (Test-Path $old.source)){
             $head=& $git.Source -C $old.source rev-parse HEAD
@@ -178,7 +187,11 @@ $effectiveJobs=Get-BuildJobs $cpu $free $Backend $Jobs
 Write-Host "ビルド並列数: $effectiveJobs / 論理CPU: $cpu / 空きRAM: $([Math]::Round($free/1GB,2)) GB（OS用1GBとコンパイラ用メモリを確保）"
 $buildArguments=@('-NoProfile','-ExecutionPolicy','Bypass','-File',(Join-Path $source 'scripts\build_windows.ps1'),'-Preset',$preset,'-Target','audiocpp_server','-VsInstall',$vs,'-Jobs',[string]$effectiveJobs)
 $buildArguments+=@('-CpuArch','baseline','-NativeCpu','OFF','-Llamafile','OFF')
-if($Backend -eq 'cuda'){$buildArguments+=@('-CudaArchitectures',($CudaArch+'-real'))}
+if($PortableCuda){
+    $portableTargets=@($portableArchitectures | ForEach-Object {$_+'-real'})+@('120-virtual')
+    Write-Host ('配布用共通CUDAビルド（単一GPU専用ではありません）: '+($portableTargets -join ';'))
+    $buildArguments+=@('-CudaArchitectures',($portableTargets -join ';'))
+}elseif($Backend -eq 'cuda'){$buildArguments+=@('-CudaArchitectures',($CudaArch+'-real'))}
 if($ConfigureOnly){$buildArguments+='-ConfigureOnly'}
 Run 'powershell.exe' $buildArguments
 if($ConfigureOnly){Write-Host ('固定ソースの取得・パッチ・CMake設定を確認しました。コンパイルは要求されていません。秒数: '+$watch.Elapsed.TotalSeconds.ToString('F2'));exit 0}
@@ -192,7 +205,7 @@ if($Backend -eq 'cuda'){
         Get-ChildItem (Join-Path $cuda 'bin') -Filter $pattern -File | Copy-Item -Destination $runtime -Force
     }
 }
-Save-Json (Join-Path $runtime 'build.json') @{ standardOnly=[bool]$StandardOnly; stableSupported=(-not $StandardOnly); commit=$manifest.audioCppCommit; patchHash=$digest; sharedSessionPatchSha256=$(if(-not $StandardOnly){(Get-FileHash $sharedPatch).Hash}else{''}); backend=$Backend; arch=$arch; exeSha256=(Get-FileHash $exe -Algorithm SHA256).Hash }
+Save-Json (Join-Path $runtime 'build.json') @{ standardOnly=[bool]$StandardOnly; stableSupported=(-not $StandardOnly); commit=$manifest.audioCppCommit; patchHash=$digest; sharedSessionPatchSha256=$(if(-not $StandardOnly){(Get-FileHash $sharedPatch).Hash}else{''}); backend=$Backend; arch=$arch; portableCuda=[bool]$PortableCuda;supportedArchitectures=$(if($PortableCuda){$portableArchitectures}elseif($arch){@($arch)}else{@()});exeSha256=(Get-FileHash $exe -Algorithm SHA256).Hash }
 $toolPaths=@((Get-ChildItem (Join-Path $vs 'VC\Tools\MSVC\*\bin\Hostx64\x64\cl.exe') | Sort-Object FullName -Descending | Select-Object -First 1).FullName)
 if($Backend -eq 'cuda'){$toolPaths+=Join-Path $cuda 'bin\nvcc.exe'}
 $tools=@($toolPaths | ForEach-Object {@{path=$_;sha256=(Get-FileHash $_).Hash}})

@@ -12,6 +12,22 @@ function Get-PackageFiles([string]$SourceRoot) {
     }
     return $inventory.files
 }
+function Copy-MaintenanceFiles([string]$SourceRoot,[string]$InstallRoot) {
+    $files=@(Get-PackageFiles $SourceRoot)
+    # Repairs launched inside the installation use a pristine source snapshot,
+    # not the configured extension files (whose hashes necessarily differ).
+    $repairSource=Join-Path $InstallRoot 'installer-source'
+    if([IO.Path]::GetFullPath($SourceRoot).TrimEnd('\') -eq [IO.Path]::GetFullPath($repairSource).TrimEnd('\')){return}
+    foreach($item in $files){
+        $dest=Join-Path $repairSource $item.path
+        New-Item -ItemType Directory -Force -Path (Split-Path -Parent $dest) | Out-Null
+        Copy-Item -LiteralPath (Join-Path $SourceRoot $item.path) -Destination $dest -Force
+    }
+    Copy-Item (Join-Path $SourceRoot 'package-files.json') $repairSource -Force
+    $assetSource=Join-Path $SourceRoot 'assets'
+    if(Test-Path $assetSource){Copy-Item $assetSource $repairSource -Recurse -Force}
+    Copy-Item -LiteralPath (Join-Path $SourceRoot '声質安定版追加する.bat') -Destination $InstallRoot -Force
+}
 function Copy-Application([string]$SourceRoot,[string]$InstallRoot,[string]$Version) {
     $files=@(Get-PackageFiles $SourceRoot)
     $marker=Join-Path $InstallRoot '.ivr-install.json'
@@ -20,7 +36,9 @@ function Copy-Application([string]$SourceRoot,[string]$InstallRoot,[string]$Vers
         $previous=Get-Content $marker -Raw -Encoding UTF8 | ConvertFrom-Json
         if($previous.version -ne $Version){throw '保存先の版が異なります。変更せず停止します。'}
     }
+    if([IO.Path]::GetFullPath($SourceRoot).TrimEnd('\') -eq [IO.Path]::GetFullPath((Join-Path $InstallRoot 'installer-source')).TrimEnd('\')){return}
     Save-Json $marker @{version=$Version;state='preparing'}
+    Copy-MaintenanceFiles $SourceRoot $InstallRoot
     foreach($item in $files){
         if($item.path -notmatch '^(chrome-extension|firefox-extension|native-host|irodori-api|docs)/' -and $item.path -notin @('LICENSE','THIRD_PARTY_NOTICES.md','README.md')){continue}
         $dest=Join-Path $InstallRoot $item.path

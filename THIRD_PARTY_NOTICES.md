@@ -27,8 +27,9 @@ External components are not relicensed by this repository:
   terms. Optional build prerequisite installation uses Microsoft's winget
   package. No license keys or compiler installations are included here.
 - NVIDIA CUDA Toolkit and runtime: NVIDIA CUDA EULA. GPU builds install or use
-  an appropriate Toolkit with consent. This first release distributes only a
-  CPU backend binary; no CUDA DLLs are redistributed in its release assets.
+  an appropriate Toolkit with consent. The optional stable GPU package includes
+  only the CUDA 12.6 runtime redistributables listed below, not the compiler,
+  SDK, driver or developer tools. These components are not licensed under MIT.
 - Git for Windows: its bundled license terms. Optional prerequisite for source
   building, acquired via winget after consent.
 
@@ -36,16 +37,24 @@ No reference voices, speaker embeddings, personal training weights, generated
 audio, browser profiles, or external chat contents are distributed. Use only
 reference audio you have permission to use.
 
-## GPU packaging review (integration branch)
+## Stable GPU package redistribution
 
-No new GPU binary or CUDA DLL is committed or published by this branch.
-Before packaging a finished GPU backend, identify the exact imported DLL
-versions and retain the corresponding license documents and notices.
-NVIDIA identifies redistributable components in the
-[CUDA EULA supplement](https://docs.nvidia.com/cuda/eula/index.html).
+The retained [CUDA 12.6 EULA](docs/licenses/NVIDIA-CUDA-12.6-EULA.html),
+Supplement 2.6 Attachment A, identifies CUDA Runtime (cudart), CUDA BLAS
+(cublas/cublasLt), and CUDA FFT (cufft) Windows libraries, including versioned
+filenames, as redistributable with an application under its distribution terms.
+They are supplied only as runtime dependencies of Irodori Voice Reader.
+No NVIDIA endorsement is implied. NVIDIA components retain their original
+proprietary license restrictions; this project's source license does not
+relicense them. Applicable third-party library notices are retained in that EULA.
+
+The GPU package records exact sizes and SHA-256 hashes in the download catalog.
+Its runtime DLLs are `cudart64_12.dll`, `cublas64_12.dll`, `cublasLt64_12.dll`,
+and `cufft64_11.dll`, from the selected CUDA 12.6 toolchain. The corresponding
+license document is also included inside the GPU asset ZIP.
+
 Microsoft requires comparing dependencies with the applicable REDIST list;
 see [Determine which DLLs to redistribute](https://learn.microsoft.com/en-us/cpp/windows/determining-which-dlls-to-redistribute?view=msvc-170)
 and [Visual Studio license terms](https://visualstudio.microsoft.com/license-terms/).
-Possession of an installed DLL alone is not a completed redistribution review.
-Use the official VC++ Redistributable package where appropriate rather than
-assuming every DLL copied from an existing application is distributable.
+The GPU package does not copy arbitrary Microsoft DLLs from existing apps.
+Setup uses the official VC++ Redistributable package where required.

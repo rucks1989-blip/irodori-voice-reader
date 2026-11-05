@@ -50,12 +50,8 @@ foreach($name in @('config','config.voice_stable')){
 
 $firefox=Join-Path $InstallRoot 'firefox-extension'
 if(-not $ChromeOnly -and (Test-Path $firefox)){
-    $firefoxId=('irodori-'+$identity.extensionId+'@isolated.local')
-    $firefoxHost=('io.github.irodori.voice_reader.firefox.i'+$identity.extensionId)
     $fm=Get-Content (Join-Path $firefox 'manifest.json') -Raw -Encoding UTF8 | ConvertFrom-Json
-    $fm.browser_specific_settings.gecko.id=$firefoxId
-    $fm.name='Irodori Voice Reader (独立環境)'
-    Save-Json (Join-Path $firefox 'manifest.json') $fm
-    $fc=@{apiBase="http://127.0.0.1:$ApiPort";nativeHost=$firefoxHost} | ConvertTo-Json -Compress
-    [IO.File]::WriteAllText((Join-Path $firefox 'install-config.js'),("globalThis.IrodoriInstallConfig = Object.freeze("+$fc+");`n"),$Utf8)
+    if($fm.browser_specific_settings.gecko.id -ne 'irodori-voice-reader@local'){throw 'Firefoxの署名対象IDが既存の正式IDと異なります。IDや署名済みXPIは書き換えません。'}
+    # Firefox's signed payload and stable Gecko ID stay byte-identical. Its
+    # bootstrap obtains this environment's endpoint from the dedicated host.
 }

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Irodori Voice Reader",
-  "version": "1.2.25",
+  "version": "1.2.26",
   "description": "ChatGPT・Gemini・Muse・選択文章をローカルIrodori-TTSで読み上げます。",
   "minimum_chrome_version": "116",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAi3YA59UWVEQaITxmg206rZihU+nU0sBbbIFx1gfWuHjdgs8ApiHxNyqjHPUcY+TsIMYOWDdjxW1RnAscm1OToWBWGos+FFUPrCKPB/PH7+mDFBwIJ3kIMCsRjnOy4QnEKIfGDYyv3yJgqzlYSVXXxOZ8fAMh4DPe0r6ezM5wK9KlVApeECrRT8cvgAwOJzgAY7jpIRAgLDvnG/VxXRNJQIEeD1e9MsN3auhbgYsmeFb+sbfwDW/AnDIh5p42tB38Al3jqJ7wdKk1mqFXy0fPGcVZr9y3OebyvbUYrk9gCKlY0lflqUjLoIZ4TX+KNCAUo/nwZak7PHdqLszr2lNULQIDAQAB",

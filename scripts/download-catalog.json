@@ -13502,6 +13502,32 @@
           "sha256": "b7f228c301764e6a6460659ed3f885197617335fdd0d889847549121f6d4dacc"
         }
       }
+    },
+    "7eb088f2a72f56b2d95ec80da9b8013054ce48fb55e691f8f39e7f2f6f9bedf1": {
+      "name": "audio-cpp-stable-cuda-sm86-x64.zip",
+      "rootPrefix": "",
+      "files": {
+        "audiocpp_server.exe": {
+          "bytes": 139341824,
+          "sha256": "7f27f137215156939fa397e47bdf061573a76d076b9d05f638b6af9f6bec57cf"
+        },
+        "cublas64_12.dll": {
+          "bytes": 104883712,
+          "sha256": "01d8172b25d8e2d2cb6a276e76e719f5908c6124f484c8c8ca310fbe7b6634f3"
+        },
+        "cublasLt64_12.dll": {
+          "bytes": 531812352,
+          "sha256": "0d59d264782cec2782b9ac72483e53c9ba485a9d3a1e19b34071a17b8152102e"
+        },
+        "cudart64_12.dll": {
+          "bytes": 556544,
+          "sha256": "d954ca542b3b6bcf03cc2b798a7d00051501cf734ca751050e986af505cf9dad"
+        },
+        "cufft64_11.dll": {
+          "bytes": 277351424,
+          "sha256": "cf3fdfe46470f694f9a1a6895ea2deb57d49059d08acfe5e12769ab3fcdc5320"
+        }
+      }
     }
   }
 }

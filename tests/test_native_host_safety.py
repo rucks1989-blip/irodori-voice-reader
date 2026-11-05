@@ -16,6 +16,33 @@ spec.loader.exec_module(native_host)
 
 
 class NativeHostSafetyTests(unittest.TestCase):
+    def test_installation_discovery_returns_only_the_local_endpoint(self):
+        self.assertEqual(native_host.handle({"command":"installation_info"}, {"health_url":"http://127.0.0.1:19876/health"}),
+                         {"ok":True,"apiBase":"http://127.0.0.1:19876"})
+        for url in ("https://example.com/health", "http://user:secret@localhost:8765/health", "http://127.0.0.1.evil.example/health"):
+            with self.assertRaises(ValueError):
+                native_host.handle({"command":"installation_info"}, {"health_url":url})
+
+    def test_voice_enable_and_rename_preserve_reference_and_other_settings(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            path = self._write_voices(root, {"id":"liveVoice", "name":"Original", "reference_wav":"voice_refs/original.wav", "custom":"keep"})
+            with patch.object(native_host, "_reload_api", return_value={"status":"reloaded", "applied":True}):
+                native_host.update_voice({"id":"liveVoice", "enabled":False}, {"root":root})
+                record = json.loads(path.read_text(encoding="utf8"))["voices"][0]
+                self.assertEqual(record["name"], "Original")
+                self.assertFalse(record["enabled"])
+                self.assertEqual(record["custom"], "keep")
+                self.assertEqual(record["reference_wav"], "voice_refs/original.wav")
+                self.assertFalse(native_host.voice_state({"root":root})["voices"][0]["enabled"])
+                native_host.update_voice({"id":"liveVoice", "name":"Renamed", "enabled":True}, {"root":root})
+                self.assertTrue(native_host.voice_state({"root":root})["voices"][0]["enabled"])
+                self.assertEqual(json.loads(path.read_text(encoding="utf8"))["voices"][0]["name"], "Renamed")
+                before = path.read_bytes()
+                with self.assertRaises(ValueError):
+                    native_host.update_voice({"id":"liveVoice", "enabled":"false"}, {"root":root})
+                self.assertEqual(path.read_bytes(), before)
+
     def _write_voices(self, root, record):
         path = root / "config" / "voices.json"
         path.parent.mkdir(parents=True, exist_ok=True)

@@ -237,6 +237,7 @@ async function syncSettingsEditor() {
   const stored = await api.runtime.sendMessage({ type: "get-settings" });
   if (sequence !== engineStorageSyncSequence) return;
   const remote = Processor.mergedSettings(stored);
+  if (Array.isArray(stored.cachedVoices)) voices = stored.cachedVoices;
   const reconciled = Processor.reconcileSettingsEditor(remote, draft, lastSavedSettings || current);
   lastSavedSettings = remote;
   current = Processor.mergedSettings(reconciled.settings);
@@ -358,7 +359,8 @@ function voiceTypeLabel(type) {
 
 function renderVoiceCards() {
   if (!$(`voiceCards`)) return;
-  const cards = voices.map((voice) => {
+  const displayedVoices = [...voices, ...[...configuredVoices.values()].filter((voice) => !voices.some((item) => item.id === voice.id))];
+  const cards = displayedVoices.map((voice) => {
     const configVoice = configuredVoices.get(voice.id);
     const card = document.createElement("div");
     card.className = "voice-card";
@@ -373,6 +375,18 @@ function renderVoiceCards() {
       const actions = document.createElement("div");
       actions.className = "actions";
       if (configVoice) {
+        const toggle = document.createElement("button");
+        toggle.textContent = configVoice.enabled === false ? "有効にする" : "無効にする";
+        toggle.addEventListener("click", async () => {
+          toggle.disabled = true;
+          try {
+            await api.runtime.sendMessage({ type: "native-control", command: "voice_update", id: voice.id, enabled: configVoice.enabled === false });
+            await refreshVoices();
+            setResult(`Voice「${voice.name || voice.id}」を${configVoice.enabled === false ? "有効" : "無効"}にしました。`, true);
+          } catch (error) { setResult(error.message, false); }
+          finally { toggle.disabled = false; }
+        });
+        actions.appendChild(toggle);
         const edit = document.createElement("button");
         edit.textContent = "変更";
         edit.addEventListener("click", () => showVoiceForm(voice, configVoice));
@@ -680,16 +694,20 @@ $("deletePreset").addEventListener("click", async () => {
 
 api.runtime.onMessage.addListener((event) => {
   if (event && event.type === "timing-log-updated") renderTimingLogStatus(event);
+  if (event && event.type === "voice-catalog-updated") {
+    refreshVoiceState().then(renderVoiceCards).catch((error) => setResult(error.message, false));
+  }
 });
 
 api.storage.onChanged.addListener((changes, area) => {
   if (area !== "local" || !changes) return;
-  const settingKeys = new Set([...Object.keys(Processor.DEFAULT_SETTINGS), "voiceDisplayNames"]);
+  const settingKeys = new Set([...Object.keys(Processor.DEFAULT_SETTINGS), "voiceDisplayNames", "cachedVoices"]);
   if (!Object.keys(changes).some((key) => settingKeys.has(key))) return;
   syncSettingsEditor().catch((error) => setResult(`他画面の設定を読み込めません: ${error.message}`, false));
 });
 
 (async () => {
+  await globalThis.IrodoriInstallReady;
   $("extensionVersion").textContent = api.runtime.getManifest().version;
   const stored = await api.storage.local.get({ ...Processor.DEFAULT_SETTINGS, cachedVoices: [] });
   voices = stored.cachedVoices || [];
@@ -710,4 +728,4 @@ api.storage.onChanged.addListener((changes, area) => {
   await refreshEngineHealth();
   await refreshTimingLogStatus();
   if (location.hash === "#voice-management") $("voice-management").scrollIntoView();
-})();
+})().catch((error) => setResult(`設定画面を初期化できません: ${error.message}`, false));

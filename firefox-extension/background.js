@@ -58,12 +58,13 @@ const state = {
   voiceReadinessKey: "",
   voiceState: { status: "unknown", source: "none", error: "" },
   voiceRefreshSequence: 0,
+  voiceRevision: 0,
   lastTimingSummary: null
 };
 const MAX_GENERATION_WORKERS = 2;
 let initializationPromise = null;
 let engineReadyPromise = null;
-const NATIVE_HOST = globalThis.IrodoriInstallConfig?.nativeHost || "io.github.irodori.voice_reader";
+const NATIVE_HOST = globalThis.IrodoriInstallConfig.nativeHost;
 const API_START_TIMEOUT_MS = 420000;
 const API_START_POLL_INTERVAL_MS = 2000;
 const SETTINGS_BACKUP_KEY = "irodoriSettingsBackup";
@@ -106,7 +107,8 @@ function persistSettingsPatch(patch, baseSnapshot = {}) {
 }
 
 async function settings() {
-  const config = Processor.mergedSettings(await browserApi.storage.local.get(Processor.DEFAULT_SETTINGS));
+  await globalThis.IrodoriInstallReady;
+  const config = Processor.mergedSettings(await browserApi.storage.local.get({ ...Processor.DEFAULT_SETTINGS, cachedVoices: [], voiceDisplayNames: {} }));
   state.timingDebug = Boolean(config.timingDebug);
   return config;
 }
@@ -181,6 +183,14 @@ if (browserApi.storage && browserApi.storage.onChanged && typeof browserApi.stor
   browserApi.storage.onChanged.addListener((changes, area) => {
     if (area === "local" && changes && changes.timingDebug) {
       state.timingDebug = Boolean(changes.timingDebug.newValue);
+    }
+    if (area === "local" && changes) {
+      const routingKeys = ["defaultVoice", "narratorVoice", "dialogueVoice", "characterMappings", "voiceDisplayNames", "cachedVoices", "characterTagPriority"];
+      if (routingKeys.some((key) => changes[key] && JSON.stringify(changes[key].oldValue) !== JSON.stringify(changes[key].newValue))) {
+        invalidatePendingVoiceJobs();
+        if (changes.defaultVoice) invalidateVoiceReadiness("default-voice-changed");
+        runSchedulers();
+      }
     }
   });
 }
@@ -263,6 +273,20 @@ function invalidateVoiceReadiness(reason = "unspecified") {
   console.info("[Irodori] voice-readiness-invalidated", { reason, sequence: state.voiceRefreshSequence });
 }
 
+function invalidatePendingVoiceJobs() {
+  state.voiceRevision += 1;
+  // Playing audio is deliberately outside this queue. Never stop it or clear
+  // answer identities; only future synthesis/playback needs the new routing.
+  for (const job of state.queue) {
+    if (job.status !== "generated") continue;
+    job.blob = null;
+    job.status = "queued";
+    job.nextAttemptAt = 0;
+    job.answerRecord.state = "queued";
+    state.generatedKeys.delete(`${job.answerRecord.source}|${job.answerRecord.conversationId}|${job.answerRecord.messageId}|${job.chunkIndex}`);
+  }
+}
+
 function voiceReadinessKeyFor(config) {
   return [
     state.engineEpoch,
@@ -318,6 +342,11 @@ async function ensureVoiceReady(config = null, options = {}) {
       }
       state.voiceState = { status: error.voiceResolutionPermanent ? "empty" : "error", source: "none", reason: options.reason || "ensure", error: error.message };
       state.voiceReady = false;
+      if (error.voiceResolutionPermanent) {
+        state.voices = [];
+        state.selectedVoice = "";
+        await browserApi.storage.local.set({ cachedVoices: [] });
+      }
       throw error;
     }
     if (sequence !== state.voiceRefreshSequence || state.engineEpoch !== engineEpoch) {
@@ -382,10 +411,20 @@ async function ensureJobVoiceReady(job) {
   if (job.engineEpoch !== state.engineEpoch || state.engineTransition || state.engineStarting) {
     throw VoiceReadiness.transientError("生成エンジンまたはVoice一覧の切替中です。", { stage: "engine-transition" });
   }
-  const config = await settings();
+  let config = await settings();
   const ready = await ensureVoiceReady(config);
   if (ready.cancelled) throw VoiceReadiness.transientError("Voice一覧の更新がengine切替で無効になりました。", { stage: "stale-voice-refresh" });
   if (!ready.freshVoices.length) throw VoiceReadiness.transientError("最新のVoice一覧を取得するまで読み上げを待機します。", { stage: "voice-list-refresh" });
+  config = await settings();
+  if (job.voiceRevision !== state.voiceRevision) {
+    const previous = job.voiceRoute || {};
+    const route = VoiceReadiness.routeForSegment({ ...job, voice: "", voiceRoute: null,
+      dialogue: previous.dialogue, narration: previous.narration }, config);
+    job.voice = route.voice;
+    job.requestedVoice = route.voice;
+    job.voiceRoute = route;
+    job.voiceRevision = state.voiceRevision;
+  }
   const resolution = VoiceReadiness.resolveJobVoice(
     job,
     config,
@@ -519,6 +558,7 @@ function mergeVoiceDisplayNames(voices, managedNames) {
 }
 
 async function initializeSettings() {
+  await globalThis.IrodoriInstallReady;
   let stored = await browserApi.storage.local.get(null);
   if (!settingsShapeIsValid(stored)) {
     const backup = stored[SETTINGS_BACKUP_KEY];
@@ -714,7 +754,7 @@ function nativeEngineFullyStopped(status, engine) {
 async function nativeControl(command, payload = {}) {
   let response;
   try {
-    response = await browserApi.runtime.sendNativeMessage(NATIVE_HOST, { command, ...payload });
+    response = await globalThis.IrodoriFirefoxNativeMessage(NATIVE_HOST, { command, ...payload });
   } catch (error) {
     throw new Error(`Irodoriローカルヘルパーに接続できません。導入ツールを実行してください。（${error.message}）`);
   }
@@ -722,6 +762,28 @@ async function nativeControl(command, payload = {}) {
     throw new Error((response && response.error) || "ローカルヘルパーから応答がありません。");
   }
   return response;
+}
+
+async function refreshVoiceCatalog(reason = "manual-voice-refresh") {
+  const config = await settings();
+  invalidateVoiceReadiness(reason);
+  try {
+    const ready = await ensureVoiceReady(config, { force: true, reason });
+    const managedNames = await fetchManagedVoiceNames(config);
+    const voices = mergeVoiceDisplayNames(ready.voices, managedNames);
+    const updates = { cachedVoices: voices };
+    if (Object.keys(managedNames).length) {
+      updates.voiceDisplayNames = { ...(config.voiceDisplayNames || {}), ...managedNames };
+    }
+    await browserApi.storage.local.set(updates);
+    state.voices = voices;
+    return { voices, source: ready.source, stale: Boolean(ready.stale) };
+  } catch (error) {
+    if (error.voiceResolutionPermanent) return { voices: [], source: "api", stale: false };
+    const cached = Array.isArray(config.cachedVoices) ? config.cachedVoices : [];
+    if (cached.length) return { voices: cached, source: "cache", warning: error.message };
+    throw new Error(`Irodori APIに接続できません。${endpointForConfig(config)} を起動してから再接続してください。`);
+  }
 }
 
 function datasetSource(source) {
@@ -1515,6 +1577,7 @@ function addJob(record, text, voice, source, tabId, chunkIndex, segment = null, 
     tabId,
     chunkIndex,
     engineEpoch: state.engineEpoch,
+    voiceRevision: state.voiceRevision,
     status: "queued",
     ttsRetryAttempts: 0,
     blob: null,
@@ -1816,7 +1879,14 @@ async function generateJob(job) {
     job.status = "generating";
     record.state = "generating";
     debugTransition(record, job, "generating", { generation_started: true });
+    const voiceRevision = state.voiceRevision;
     const blob = await requestTts(job, controller);
+    if (voiceRevision !== state.voiceRevision) {
+      job.status = "queued";
+      job.nextAttemptAt = 0;
+      record.state = "queued";
+      return;
+    }
     job.blob = blob;
     job.status = "generated";
     job.ttsRetryAttempts = 0;
@@ -2344,7 +2414,10 @@ async function selectedTextFromActiveTab() {
 
 browserApi.runtime.onMessage.addListener((message, sender) => {
   const type = message && message.type;
-  if (type === "initialize") return ensureInitialized();
+  if (type === "initialize") return ensureInitialized().then(async (initialized) => {
+    const current = await settings();
+    return { ...initialized, settings: current, voices: state.voices.length ? state.voices : (current.cachedVoices || []) };
+  });
   if (type === "get-settings") return settings();
   if (type === "save-settings") return persistSettingsPatch(message.patch || {}, message.base || {});
   if (type === "export-settings") return settings().then(async (value) => {
@@ -2397,6 +2470,25 @@ browserApi.runtime.onMessage.addListener((message, sender) => {
       return settings().then((config) => {
         if (config.apiMode === "custom") throw new Error("既存Irodori-TTS API使用中はNative HostでAPIを起動・停止・切替しません。");
         return command === "start" ? startApiNonBlocking(payload) : nativeControl(command, payload);
+      });
+    }
+    if (["voice_import", "voice_update", "voice_delete"].includes(command)) {
+      return nativeControl(command, payload).then(async (result) => {
+        invalidateVoiceReadiness("voice-registration-changed");
+        invalidatePendingVoiceJobs();
+        try {
+          const refreshed = await refreshVoiceCatalog("voice-registration-changed");
+          result.voiceRefreshWarning = refreshed.warning || "";
+        } catch (error) {
+          // Saving may succeed while the API is stopped, or the last Voice
+          // may have been deleted. Never relabel that successful save a failure.
+          await browserApi.storage.local.set({ cachedVoices: [] });
+          state.voices = [];
+          result.voiceRefreshWarning = error.message;
+        }
+        runSchedulers();
+        await browserApi.runtime.sendMessage({ type: "voice-catalog-updated" }).catch(() => {});
+        return result;
       });
     }
     return command === "start" ? startApiNonBlocking(payload) : nativeControl(command, payload);
@@ -2455,25 +2547,7 @@ browserApi.runtime.onMessage.addListener((message, sender) => {
     return settings().then((config) => engineHealthStatuses(config));
   }
   if (type === "voices") {
-    return settings().then(async (config) => {
-      invalidateVoiceReadiness("manual-voice-refresh");
-      try {
-        const ready = await ensureVoiceReady(config, { force: true, reason: "manual-voice-refresh" });
-        const managedNames = await fetchManagedVoiceNames(config);
-        const voices = mergeVoiceDisplayNames(ready.voices, managedNames);
-        const updates = { cachedVoices: voices };
-        if (Object.keys(managedNames).length) {
-          updates.voiceDisplayNames = { ...(config.voiceDisplayNames || {}), ...managedNames };
-        }
-        await browserApi.storage.local.set(updates);
-        state.voices = voices;
-        return { voices, source: ready.source, stale: Boolean(ready.stale) };
-      } catch (error) {
-        const cached = Array.isArray(config.cachedVoices) ? config.cachedVoices : [];
-        if (cached.length) return { voices: cached, source: "cache", warning: error.message };
-        throw new Error(`Irodori APIに接続できません。${endpointForConfig(config)} を起動してから再接続してください。`);
-      }
-    });
+    return refreshVoiceCatalog();
   }
   return undefined;
 });

@@ -1623,6 +1623,7 @@ def voice_state(config: dict) -> dict:
         output.append({
             "id": item.get("id", ""), "name": item.get("name", item.get("id", "")),
             "type": voice_type,
+            "enabled": item.get("enabled", True) is not False,
             "reference": reference, "managed": item.get("managed_by") == "irodori-voice-reader",
             "fileExists": bool(reference and (config["root"] / reference).resolve().is_file()),
         })
@@ -1689,6 +1690,8 @@ def import_voice(message: dict, config: dict) -> dict:
     value = _read_voices(config)
     existing = next((item for item in value["voices"] if isinstance(item, dict) and item.get("id") == voice_id), None)
     record = {"id": voice_id, "name": name, "managed_by": "irodori-voice-reader"}
+    if existing is not None:
+        record["enabled"] = existing.get("enabled", True) is not False
     field = {"reference_wav": "reference_wav", "speaker_embedding": "speaker_embedding", "safetensors": "safetensors"}[kind]
     record[field] = relative
     if existing is None:
@@ -1740,12 +1743,18 @@ def delete_voice(message: dict, config: dict) -> dict:
 
 def update_voice(message: dict, config: dict) -> dict:
     voice_id = _valid_voice_id(message.get("id"))
-    name = str(message.get("name") or voice_id).strip()
     value = _read_voices(config)
     record = next((item for item in value["voices"] if isinstance(item, dict) and item.get("id") == voice_id), None)
     if record is None:
         raise ValueError("変更するVoice登録が見つかりません。")
+    name = str(message.get("name", record.get("name", voice_id))).strip()
+    if not name or len(name) > 256:
+        raise ValueError("表示名は1文字以上256文字以下にしてください。")
     record["name"] = name
+    if "enabled" in message:
+        if not isinstance(message["enabled"], bool):
+            raise ValueError("Voiceの有効・無効は真偽値で指定してください。")
+        record["enabled"] = message["enabled"]
     _save_voices(config, value)
     api_reload = _reload_api(config)
     return {"ok": True, "message": f"Voice「{name} / {voice_id}」を変更しました。", "apiReload": api_reload}
@@ -2068,6 +2077,11 @@ def _recover_stale_engine_transition(config: dict, intent: dict | None) -> dict 
 
 def handle(message: dict, config: dict) -> dict:
     command = message.get("command")
+    if command == "installation_info":
+        endpoint = urlsplit(str(config.get("health_url") or ""))
+        if endpoint.scheme != "http" or endpoint.hostname not in {"127.0.0.1", "localhost"} or endpoint.username or endpoint.password:
+            raise ValueError("Native Hostの接続先はローカルHTTP APIに限ります。")
+        return {"ok": True, "apiBase": f"http://{endpoint.netloc}"}
     if command in {"start", "start_engine", "start_engine_async", "start_stable", "switch_engine", "switch_engine_async"}:
         capability_path = Path(config["root"]) / "config" / "capabilities.json"
         requested_mode = "voice_stable" if command == "start_stable" else _engine_name(message.get("engine"))

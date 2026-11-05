@@ -31,15 +31,78 @@
     "instructions": "Hugging Faceの上記ファイルページを開き、Download（下向き矢印）を押します。ファイル名 irodori-tts-500m-v3-q8_0.gguf（約1.09GB）を確認してください。f16版やHTMLページは別のファイルです。任意の場所に保存し、展開せず「ダウンロード済みファイルを指定する」→「参照」から .gguf を選びます。検証・配置はセットアップが行います。"
   },
   "pythonWheels": [
-    {"package":"numpy","version":"2.4.4","name":"numpy-2.4.4-cp312-cp312-win_amd64.whl","bytes":12320584,"sha256":"b5f0362dc928a6ecd9db58868fca5e48485205e3855957bdedea308f8672ea4a","url":"https://files.pythonhosted.org/packages/2d/5b/e1deebf88ff431b01b7406ca3583ab2bbb90972bbe1c568732e49c844f7e/numpy-2.4.4-cp312-cp312-win_amd64.whl"},
-    {"package":"requests","version":"2.34.0","name":"requests-2.34.0-py3-none-any.whl","bytes":73021,"sha256":"917520a21b767485ce7c588f4ebb917c436b24a31231b44228715eaeb5a52c60","url":"https://files.pythonhosted.org/packages/ef/e6/e300fce5fe83c30520607a015dabd985df3251e188d234bfe9492e17a389/requests-2.34.0-py3-none-any.whl"},
-    {"package":"soundfile","version":"0.13.1","name":"soundfile-0.13.1-py2.py3-none-win_amd64.whl","bytes":1019162,"sha256":"1e70a05a0626524a69e9f0f4dd2ec174b4e9567f4d8b6c11d38b5c289be36ee9","url":"https://files.pythonhosted.org/packages/14/e9/6b761de83277f2f02ded7e7ea6f07828ec78e4b229b80e4ca55dd205b9dc/soundfile-0.13.1-py2.py3-none-win_amd64.whl"},
-    {"package":"certifi","version":"2026.10.23","name":"certifi-2026.10.23-py3-none-any.whl","bytes":135082,"sha256":"e9b54de76e530bb6cf0ccd036787103acb58fd42ba930ea8bf948ddbaa2f61d1","url":"https://files.pythonhosted.org/packages/32/d1/a3652fe2c19134d0d15922177821d863cbd7e842d53a21bbe7e8e3a1b5ac/certifi-2026.10.23-py3-none-any.whl"},
-    {"package":"cffi","version":"2.1.1","name":"cffi-2.1.1-cp312-cp312-win_amd64.whl","bytes":185919,"sha256":"f53e442b08449d42821fa4a4fba000095af9f62742a500f978a9f557ec44339a","url":"https://files.pythonhosted.org/packages/d9/79/615cc094e2fb508cade7de88d3b4f6c4ec2bab695c97bce9153dc65aadf5/cffi-2.1.1-cp312-cp312-win_amd64.whl"},
-    {"package":"charset-normalizer","version":"3.5.2","name":"charset_normalizer-3.5.2-cp312-cp312-win_amd64.whl","bytes":207486,"sha256":"780fbe7cab297b81dad9fb8dc5eb003c0468ffb0d9e5f65068c53a34661a96bc","url":"https://files.pythonhosted.org/packages/eb/e6/e6e083884cbcfd49c64865af05027fe7011be7b2d9179524f099a1b611f3/charset_normalizer-3.5.2-cp312-cp312-win_amd64.whl"},
-    {"package":"idna","version":"3.20","name":"idna-3.20-py3-none-any.whl","bytes":69583,"sha256":"ab7ae7122974553370f0bdb919e1a960b2cd1bc1ef0276416d896db81c14582c","url":"https://files.pythonhosted.org/packages/58/a2/bb081bab032533a855d44de1d56f8e8426114ff1ba5d1f07a438a0a654f8/idna-3.20-py3-none-any.whl"},
-    {"package":"pycparser","version":"3.12","name":"pycparser-3.12-py3-none-any.whl","bytes":62600,"sha256":"a076f3f489b39b43ed13563a1dafe42447445bec2e294154ec5c57fcdda4c85e","url":"https://files.pythonhosted.org/packages/b6/ae/315bbeee126a769cbde43cf4908acb4b40408d8bf8bbf334dd7368d8dadf/pycparser-3.12-py3-none-any.whl"},
-    {"package":"urllib3","version":"2.8.0","name":"urllib3-2.8.0-py3-none-any.whl","bytes":135717,"sha256":"0cf3cae568d36aa9576b28dfb35f11328f1cb974ca7647d9475ebb86c75ac6e3","url":"https://files.pythonhosted.org/packages/92/9d/c4e665119135114480843e7ab388fa94d8480650450e6f8e26b70d323a4c/urllib3-2.8.0-py3-none-any.whl"}
+    {
+      "package": "numpy",
+      "version": "2.4.4",
+      "name": "numpy-2.4.4-cp312-cp312-win_amd64.whl",
+      "bytes": 12320584,
+      "sha256": "b5f0362dc928a6ecd9db58868fca5e48485205e3855957bdedea308f8672ea4a",
+      "url": "https://files.pythonhosted.org/packages/2d/5b/e1deebf88ff431b01b7406ca3583ab2bbb90972bbe1c568732e49c844f7e/numpy-2.4.4-cp312-cp312-win_amd64.whl"
+    },
+    {
+      "package": "requests",
+      "version": "2.34.0",
+      "name": "requests-2.34.0-py3-none-any.whl",
+      "bytes": 73021,
+      "sha256": "917520a21b767485ce7c588f4ebb917c436b24a31231b44228715eaeb5a52c60",
+      "url": "https://files.pythonhosted.org/packages/ef/e6/e300fce5fe83c30520607a015dabd985df3251e188d234bfe9492e17a389/requests-2.34.0-py3-none-any.whl"
+    },
+    {
+      "package": "soundfile",
+      "version": "0.13.1",
+      "name": "soundfile-0.13.1-py2.py3-none-win_amd64.whl",
+      "bytes": 1019162,
+      "sha256": "1e70a05a0626524a69e9f0f4dd2ec174b4e9567f4d8b6c11d38b5c289be36ee9",
+      "url": "https://files.pythonhosted.org/packages/14/e9/6b761de83277f2f02ded7e7ea6f07828ec78e4b229b80e4ca55dd205b9dc/soundfile-0.13.1-py2.py3-none-win_amd64.whl"
+    },
+    {
+      "package": "certifi",
+      "version": "2026.10.23",
+      "name": "certifi-2026.10.23-py3-none-any.whl",
+      "bytes": 135082,
+      "sha256": "e9b54de76e530bb6cf0ccd036787103acb58fd42ba930ea8bf948ddbaa2f61d1",
+      "url": "https://files.pythonhosted.org/packages/32/d1/a3652fe2c19134d0d15922177821d863cbd7e842d53a21bbe7e8e3a1b5ac/certifi-2026.10.23-py3-none-any.whl"
+    },
+    {
+      "package": "cffi",
+      "version": "2.1.1",
+      "name": "cffi-2.1.1-cp312-cp312-win_amd64.whl",
+      "bytes": 185919,
+      "sha256": "f53e442b08449d42821fa4a4fba000095af9f62742a500f978a9f557ec44339a",
+      "url": "https://files.pythonhosted.org/packages/d9/79/615cc094e2fb508cade7de88d3b4f6c4ec2bab695c97bce9153dc65aadf5/cffi-2.1.1-cp312-cp312-win_amd64.whl"
+    },
+    {
+      "package": "charset-normalizer",
+      "version": "3.5.2",
+      "name": "charset_normalizer-3.5.2-cp312-cp312-win_amd64.whl",
+      "bytes": 207486,
+      "sha256": "780fbe7cab297b81dad9fb8dc5eb003c0468ffb0d9e5f65068c53a34661a96bc",
+      "url": "https://files.pythonhosted.org/packages/eb/e6/e6e083884cbcfd49c64865af05027fe7011be7b2d9179524f099a1b611f3/charset_normalizer-3.5.2-cp312-cp312-win_amd64.whl"
+    },
+    {
+      "package": "idna",
+      "version": "3.20",
+      "name": "idna-3.20-py3-none-any.whl",
+      "bytes": 69583,
+      "sha256": "ab7ae7122974553370f0bdb919e1a960b2cd1bc1ef0276416d896db81c14582c",
+      "url": "https://files.pythonhosted.org/packages/58/a2/bb081bab032533a855d44de1d56f8e8426114ff1ba5d1f07a438a0a654f8/idna-3.20-py3-none-any.whl"
+    },
+    {
+      "package": "pycparser",
+      "version": "3.12",
+      "name": "pycparser-3.12-py3-none-any.whl",
+      "bytes": 62600,
+      "sha256": "a076f3f489b39b43ed13563a1dafe42447445bec2e294154ec5c57fcdda4c85e",
+      "url": "https://files.pythonhosted.org/packages/b6/ae/315bbeee126a769cbde43cf4908acb4b40408d8bf8bbf334dd7368d8dadf/pycparser-3.12-py3-none-any.whl"
+    },
+    {
+      "package": "urllib3",
+      "version": "2.8.0",
+      "name": "urllib3-2.8.0-py3-none-any.whl",
+      "bytes": 135717,
+      "sha256": "0cf3cae568d36aa9576b28dfb35f11328f1cb974ca7647d9475ebb86c75ac6e3",
+      "url": "https://files.pythonhosted.org/packages/92/9d/c4e665119135114480843e7ab388fa94d8480650450e6f8e26b70d323a4c/urllib3-2.8.0-py3-none-any.whl"
+    }
   ],
   "assets": [
     {
@@ -109,15 +172,42 @@
       "sha256": "a35ca562db6bcf1c990d7544dcd660de7952f6d5638c3fa281b928c577ab035a"
     },
     {
-      "name": "IrodoriVoiceReader-Firefox-1.2.25-signed.xpi",
+      "name": "IrodoriVoiceReader-Firefox-1.2.27-signed.xpi",
       "kind": "firefox",
-      "sha256": "e48a36da54ac161a9b5952588e8387869c962d6ed2c35a05b11f4908051a7762",
-      "purpose": "legacy-reference-not-isolated-install"
+      "role": "signed-install",
+      "version": "1.2.27",
+      "title": "Irodori Voice Reader Firefox Mozilla-signed extension",
+      "url": "",
+      "pageUrl": "https://github.com/rucks1989-blip/irodori-voice-reader/releases",
+      "artifactType": "Mozilla-signed XPI (do not unzip or edit)",
+      "purpose": "Firefox extension installation/update, preserving its existing ID and settings",
+      "searchWords": "Irodori Voice Reader Firefox 1.2.27 signed xpi",
+      "instructions": "Use this exact signed XPI from the distribution assets folder. Select the XPI file itself, without unpacking it. No verified independent direct download URL is registered yet. Do not use an unsigned XPI as a replacement.",
+      "extensionId": "irodori-voice-reader@local",
+      "signingSource": "Mozilla AMO / web-ext sign --channel unlisted",
+      "sha256": "cfcaadd2e6717201a866e8cde1d19f8a3d1a7adab6bbaaa147942c6bd8c2d707",
+      "bytes": 115797
+    },
+    {
+      "name": "audio-cpp-stable-cuda-sm86-x64.zip",
+      "title": "声質安定対応 CUDA sm86 完成品",
+      "version": "e12fc743ccb294753dcdced0be7778c76a178f95",
+      "kind": "backend",
+      "role": "stable",
+      "backend": "cuda",
+      "arch": "86",
+      "url": "",
+      "pageUrl": "",
+      "artifactType": "安定化パッチ適用済みWindows x64 CUDA完成品ZIP",
+      "purpose": "GPU自動検出で対応アーキテクチャが一致した場合に使用する声質安定版",
+      "instructions": "配布ZIP内のassetsに同梱されています。GPU世代が一致する場合だけ自動選択します。他のGPU世代は既存セットアップの任意ビルドを選択してください。通常版GPU完成品で代用しません。",
+      "bytes": 668197375,
+      "sha256": "7eb088f2a72f56b2d95ec80da9b8013054ce48fb55e691f8f39e7f2f6f9bedf1"
     }
   ],
-  "chromeExtensionVersion": "1.2.25",
-  "firefoxExtensionVersion": "1.2.25",
-  "status": "integration-incomplete",
+  "chromeExtensionVersion": "1.2.26",
+  "firefoxExtensionVersion": "1.2.27",
+  "status": "windows-setup-verified",
   "extensionBaseCommit": "3bde4586b1f0b72e4391babe30de724c3ad1e79d",
-  "firefoxIsolatedSigning": "pending"
+  "firefoxIsolatedSigning": "signed-fixed-id-runtime-discovery"
 }

@@ -15,6 +15,7 @@ ROOT = Path(__file__).resolve().parents[1]
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--archive", action="append", required=True)
+    parser.add_argument("--merge", action="store_true", help="Update specified verified archives without re-reading unchanged upstream ZIPs")
     args = parser.parse_args()
     manifest = json.loads((ROOT / "distribution.json").read_text(encoding="utf8"))
     specs = [manifest["audioCppSource"]]
@@ -23,8 +24,14 @@ def main():
             specs.append(asset)
             specs.extend(asset.get("dependencies", []))
     paths = dict(item.split("=", 1) for item in args.archive)
-    archives = {}
+    output = ROOT / "scripts/download-catalog.json"
+    archives = json.loads(output.read_text(encoding="utf8"))["archives"] if args.merge and output.is_file() else {}
+    unknown = set(paths) - {spec["name"] for spec in specs}
+    if unknown:
+        raise ValueError("Archive is not pinned by distribution.json: " + ", ".join(sorted(unknown)))
     for spec in specs:
+        if args.merge and spec["name"] not in paths:
+            continue
         path = Path(paths[spec["name"]])
         with path.open("rb") as stream:
             digest = hashlib.file_digest(stream, "sha256").hexdigest()
@@ -46,7 +53,6 @@ def main():
                             "rootPrefix": "audio.cpp-" + manifest["audioCppCommit"] + "/" if is_source else "",
                             "files": dict(sorted(files.items()))}
         print(f"Pinned {spec['name']}: {len(files)} payload files")
-    output = ROOT / "scripts/download-catalog.json"
     output.write_text(json.dumps({"schema": 1, "archives": archives}, indent=2) + "\n", encoding="utf8", newline="\n")
 
 

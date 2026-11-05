@@ -2,8 +2,8 @@
   "use strict";
 
   const ENGINE_ENDPOINTS = Object.freeze({
-    standard: root.IrodoriInstallConfig?.apiBase || "http://127.0.0.1:8765",
-    voice_stable: root.IrodoriInstallConfig?.apiBase || "http://127.0.0.1:8765"
+    get standard() { return root.IrodoriInstallConfig?.apiBase || "http://127.0.0.1:8765"; },
+    get voice_stable() { return root.IrodoriInstallConfig?.apiBase || "http://127.0.0.1:8765"; }
   });
 
   const LEGACY_ENGINE_ENDPOINTS = Object.freeze({
@@ -437,6 +437,9 @@
     // set-api-mode action, so ordinary form saves cannot race a mode switch.
     delete patch.apiMode;
     delete patch.customApiUrl;
+    // The live Voice catalog belongs to the background/API, not an editor's
+    // possibly older form snapshot. Ordinary saves must not resurrect it.
+    delete patch.cachedVoices;
     return patch;
   }
 

@@ -77,6 +77,20 @@ class IsolatedPipelineTests(unittest.TestCase):
             self.assertEqual(identity, (target / "chrome-identity.json").read_bytes())
             self.assertEqual(json.loads(config.read_text(encoding="utf8"))["irodori_audiocpp_seed"], 5678)
             self.assertEqual(voices.read_text(encoding="utf8"), '{"voices": []}')
+            self.assertTrue((target / '声質安定版追加する.bat').is_file())
+            self.assertTrue((target / 'installer-source/scripts/setup.ps1').is_file())
+            # Installed extensions are configured, while repair source stays
+            # hash-verifiable. A local repair must not overwrite those files.
+            extension = target / 'chrome-extension/manifest.json'
+            before_extension = extension.read_bytes()
+            code, out, err = ps(f". './scripts/common.ps1'; . './scripts/install-files.ps1'; Copy-Application -SourceRoot {quote(target / 'installer-source')} -InstallRoot {quote(target)} -Version 'fixture'")
+            self.assertEqual(code, 0, out + err)
+            self.assertEqual(before_extension, extension.read_bytes())
+            self.assertEqual(voices.read_text(encoding='utf8'), '{"voices": []}')
+            code, out, err = ps(f". './scripts/common.ps1'; . './scripts/install-files.ps1'; Copy-MaintenanceFiles -SourceRoot {quote(ROOT)} -InstallRoot {quote(target)}")
+            self.assertEqual(code, 0, out + err)
+            self.assertEqual(before_extension, extension.read_bytes())
+            self.assertEqual(json.loads(config.read_text(encoding='utf8'))['irodori_audiocpp_seed'], 5678)
             js = """
 const fs=require('fs'),vm=require('vm'),assert=require('assert');
 const dir=process.argv[1],c={};vm.createContext(c);
@@ -143,12 +157,15 @@ for(const name of ['offscreen.html','sidebar.html','options.html','popup.html'])
             python = target / "irodori-api/.venv/Scripts/python.exe"
             python.parent.mkdir(parents=True)
             python.write_bytes(b"plan only, not executable")
+            original_firefox_config = (target / "firefox-extension/install-config.js").read_bytes()
+            original_firefox_manifest = (target / "firefox-extension/manifest.json").read_bytes()
             code, out, err = ps(f"& './scripts/configure-chrome.ps1' -InstallRoot {quote(target)} -ApiPort 19876 -BackendPort 19877")
             self.assertEqual(code, 0, out + err)
             identity = json.loads((target / "chrome-identity.json").read_text(encoding="utf8"))
             firefox_manifest = json.loads((target / "firefox-extension/manifest.json").read_text(encoding="utf8"))
-            self.assertEqual(firefox_manifest["browser_specific_settings"]["gecko"]["id"], "irodori-"+identity["extensionId"]+"@isolated.local")
-            self.assertIn("http://127.0.0.1:19876", (target / "firefox-extension/install-config.js").read_text(encoding="utf8"))
+            self.assertEqual(firefox_manifest["browser_specific_settings"]["gecko"]["id"], "irodori-voice-reader@local")
+            self.assertEqual((target / "firefox-extension/install-config.js").read_bytes(), original_firefox_config)
+            self.assertEqual((target / "firefox-extension/manifest.json").read_bytes(), original_firefox_manifest)
             for browser, expected_count in [("chrome", 1), ("firefox", 1), ("both", 2)]:
                 identity_path = target / "chrome-identity.json"
                 identity["apiPort"] = 19876
@@ -162,7 +179,8 @@ for(const name of ['offscreen.html','sidebar.html','options.html','popup.html'])
                     self.assertTrue(spec["config"]["isolated_environment"])
                     if spec["folder"] == "firefox-host":
                         self.assertNotEqual(spec["host"], "io.github.irodori.voice_reader")
-                        self.assertEqual(spec["manifest"]["allowed_extensions"], ["irodori-"+identity["extensionId"]+"@isolated.local"])
+                        self.assertEqual(spec["host"], "io.github.irodori.voice_reader.firefox")
+                        self.assertEqual(spec["manifest"]["allowed_extensions"], ["irodori-voice-reader@local"])
                     self.assertEqual(spec["config"]["health_url"], f"http://127.0.0.1:{identity['apiPort']}/health")
                     self.assertEqual(spec["config"]["backend_health_url"], f"http://127.0.0.1:{identity['backendPort']}/health")
                     self.assertTrue(Path(spec["manifest"]["path"]).is_relative_to(target))
@@ -172,7 +190,7 @@ for(const name of ['offscreen.html','sidebar.html','options.html','popup.html'])
                         self.assertEqual(spec["manifest"]["allowed_origins"], ["chrome-extension://" + identity["extensionId"] + "/"])
                     else:
                         self.assertNotEqual(browser, "chrome")
-                        self.assertEqual(spec["manifest"]["allowed_extensions"], ["irodori-"+identity["extensionId"]+"@isolated.local"])
+                        self.assertEqual(spec["manifest"]["allowed_extensions"], ["irodori-voice-reader@local"])
             self.assertFalse((target / "chrome-host").exists())
             self.assertFalse((target / "firefox-host").exists())
             js = """
