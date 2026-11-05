@@ -233,6 +233,10 @@
       "sha256": "90e53b70dec5244e3160c84aeffa44f32f5fe9a3e7bb3ee0c681f354364734cf"
     },
     {
+      "path": "docs/stable-runtime-design.md",
+      "sha256": "f6e7e289b12ccbebee4bfd4f3eeca5e17cdc0ebe793a3322fbf8277ae30d1800"
+    },
+    {
       "path": "docs/version-audit.md",
       "sha256": "bcb945eec0b556e3bfc6c7eeeec797cc1b8fa5d45089c124960b15625522a24e"
     },
@@ -506,7 +510,7 @@
     },
     {
       "path": "scripts/add-stable.ps1",
-      "sha256": "2a2200283349780ec572e4f3a656734f7277d32694c930583afa4ddc99789344"
+      "sha256": "29adae3cc8a0c31ee5764eda280bc8ce0ba5f55503b6560ba03671b00449ff1b"
     },
     {
       "path": "scripts/build-backend.ps1",
@@ -518,7 +522,7 @@
     },
     {
       "path": "scripts/common.ps1",
-      "sha256": "88b25d92421ef851a625f34afefd639637c28471f0a41cb8e910897ab8643a10"
+      "sha256": "24bd51c13136beeb53175f150f81c5e7060e6bd48f87f500dbeec20d9c676567"
     },
     {
       "path": "scripts/configure-chrome.ps1",
@@ -574,7 +578,7 @@
     },
     {
       "path": "scripts/setup-dialog.cs",
-      "sha256": "2cc20b72fcbedf01f2d63e46e8536ab2fa49a639aa147413b7ccd517a6edecb7"
+      "sha256": "eae5d137ce9d5a2102e1fc7019630e5e209810b7ab9d6abb5682fb986f64d8b8"
     },
     {
       "path": "scripts/setup-job.cs",
@@ -582,7 +586,15 @@
     },
     {
       "path": "scripts/setup.ps1",
-      "sha256": "f4735bdab8860544c04a9ba1ff8902d34dbfc5c0ded24e00df56e9400f89098c"
+      "sha256": "3f76ee86bd52eaff8e5b002dff288a8d719efcc4ce7cac2aa8bf2591af6cf264"
+    },
+    {
+      "path": "scripts/stable-addon.ps1",
+      "sha256": "c2d6d869d8b80f3e9ec10262a665cabb7f413a6b52f3f831729b1f3919ee4f45"
+    },
+    {
+      "path": "scripts/stable-addon.py",
+      "sha256": "b3e2e307793971df14e44de43118d8727f3651fdead998ed503a4434e32d4158"
     },
     {
       "path": "scripts/support.ps1",
@@ -679,6 +691,10 @@
     {
       "path": "tests/test_speaker_delimiters.js",
       "sha256": "a0ff2f29f8e8d6cb8176126dce6efbc03c3043399aac0e5b8926aada2b3cee74"
+    },
+    {
+      "path": "tests/test_stable_addon.py",
+      "sha256": "79dda5427a5ea2c8d9ac1c90374ff7c82317a9f21a658b54695f13b5f0ea5a98"
     },
     {
       "path": "tests/test_text_processor.js",

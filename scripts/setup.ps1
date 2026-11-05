@@ -2,6 +2,7 @@
 param([string]$InstallRoot='',[switch]$CheckOnly,[ValidateSet('auto','cpu','cuda')][string]$Backend='auto',[switch]$NewEnvironment,[ValidateSet('prompt','chrome','firefox','both')][string]$Browsers='prompt',[switch]$Unattended,[string]$ModelPath='',[string]$ReferenceWav='',[switch]$NoOpenGuide,[string]$BackendDirectory='', [ValidateSet('prompt','skip','prebuilt','build')][string]$StableMode='prompt',[string]$StableBackendDirectory='', [string]$SessionDirectory='', [switch]$Repair)
 . (Join-Path $PSScriptRoot 'common.ps1')
 . (Join-Path $PSScriptRoot 'install-files.ps1')
+. (Join-Path $PSScriptRoot 'stable-addon.ps1')
 $SourceRoot=Split-Path -Parent $PSScriptRoot
 $manifest=Get-Content (Join-Path $SourceRoot 'distribution.json') -Raw -Encoding UTF8 | ConvertFrom-Json
 $InstallRootExplicit=$PSBoundParameters.ContainsKey('InstallRoot')
@@ -341,30 +342,8 @@ try{
     if($StableMode -in @('prebuilt','build')){
         $stableCandidate=Join-Path $StateRoot 'stable-candidate'
         try{
-            if($StableMode -eq 'prebuilt'){
-                $stableAsset=@($manifest.assets | Where-Object {$_.kind -eq 'backend' -and $_.PSObject.Properties['role'] -and $_.role -eq 'stable' -and $_.backend -eq $Backend -and ($Backend -eq 'cpu' -or $_.arch -eq '*' -or $_.arch -eq $gpu.arch)}) | Select-Object -First 1
-                if(-not $StableBackendDirectory -and $stableAsset){
-                    Write-Host '対応する検証済み声質安定版の完成品を優先します。ソースビルドは不要です。'
-                    $stableArchive=Get-Asset $stableAsset
-                    $stableExtract=Join-Path $StateRoot ('stable-prebuilt-'+$stableAsset.sha256.Substring(0,12))
-                    Expand-Download $stableArchive $stableAsset $stableExtract $venv
-                    $StableBackendDirectory=$stableExtract
-                }
-                if(-not $StableBackendDirectory){
-                    if($Unattended){throw '声質安定版完成品の指定がありません。'}
-                    $selectedStable=Show-SetupDialog 'file' '通常・声質安定の両プロファイルに対応する完成品を選択してください。' 'audio.cpp|audiocpp_server.exe'
-                    if($selectedStable -eq 'cancel'){throw '声質安定版の指定を中止しました。'}
-                    $StableBackendDirectory=Split-Path $selectedStable -Parent
-                }
-                if([IO.Path]::GetFullPath($StableBackendDirectory) -ne [IO.Path]::GetFullPath($stableCandidate)){Copy-BackendRuntime $StableBackendDirectory $stableCandidate}
-            }else{
-                $stableArgs=@('-NoProfile','-ExecutionPolicy','Bypass','-File',(Join-Path $PSScriptRoot 'build-backend.ps1'),'-Python',$venv,'-WorkRoot',(Join-Path $StateRoot 'stable-build'),'-CacheRoot',(Join-Path $InstallBase '.ivr-build-cache'),'-Backend',$Backend,'-AllowToolInstall')
-                if($Backend -eq 'cuda'){$stableArgs+=@('-CudaArch',$gpu.arch)}
-                Run 'powershell.exe' $stableArgs
-                $stableBuilt=Join-Path $StateRoot ('stable-build\build-output\'+$Backend+$(if($Backend -eq 'cuda'){'-sm'+$gpu.arch}else{''}))
-                Copy-BackendRuntime $stableBuilt $stableCandidate
-            }
-            Test-StableCandidate $stableCandidate $model $Backend $BackendPort
+            if($StableMode -eq 'build'){throw '声質安定版の追加ではソースビルドを行いません。パッチ済み完成品を指定してください。'}
+            $stableCandidate=Prepare-StableBackend -SourceRoot $SourceRoot -StateRoot $StateRoot -Python $venv -Backend $Backend -Arch $gpu.arch -Directory $StableBackendDirectory -ExistingDirectories @($backendDir) -CacheRoot (Join-Path $InstallBase '.ivr-build-cache') -Model $model -Port $BackendPort -Unattended:$Unattended
             $stableInstalled=$true
         }catch{
             Assert-SetupActive

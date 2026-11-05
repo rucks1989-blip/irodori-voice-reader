@@ -197,7 +197,7 @@ function Copy-BackendRuntime([string]$Source,[string]$Destination){
     }
 }
 
-function Test-StableCandidate([string]$Directory,[string]$Model,[string]$Backend,[int]$Port){
+function Test-StableCandidate([string]$Directory,[string]$Model,[string]$Backend,[int]$Port,[string]$Python=''){
     # Do not reuse the final engine's port immediately after killing a probe:
     # Windows may still report its closing listener during the next stage.
     $Port=Find-FreePort ($Port+1)
@@ -216,6 +216,7 @@ function Test-StableCandidate([string]$Directory,[string]$Model,[string]$Backend
             Start-Sleep -Milliseconds 300
         }
         if(-not $ready){throw '声質安定版の起動確認がタイムアウトしました。'}
-        Run (Get-Python) @((Join-Path $PSScriptRoot 'verify-backend.py'),"http://127.0.0.1:$Port",$candidateTrace)
+        if(-not $Python){$Python=Get-Python}
+        Run $Python @((Join-Path $PSScriptRoot 'verify-backend.py'),"http://127.0.0.1:$Port",$candidateTrace)
     }finally{if(-not $p.HasExited){$p.Kill();$p.WaitForExit()}}
 }

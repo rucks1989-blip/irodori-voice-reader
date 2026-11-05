@@ -107,11 +107,11 @@ public static class SetupDialog {
                 form.Text=request["kind"]=="installation"?"Irodori Voice Reader — 導入方法を選択":"Irodori Voice Reader — ブラウザーを選択";form.ClientSize=new Size(510,230);form.StartPosition=FormStartPosition.CenterScreen;form.FormBorderStyle=FormBorderStyle.FixedDialog;form.MaximizeBox=false;
                 var label=new Label {Text=request["message"],Left=20,Top=20,Width=470,Height=80};
                 var choices=new ComboBox {Name="setupChoice",Left=20,Top=110,Width=470,DropDownStyle=ComboBoxStyle.DropDownList};
-                choices.Items.AddRange(request["kind"]=="installation" ? new object[]{"前回の続きから再開","新しい別環境を作成","中止"} : request["kind"]=="stable" ? new object[]{"今回は導入しない（通常版のみ）","声質安定版の完成品を使用","声質安定版をビルド（任意）"} : request["kind"]=="backend" ? new object[]{"対応完成品を用意して再開","このPC向けにビルド（任意）","中止"} : new object[]{"Chromeのみ","Firefoxのみ","ChromeとFirefoxの両方"});choices.SelectedIndex=request["kind"]=="installation"?1:0;
+                choices.Items.AddRange(request["kind"]=="installation" ? new object[]{"前回の続きから再開","新しい別環境を作成","中止"} : request["kind"]=="stable" ? new object[]{"今回は導入しない（通常版のみ）","声質安定版の完成品を使用"} : request["kind"]=="backend" ? new object[]{"対応完成品を用意して再開","このPC向けにビルド（任意）","中止"} : new object[]{"Chromeのみ","Firefoxのみ","ChromeとFirefoxの両方"});choices.SelectedIndex=request["kind"]=="installation"?1:0;
                 var ok=new Button {Name="continueSetup",Text="次へ",Left=310,Top=175,DialogResult=DialogResult.OK};
                 var cancel=new Button {Text="中止",Left=410,Top=175,DialogResult=DialogResult.Cancel};
                 form.Controls.AddRange(new Control[]{label,choices,ok,cancel});form.AcceptButton=ok;form.CancelButton=cancel;
-                if(form.ShowDialog()==DialogResult.OK)value=(request["kind"]=="installation" ? new[]{"resume","new","cancel"} : request["kind"]=="stable" ? new[]{"skip","prebuilt","build"} : request["kind"]=="backend" ? new[]{"obtain","build","cancel"} : new[]{"chrome","firefox","both"})[choices.SelectedIndex];
+                if(form.ShowDialog()==DialogResult.OK)value=(request["kind"]=="installation" ? new[]{"resume","new","cancel"} : request["kind"]=="stable" ? new[]{"skip","prebuilt"} : request["kind"]=="backend" ? new[]{"obtain","build","cancel"} : new[]{"chrome","firefox","both"})[choices.SelectedIndex];
             }
         }
         File.WriteAllText(args[0]+".result",json.Serialize(new Dictionary<string,string>{{"value",value}}),new UTF8Encoding(false));
