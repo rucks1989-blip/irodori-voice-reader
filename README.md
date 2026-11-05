@@ -1,5 +1,11 @@
 # Irodori Voice Reader — Windows版
 
+**[▶ これをダウンロードする.zip（Windows用・一括導入ZIP）](https://github.com/rucks1989-blip/irodori-voice-reader/releases/download/v0.1.0-private.2/default.zip)**
+
+ZIPをすべて展開し、`setup.bat` をダブルクリックするとセットアップが始まります。
+GitHub上の表示名は「これをダウンロードする.zip」ですが、保存時のファイル名は `default.zip` になる場合があります。内容は同じ一括導入ZIPです。
+非公開リポジトリのため、閲覧権限のあるGitHubアカウントでログインしてください。[Releaseの配布ページ](https://github.com/rucks1989-blip/irodori-voice-reader/releases/tag/v0.1.0-private.2)からも取得できます。
+
 AIチャットの文章をIrodori-TTSのキャラクター音声で読み上げるWindows x64向けソフトです。
 Chrome拡張1.2.26とMozilla署名済みFirefox拡張1.2.27を同梱しています。
 初めて利用する方は `これをダウンロードする.zip` をダウンロードしてください。ZIPをすべて展開し、`setup.bat` をダブルクリックするとセットアップが始まります。

@@ -26,6 +26,10 @@ function Get-BrowserEnvironments([string]$SessionRoot,[string]$ExplicitRoot='') 
         try{
             $root=Assert-LocalDirectory $record.installRoot
             if($seen.ContainsKey($root) -or [int]$record.apiPort -lt 1 -or [int]$record.backendPort -lt 1){continue}
+            # Return the same canonical spelling used for deduplication and
+            # -InstallRoot comparison (including Windows 8.3 path aliases).
+            # Only the in-memory record changes; no installed data is written.
+            $record.installRoot=$root
             $seen[$root]=$true
             $record
         }catch{}

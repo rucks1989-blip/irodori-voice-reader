@@ -506,7 +506,7 @@
     },
     {
       "path": "README.md",
-      "sha256": "c2ec11dd7b63c8e1e878b4619651b8a82535c9a239f6897fda5541b1a806ba07"
+      "sha256": "3051d0e43b5ec6049c2b75f8fca65f257598509600364a4a9ffccb06eafcec8a"
     },
     {
       "path": "RELEASE_NOTES.md",
@@ -518,7 +518,7 @@
     },
     {
       "path": "scripts/browser-setup.ps1",
-      "sha256": "dd1fd867629f019660243dbe1d6ad6bf9c5c767f44a0eff6cb84caba71de37e4"
+      "sha256": "63aceaefd3d6ab10ab22d33ae26f8394d728cbfc53648882f2ec099cf78b96e6"
     },
     {
       "path": "scripts/build-backend.ps1",
@@ -698,7 +698,7 @@
     },
     {
       "path": "tests/test_setup_rework.py",
-      "sha256": "1b8e3782264bc27f2243236e62a5ff396ca661a9ec99eb7c7d64d6dd49eac400"
+      "sha256": "83092317df9602dcfe8f0412adb5db829d9dd0b4b31e4a5ce355352faa255428"
     },
     {
       "path": "tests/test_speaker_delimiters.js",

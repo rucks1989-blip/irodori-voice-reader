@@ -3,6 +3,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import tempfile
 import unittest
@@ -161,7 +162,35 @@ class SetupReworkTests(unittest.TestCase):
             Write-Output $items[0].installRoot
             """)
             self.assertEqual(code,0,out+err)
-            self.assertIn(str(installed),out)
+            self.assertIn(str(installed.resolve()),out)
+
+    def test_discovery_returns_canonical_roots_for_equivalent_session_paths(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder); sessions=root/'sessions';sessions.mkdir()
+            installed=root/'installed';installed.mkdir();self.fixture(installed)
+            # GitHub's Windows TEMP can use an 8.3 profile alias. A trailing
+            # dot gives the same raw-vs-canonical mismatch without requiring
+            # 8.3 name creation to be enabled on the developer's drive.
+            value=dict(installRoot=str(installed)+r'\.',apiPort=19876,backendPort=19877,browsers='chrome',version='fixture')
+            (sessions/'both-session.json').write_text(json.dumps(value),encoding='utf8')
+            value['installRoot']=str(installed.resolve())
+            (sessions/'chrome-session.json').write_text(json.dumps(value),encoding='utf8')
+            code,out,err=ps(rf"""
+            . './scripts/common.ps1'; . './scripts/browser-setup.ps1'
+            function Get-ChildItem {{param($Path,$LiteralPath,$Filter,[switch]$File)
+                if($Path -match '^HK'){{return}}
+                Microsoft.PowerShell.Management\Get-ChildItem -LiteralPath $LiteralPath -Filter $Filter -File
+            }}
+            $expected=Assert-LocalDirectory {q(installed)}
+            $items=@(Get-BrowserEnvironments {q(sessions)})
+            if($items.Count -ne 1){{throw 'Equivalent session paths were not deduplicated'}}
+            if($items[0].installRoot -ne $expected){{throw 'Discovery returned a raw path instead of its canonical form'}}
+            $matches=@($items | Where-Object {{$_.installRoot -eq $expected}})
+            if($matches.Count -ne 1){{throw 'Explicit installation root did not match the session'}}
+            if($items[0].apiPort -ne 19876 -or $items[0].backendPort -ne 19877){{throw 'Ports changed'}}
+            Write-Output 'canonical discovery verified'
+            """)
+            self.assertEqual(code,0,out+err)
 
     def test_gpu_messages_storage_and_low_space_are_actionable(self):
         code,out,err=ps(". './scripts/common.ps1';"+LOAD_SETUP_FUNCTIONS+r"""
@@ -203,11 +232,18 @@ class SetupReworkTests(unittest.TestCase):
         cases += [('chrome','both',fault) for fault in ('missing-runtime','missing-engine','changed-port','changed-identity')]
         for previous, requested, fault in cases:
             with self.subTest(previous=previous,requested=requested,fault=fault), tempfile.TemporaryDirectory() as folder:
-                base=Path(folder); source=base/'source'; scripts=source/'scripts';scripts.mkdir(parents=True)
+                base=Path(folder).resolve(); source=base/'source'; scripts=source/'scripts';scripts.mkdir(parents=True)
                 target=base/'installed';target.mkdir();self.fixture(target)
                 session_root=base/'sessions';session_root.mkdir()
                 for name in ('setup.ps1','browser-setup.ps1','register-hosts.ps1','downloads.ps1','stable-addon.ps1'):
                     shutil.copyfile(ROOT/'scripts'/name,scripts/name)
+                # This test covers browser reuse/metadata faults, not the
+                # runner's available disk space (tested separately above).
+                setup=(scripts/'setup.ps1').read_text(encoding='utf-8-sig')
+                setup,count=re.subn(r'(?ms)^function Get-FreeSpace\(\[string\]\$Path\)\{.*?^\}',
+                                    'function Get-FreeSpace([string]$Path){return 10GB}',setup)
+                self.assertEqual(count,1,'Disk-space fixture did not find the production probe')
+                (scripts/'setup.ps1').write_text(setup,encoding='utf-8-sig')
                 common=(ROOT/'scripts/common.ps1').read_text(encoding='utf-8-sig')
                 mocks=REGISTRY_MOCK.split('$registration=')[0]
                 common+='\n'+mocks+r"""
@@ -391,6 +427,14 @@ function Run($Exe,$Arguments){
 
 
 class PackageNameTests(unittest.TestCase):
+    def test_readme_starts_with_a_direct_published_bundle_link(self):
+        intro=(ROOT/'README.md').read_text(encoding='utf8').split('## 一般ユーザー向けの導入手順',1)[0]
+        url='https://github.com/rucks1989-blip/irodori-voice-reader/releases/download/v0.1.0-private.2/default.zip'
+        self.assertIn(url,intro.splitlines()[2])
+        self.assertIn('これをダウンロードする.zip',intro.splitlines()[2])
+        self.assertIn('default.zip',intro)
+        self.assertIn('setup.bat',intro)
+
     def test_only_bundle_name_and_utf8_checksums_change(self):
         package=(ROOT/'scripts/package-release.py').read_text(encoding='utf8')
         self.assertIn('destination = dist / "これをダウンロードする.zip"',package)
