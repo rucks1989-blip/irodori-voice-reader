@@ -108,7 +108,7 @@ GPU完成品を含むZIPを `final-extracted` に実際に展開し、その中�
 
 ## 配布と制限
 
-- 最終配布物は `dist/IrodoriVoiceReader-Windows-test.zip`。容量・SHA-256は同じReleaseの `SHA256SUMS.txt` を参照。
+- 最終配布物は `dist/これをダウンロードする.zip`（一括ZIPの名称変更を反映）。容量・SHA-256は同じReleaseの `SHA256SUMS.txt` を参照。
 - テスト根は `D:/AI_Cache/temp/opencode/ivr-release-test-20261105`。`cpu-add-stable-resumed.log`、`gpu-add-stable-built.log`、各テスト先の `installer-state/switching-results.json` に追加・切り替え結果を記録。`final-zip-setup-bat.log` と `final-guide-*.log` にZIPの実BAT入口の結果を記録している。旧候補の拒否・オプション無視の診断ログも保持した。
 - 古いcapability値が残っていても修復失敗を成功表示しない回帰テストを含め、最新版を検査済み。
 - 導入用ZIPにはChrome拡張、署名済みFirefox XPI、Native Host、セットアップ、追加BAT、CPU声質安定版完成品、CUDA sm86声質安定版完成品と必要な再配布ランタイム・ライセンスを含める。モデルと通常版CPU／GPU完成品は固定URL・容量・SHA-256を検証して取得する。

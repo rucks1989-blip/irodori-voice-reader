@@ -5,11 +5,28 @@ using System.Text;
 using System.Web.Script.Serialization;
 using System.Windows.Forms;
 using System.Drawing;
+using System.Diagnostics;
 public static class SetupDialog {
+    // Hold the exact parent process handle: a reused PID is not our parent.
+    static Process parent;
+    static System.Threading.Timer parentWatcher;
+    static void WatchParent(Dictionary<string,string> request) {
+        if(!request.ContainsKey("parentPid"))return;
+        try {
+            parent=Process.GetProcessById(Int32.Parse(request["parentPid"]));
+            var handle=parent.Handle;
+            if(parent.StartTime.ToUniversalTime().Ticks!=Int64.Parse(request["parentStartTicks"]))Environment.Exit(0);
+        } catch { Environment.Exit(0); }
+        parentWatcher=new System.Threading.Timer(s=>{
+            try { if(parent.HasExited)Environment.Exit(0); }
+            catch { Environment.Exit(0); }
+        },null,0,500);
+    }
     [STAThread] public static void Main(string[] args) {
         Application.EnableVisualStyles();
         var json=new JavaScriptSerializer();
         var request=json.Deserialize<Dictionary<string,string>>(File.ReadAllText(args[0],Encoding.UTF8));
+        WatchParent(request);
         string defaultValue=request.ContainsKey("default")?request["default"]:"";
         string value="cancel";
         if(request["kind"]=="progress") {
@@ -17,10 +34,28 @@ public static class SetupDialog {
                 form.Text="Irodori Voice Reader セットアップ";form.ClientSize=new Size(510,145);form.StartPosition=FormStartPosition.CenterScreen;
                 var label=new Label{Text="セットアップ中です。詳細はコンソールに表示されます。",Left=20,Top=20,Width=470,Height=40};
                 var cancel=new Button{Text="安全に中止",Left=350,Top=85,Width=130};
-                cancel.Click+=(s,e)=>{File.WriteAllText(args[0]+".cancel","cancel");cancel.Enabled=false;label.Text="今回起動した処理を終了しています。";};
-                form.FormClosing+=(s,e)=>{if(!File.Exists(args[0]+".done")){File.WriteAllText(args[0]+".cancel","cancel");e.Cancel=true;}};
-                var timer=new Timer{Interval=250};timer.Tick+=(s,e)=>{if(File.Exists(args[0]+".done"))form.Close();};timer.Start();
+                DateTime? cancelStarted=null;
+                Action requestCancel=()=>{File.WriteAllText(args[0]+".cancel","cancel");if(!cancelStarted.HasValue)cancelStarted=DateTime.UtcNow;cancel.Enabled=false;label.Text="今回起動した処理を終了しています。最大30秒でこの画面を閉じます。";};
+                bool allowClose=false;
+                cancel.Click+=(s,e)=>requestCancel();
+                form.FormClosing+=(s,e)=>{if(!allowClose && !File.Exists(args[0]+".done")){requestCancel();e.Cancel=true;}};
+                // Closing this window on timeout does not kill the installer or
+                // interrupt file writes. Its cancellation request remains set.
+                var timer=new Timer{Interval=250};timer.Tick+=(s,e)=>{if(File.Exists(args[0]+".done") || (cancelStarted.HasValue && (DateTime.UtcNow-cancelStarted.Value).TotalSeconds>=30)){allowClose=true;form.Close();}};timer.Start();
                 form.Controls.AddRange(new Control[]{label,cancel});form.ShowDialog();timer.Dispose();
+            }
+        } else if(request["kind"]=="environment") {
+            using(var form=new Form()) {
+                form.Text="Irodori Voice Reader — ブラウザーの接続先";form.ClientSize=new Size(850,300);form.StartPosition=FormStartPosition.CenterScreen;
+                var label=new Label{Text=request["message"],Left=20,Top=20,Width=810,Height=90};
+                var choices=new ListBox{Name="environmentChoice",Left=20,Top=115,Width=810,Height=110,HorizontalScrollbar=true};
+                var roots=json.Deserialize<string[]>(defaultValue);
+                foreach(var root in roots)choices.Items.Add("既存環境を使う: "+root);
+                choices.Items.Add("新しい別環境を作成する（既存環境は保持）");choices.SelectedIndex=0;
+                var ok=new Button{Text="この接続先を使う",Left=540,Top=250,Width=160};
+                var cancel=new Button{Text="中止",Left=720,Top=250,DialogResult=DialogResult.Cancel};
+                ok.Click+=(s,e)=>{value=choices.SelectedIndex<roots.Length?roots[choices.SelectedIndex]:"new";form.Close();};
+                form.Controls.AddRange(new Control[]{label,choices,ok,cancel});form.CancelButton=cancel;form.ShowDialog();
             }
         } else if(request["kind"]=="confirm") {
             value=MessageBox.Show(request["message"],"Irodori Voice Reader セットアップ",MessageBoxButtons.YesNo,MessageBoxIcon.Question,MessageBoxDefaultButton.Button2)==DialogResult.Yes?"yes":"no";

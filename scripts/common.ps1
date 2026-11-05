@@ -19,7 +19,7 @@ function Show-SetupDialog([string]$Kind,[string]$Message,[string]$Filter='',[str
         Add-Type -Path $source -ReferencedAssemblies @('System.Windows.Forms','System.Drawing','System.Web.Extensions') -OutputAssembly $exe -OutputType WindowsApplication
     }
     $request=Join-Path $dialogRoot ([guid]::NewGuid().ToString('N')+'.json')
-    Save-Json $request @{kind=$Kind;message=$Message;filter=$Filter;default=$Default}
+    Save-Json $request @{kind=$Kind;message=$Message;filter=$Filter;default=$Default;parentPid=[string]$PID;parentStartTicks=[string]([Diagnostics.Process]::GetCurrentProcess().StartTime.ToUniversalTime().Ticks)}
     Write-Host ("確認画面を待っています: "+$Message) -ForegroundColor Yellow
     $process=Add-SetupProcess (Start-Process $exe -ArgumentList @(('"'+$request+'"')) -PassThru -WindowStyle Normal)
     while(-not $process.WaitForExit(200)){Assert-SetupActive}
@@ -84,6 +84,10 @@ function Get-Gpu {
         }
     }
     return [pscustomobject]@{ name='NVIDIA CUDA GPUを確認できません'; arch=''; driver='' }
+}
+function Get-GpuSetupMessage($Gpu){
+    if($Gpu.arch){return 'NVIDIA GPUを検出しました。GPU対応版の音声エンジンを準備します。'}
+    return "NVIDIA GPUを自動検出できませんでした。`r`n`r`nこのまま進むとCPU版で音声生成を行います。CPU版では、音声生成に長い時間がかかる場合があります。`r`n`r`nNVIDIAのグラフィックボードを搭載している場合でも、ドライバーやPCの設定などが原因で検出できないことがあります。`r`n`r`n原因が分からない場合は、搭載しているグラフィックボードの名前を確認し、既存のAI相談機能を利用してChatGPTに相談してください。`r`nGPU名を自動取得できない場合は、タスク マネージャーの「パフォーマンス」→「GPU」などで名前を確認し、AI-support.batの相談文に手入力してください。"
 }
 function Get-Python {
     $candidates = @((Join-Path $env:LOCALAPPDATA 'Programs\Python\Python312\python.exe'))
@@ -173,7 +177,7 @@ function Start-SetupCancellation {
     if(-not(Test-Path $exe)){Add-Type -Path $source -ReferencedAssemblies @('System.Windows.Forms','System.Drawing','System.Web.Extensions') -OutputAssembly $exe -OutputType WindowsApplication}
     $script:CancelRequest=Join-Path $dialogRoot ([guid]::NewGuid().ToString('N')+'.json')
     $env:IVR_SETUP_CANCEL_REQUEST=$script:CancelRequest
-    Save-Json $script:CancelRequest @{kind='progress';message=''}
+    Save-Json $script:CancelRequest @{kind='progress';message='';parentPid=[string]$PID;parentStartTicks=[string]([Diagnostics.Process]::GetCurrentProcess().StartTime.ToUniversalTime().Ticks)}
     [void](Start-Process $exe -ArgumentList @(('"'+$script:CancelRequest+'"')) -WindowStyle Normal -PassThru)
 }
 function Stop-SetupCancellation {

@@ -20,7 +20,7 @@ for asset in manifest["assets"]:
     if not path.is_file() or hashlib.sha256(path.read_bytes()).hexdigest() != asset["sha256"]:
         sys.exit(f"Missing/mismatched release asset: {asset['name']}")
     assets.append(path)
-destination = dist / "IrodoriVoiceReader-Windows-test.zip"
+destination = dist / "これをダウンロードする.zip"
 with zipfile.ZipFile(destination, "w", zipfile.ZIP_DEFLATED) as archive:
     for entry in inventory["files"]:
         archive.write(ROOT / entry["path"], "IrodoriVoiceReader/" + entry["path"])
@@ -30,5 +30,5 @@ with zipfile.ZipFile(destination, "w", zipfile.ZIP_DEFLATED) as archive:
 hashes = []
 for path in [destination, *assets]:
     hashes.append(f"{hashlib.sha256(path.read_bytes()).hexdigest()}  {path.name}")
-(dist / "SHA256SUMS.txt").write_text("\n".join(hashes) + "\n", encoding="ascii")
+(dist / "SHA256SUMS.txt").write_text("\n".join(hashes) + "\n", encoding="utf8")
 print(destination)

@@ -21,7 +21,16 @@ using System;using System.Runtime.InteropServices;using System.Windows.Automatio
 public static class IvrTestUI {
  [DllImport("user32.dll",CharSet=CharSet.Unicode)] public static extern IntPtr SendMessage(IntPtr h,uint m,IntPtr w,string l);
  [DllImport("user32.dll")] public static extern IntPtr SendMessage(IntPtr h,uint m,IntPtr w,IntPtr l);
- [DllImport("user32.dll",CharSet=CharSet.Unicode)] static extern int GetClassName(IntPtr h,System.Text.StringBuilder name,int count);
+  [DllImport("user32.dll",CharSet=CharSet.Unicode)] static extern int GetClassName(IntPtr h,System.Text.StringBuilder name,int count);
+  delegate bool ChildCallback(IntPtr h,IntPtr p);
+  [DllImport("user32.dll")] static extern bool EnumChildWindows(IntPtr h,ChildCallback callback,IntPtr p);
+  [DllImport("user32.dll",CharSet=CharSet.Unicode)] static extern int GetWindowText(IntPtr h,System.Text.StringBuilder name,int count);
+  public static IntPtr FindChild(IntPtr parent,string classPart,string text){
+    IntPtr found=IntPtr.Zero;
+    EnumChildWindows(parent,(h,p)=>{var c=new System.Text.StringBuilder(256);var t=new System.Text.StringBuilder(512);GetClassName(h,c,c.Capacity);GetWindowText(h,t,t.Capacity);
+      if(c.ToString().ToUpperInvariant().Contains(classPart) && (text=="" || t.ToString()==text)){found=h;return false;}return true;},IntPtr.Zero);
+    return found;
+  }
  public static bool IsButton(AutomationElement e){var name=new System.Text.StringBuilder(256);GetClassName((IntPtr)e.Current.NativeWindowHandle,name,256);return name.ToString()=="Button";}
  [DllImport("kernel32.dll")] static extern IntPtr OpenProcess(uint access,bool inherit,int pid);
  [DllImport("kernel32.dll")] static extern IntPtr VirtualAllocEx(IntPtr p,IntPtr address,UIntPtr size,uint type,uint protect);
@@ -73,6 +82,52 @@ function Click($Element){
     if($pattern){$pattern.Invoke()}elseif([IvrTestUI]::IsButton($Element)){[void][IvrTestUI]::SendMessage([IntPtr]$Element.Current.NativeWindowHandle,0xf5,[IntPtr]::Zero,[IntPtr]::Zero)}else{throw 'Control is not an invokable button'}
 }
 function Set-Combo($Element,[int]$Index){[void][IvrTestUI]::SendMessage([IntPtr]$Element.Current.NativeWindowHandle,0x14e,[IntPtr]$Index,[IntPtr]::Zero)}
+function Select-ExistingEnvironment {
+    $deadline=[DateTime]::UtcNow.AddSeconds(120)
+    while([DateTime]::UtcNow -lt $deadline){
+        foreach($window in (Windows)){
+            if($window.Current.Name -notmatch 'ブラウザーの接続先'){continue}
+            $handle=[IntPtr]$window.Current.NativeWindowHandle
+            $list=[IvrTestUI]::FindChild($handle,'LISTBOX','')
+            $button=[IvrTestUI]::FindChild($handle,'BUTTON','この接続先を使う')
+            if($list -ne [IntPtr]::Zero -and $button -ne [IntPtr]::Zero){
+                # Launch scopes this repair to its explicit installation root.
+                [void][IvrTestUI]::SendMessage($list,0x186,[IntPtr]::Zero,[IntPtr]::Zero)
+                [void]$script:closedWindows.Add(($window.Current.ProcessId.ToString()+':'+$window.Current.NativeWindowHandle))
+                [void][IvrTestUI]::SendMessage($button,0xf5,[IntPtr]::Zero,[IntPtr]::Zero)
+                return
+            }
+        }
+        [Threading.Thread]::Sleep(100)
+    }
+    throw 'Existing environment choice timed out'
+}
+function Continue-InstallerPreflight {
+    # Accept only these fixture-specific preflight screens. Never accept a
+    # tool installation, backend build, or Native Host switch confirmation.
+    $deadline=[DateTime]::UtcNow.AddSeconds(120)
+    while([DateTime]::UtcNow -lt $deadline){
+        foreach($window in (Windows)){
+            $controls=$window.FindAll([System.Windows.Automation.TreeScope]::Descendants,[System.Windows.Automation.Condition]::TrueCondition)
+            $text=($controls | ForEach-Object {$_.Current.Name}) -join "`n"
+            $id=''
+            if($text -match '最終的な保存先:' -and $text -match 'この保存先で続行'){$id='6'}
+            elseif($text -match 'NVIDIA GPU' -and $text -match '明示的なCPU/GPU'){$id='1'}
+            elseif($text -match '既存のAI相談文の確認画面'){$id='7'}
+            elseif($text -match '既存の同一モデル' -or $window.Current.Name -match 'ダウンロードの復旧'){return}
+            if($id){
+                $condition=New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::AutomationIdProperty,$id)
+                $button=$window.FindFirst([System.Windows.Automation.TreeScope]::Descendants,$condition)
+                if($button){
+                    [void]$script:closedWindows.Add(($window.Current.ProcessId.ToString()+':'+$window.Current.NativeWindowHandle))
+                    Click $button
+                }
+            }
+        }
+        [Threading.Thread]::Sleep(100)
+    }
+    throw 'Installer preflight timed out without approving unexpected operations'
+}
 function Recovery([string]$Expected){
     $r=Wait-Control 'downloadAction' '' 180
     # Read-only WinForms text can expose Text/Name rather than Edit/Value,
@@ -122,6 +177,10 @@ function Launch([bool]$New,[string]$Log,[switch]$Unattended){
     $env:PATH=(Join-Path $TestRoot 'fault-bin')+';'+$env:PATH
     $cmd='"'+(Join-Path $inputData.source 'setup.bat')+'" -Browsers chrome -Backend cpu -StableMode skip -NoOpenGuide -SessionDirectory "'+(Join-Path $TestRoot 'session')+'" -ReferenceWav "'+$inputData.reference+'"'
     if($New){$cmd+=' -NewEnvironment'}
+    else{
+        $saved=Get-Content (Join-Path $TestRoot 'session\chrome-session.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+        $cmd+=' -InstallRoot "'+$saved.installRoot+'"'
+    }
     if($Unattended){$cmd+=' -Unattended'}
     $process=Start-Process 'cmd.exe' -ArgumentList ('/d /c "'+$cmd+'"') -WorkingDirectory $inputData.source -PassThru -WindowStyle Hidden -RedirectStandardOutput (Join-Path $TestRoot $Log) -RedirectStandardError (Join-Path $TestRoot ($Log+'.stderr'))
     [void]$process.Handle
@@ -139,6 +198,7 @@ if($ContinueFirst -or $AtRecovery){
     $base.Element.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).SetValue((Join-Path $TestRoot 'chosen-install-location'))
     Click (Wait-Control '' 'この保存先を使う').Element
     Click (Wait-Control '6').Element
+    Continue-InstallerPreflight
 }
 # The standard installer first offers reuse of an existing model. Decline that
 # optional picker here so the actual download/failure/recovery path is exercised.
@@ -171,9 +231,8 @@ if($ModelFileOpen -or $CpuRecovery -or $AfterWav){
     $second=Get-Process -Id $running.ProcessId;[void]$second.Handle
 }else{
 $second=Launch $false 'resume.log'
-$resume=Wait-Control 'setupChoice'
-Set-Combo $resume.Element 0
-Click (Wait-Control 'continueSetup').Element
+Select-ExistingEnvironment
+Continue-InstallerPreflight
 Click (Wait-Control '' '指定せず進む').Element
 $r=Recovery 'irodori-tts-500m-v3-q8_0.gguf'
 Choose-Recovery $r 4

@@ -32,16 +32,35 @@ function Redact([string]$Text){
     return $safe
 }
 if(-not $PSBoundParameters.ContainsKey('StateRoot')){
-    $sessionFile=Join-Path $StateRoot 'chrome-session.json'
+    $sessionFiles=@(Get-ChildItem -LiteralPath $StateRoot -Filter '*session.json' -File -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending)
+    $sessionFile=if($sessionFiles.Count){$sessionFiles[0].FullName}else{Join-Path $StateRoot 'chrome-session.json'}
     if(Test-Path $sessionFile){
         $session=Get-Content $sessionFile -Raw -Encoding UTF8 | ConvertFrom-Json
-        $StateRoot=Join-Path $session.installRoot 'installer-state'
+        $candidateRoot=Join-Path $session.installRoot 'installer-state'
+        # Failures before file placement are recorded in the launcher's state
+        # directory. Do not hide them behind an older installation's state.
+        $locations=@($StateRoot,$candidateRoot) | Select-Object -Unique
+        $records=@(foreach($location in $locations){foreach($name in @('state.json','browser-state.json')){
+            $path=Join-Path $location $name
+            if(Test-Path -LiteralPath $path){Get-Item -LiteralPath $path}
+        }})
+        if($records.Count){$StateRoot=Split-Path -Parent ($records | Sort-Object LastWriteTime -Descending | Select-Object -First 1).FullName}
     }
 }
 $statePath=Join-Path $StateRoot 'state.json'
+if(Test-Path (Join-Path $StateRoot 'browser-state.json')){
+    if(-not(Test-Path $statePath) -or (Get-Item (Join-Path $StateRoot 'browser-state.json')).LastWriteTime -gt (Get-Item $statePath).LastWriteTime){$statePath=Join-Path $StateRoot 'browser-state.json'}
+}
 $state=$null
 if(Test-Path $statePath){$state=Get-Content $statePath -Raw -Encoding UTF8 | ConvertFrom-Json}
 $gpu=Get-Gpu
+$contextText='インストール先／問題のあるブラウザー: 記録なし。ご自身で追記してください。'
+$contextPath=Join-Path $StateRoot 'setup-context.json'
+if(Test-Path $contextPath){
+    $context=Get-Content $contextPath -Raw -Encoding UTF8 | ConvertFrom-Json
+    $driveName=if($context.drive){([string]$context.drive).Substring(0,1)+'ドライブ'}else{'未確定'}
+    $contextText="インストール先（個人パスは伏せ字）: $($context.installRoot)`r`n保存先ドライブ: $driveName`r`n対象ブラウザー: $($context.browsers)`r`nAPIポート: $($context.apiPort) / audio.cppポート: $($context.backendPort)`r`n容量確認: $($context.storage)"
+}
 $version=(Get-Content (Join-Path (Split-Path -Parent $PSScriptRoot) 'distribution.json') -Raw -Encoding UTF8 | ConvertFrom-Json).version
 $step=if($state){$state.step}else{'記録なし'}
 $errorText=if($state){Redact ([string]$state.error)}else{'記録なし'}
@@ -85,6 +104,9 @@ Windows: $([Environment]::OSVersion.Version)
 GPU: $($gpu.name)
 CUDA architecture: $($gpu.arch)
 NVIDIA driver: $($gpu.driver)
+GPU名が取得できない場合は、タスク マネージャーの「パフォーマンス」→「GPU」などで確認し、コピー後にChatGPTへの貼り付け先で手入力してください: [GPU名を記入]
+$contextText
+個人パスの伏せ字により保存先が分からない場合は、個人情報を除いた保存先・ドライブを追記してください。
 停止した工程: $step
 実際のエラーメッセージ（個人パス等は伏せ字）:
 $errorText

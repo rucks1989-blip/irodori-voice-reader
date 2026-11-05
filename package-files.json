@@ -197,6 +197,10 @@
       "sha256": "0f8bbc5a0633585f112ab892404b52a47a4e092470c1fd31dba9f50d1a211b5d"
     },
     {
+      "path": "docs/browser-setup-fixes.md",
+      "sha256": "b071cfc14cb1ea2d32f2a39034b5e2a386e4a7df3eac76b330a4ca64ed8f4374"
+    },
+    {
       "path": "docs/chrome-chatgpt-verification-2026-11-04.md",
       "sha256": "08ce5e90d2d36cc4501fe3d605e92d549a266548b51451700d26900be3b0fa75"
     },
@@ -230,7 +234,7 @@
     },
     {
       "path": "docs/setup-recovery-2026-11-05.md",
-      "sha256": "90e53b70dec5244e3160c84aeffa44f32f5fe9a3e7bb3ee0c681f354364734cf"
+      "sha256": "4ef3e478c28305487d0ea172708957b1ff5d7be1c8e60648c857d9926ff7b5b2"
     },
     {
       "path": "docs/stable-runtime-design.md",
@@ -502,15 +506,19 @@
     },
     {
       "path": "README.md",
-      "sha256": "cf12b254e3d2178471cc4fe76dbc0229919bee88767261457afff2f059d58e11"
+      "sha256": "c2ec11dd7b63c8e1e878b4619651b8a82535c9a239f6897fda5541b1a806ba07"
     },
     {
       "path": "RELEASE_NOTES.md",
-      "sha256": "37f30b7629ec55b64730588391f516c5e0d15d05f0b2e4c47b073e47dd26dae0"
+      "sha256": "e2ef24a3842558fae398b56ad294c71a659bc5affd7af2f13b02233960f0fabf"
     },
     {
       "path": "scripts/add-stable.ps1",
       "sha256": "29adae3cc8a0c31ee5764eda280bc8ce0ba5f55503b6560ba03671b00449ff1b"
+    },
+    {
+      "path": "scripts/browser-setup.ps1",
+      "sha256": "dd1fd867629f019660243dbe1d6ad6bf9c5c767f44a0eff6cb84caba71de37e4"
     },
     {
       "path": "scripts/build-backend.ps1",
@@ -522,7 +530,7 @@
     },
     {
       "path": "scripts/common.ps1",
-      "sha256": "24bd51c13136beeb53175f150f81c5e7060e6bd48f87f500dbeec20d9c676567"
+      "sha256": "4e8cd9cce32bb5121105ff6f9b205f865890714d060741ab403de7800c72d88d"
     },
     {
       "path": "scripts/configure-chrome.ps1",
@@ -550,7 +558,7 @@
     },
     {
       "path": "scripts/install-files.ps1",
-      "sha256": "96863c7d9e57eb5fe64b746e18e0b979e8e37fdf22e789e335a09a64a55f3aa8"
+      "sha256": "ca3a926f3b5671384ca4d310e3b2d54a2cce72ed198abce6df3e29661f9bb14e"
     },
     {
       "path": "scripts/make-download-catalog.py",
@@ -562,7 +570,7 @@
     },
     {
       "path": "scripts/package-release.py",
-      "sha256": "ec17d9afba802049468a2cc077da611cd791aaf0ad6364a679ca7dfe83efc754"
+      "sha256": "29cc93c6466374bce9ba228e89645a971ff3243ef04aabd5e65d3712c3d1bd9e"
     },
     {
       "path": "scripts/prepare-assets.py",
@@ -574,11 +582,11 @@
     },
     {
       "path": "scripts/register-hosts.ps1",
-      "sha256": "12dc3af9a685b44d6deca58c90b90fb0bd0edf0fc5198f30f77ea4c2cfd21553"
+      "sha256": "9f7be4d78cc8d2532d4053407e1282e014fc0743e137ed7ca7bac880144971c5"
     },
     {
       "path": "scripts/setup-dialog.cs",
-      "sha256": "eae5d137ce9d5a2102e1fc7019630e5e209810b7ab9d6abb5682fb986f64d8b8"
+      "sha256": "8eff51f579ab4d308e23005939e01d66cb4b7074513b74dfed7302571afe7dcb"
     },
     {
       "path": "scripts/setup-job.cs",
@@ -586,7 +594,7 @@
     },
     {
       "path": "scripts/setup.ps1",
-      "sha256": "3f76ee86bd52eaff8e5b002dff288a8d719efcc4ce7cac2aa8bf2591af6cf264"
+      "sha256": "474fbca685135fbdc6c51236e21d0cc688b57c7ac8c84ef808352580188c2966"
     },
     {
       "path": "scripts/stable-addon.ps1",
@@ -598,7 +606,7 @@
     },
     {
       "path": "scripts/support.ps1",
-      "sha256": "fc942cd7762f10c8e8524d777c6ef5d8916916d3c32996ec748b25a4bd366337"
+      "sha256": "9b0ace4bf20de24b5ec86d62d8f77f8b44123c35558e7c9daa30e5f59df024c4"
     },
     {
       "path": "scripts/sync-firefox.py",
@@ -662,7 +670,7 @@
     },
     {
       "path": "tests/test_download_ui.ps1",
-      "sha256": "cb746328490ae69bc1b6bf4c1d20410014349229ea3d2d515f8128d259dd3456"
+      "sha256": "4b8ee5401574fc09e5c018e10e24f8bdc68c15cfe905837f1c0d483b2dc18575"
     },
     {
       "path": "tests/test_downloads.py",
@@ -689,12 +697,20 @@
       "sha256": "c3ba099f3ae7902e0eec5ad09d98cf042b90fb6b851051bc019bc3a32781085f"
     },
     {
+      "path": "tests/test_setup_rework.py",
+      "sha256": "1b8e3782264bc27f2243236e62a5ff396ca661a9ec99eb7c7d64d6dd49eac400"
+    },
+    {
       "path": "tests/test_speaker_delimiters.js",
       "sha256": "a0ff2f29f8e8d6cb8176126dce6efbc03c3043399aac0e5b8926aada2b3cee74"
     },
     {
       "path": "tests/test_stable_addon.py",
       "sha256": "79dda5427a5ea2c8d9ac1c90374ff7c82317a9f21a658b54695f13b5f0ea5a98"
+    },
+    {
+      "path": "tests/test_terminal_close.ps1",
+      "sha256": "e286c3b57dcf6dd95b839595e452446c0a5df77e5272d14f45e02e97e8e04407"
     },
     {
       "path": "tests/test_text_processor.js",

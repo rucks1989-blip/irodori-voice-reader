@@ -12,7 +12,7 @@ function Get-PackageFiles([string]$SourceRoot) {
     }
     return $inventory.files
 }
-function Copy-MaintenanceFiles([string]$SourceRoot,[string]$InstallRoot) {
+function Copy-MaintenanceFiles([string]$SourceRoot,[string]$InstallRoot,[switch]$SkipAssets) {
     $files=@(Get-PackageFiles $SourceRoot)
     # Repairs launched inside the installation use a pristine source snapshot,
     # not the configured extension files (whose hashes necessarily differ).
@@ -25,7 +25,7 @@ function Copy-MaintenanceFiles([string]$SourceRoot,[string]$InstallRoot) {
     }
     Copy-Item (Join-Path $SourceRoot 'package-files.json') $repairSource -Force
     $assetSource=Join-Path $SourceRoot 'assets'
-    if(Test-Path $assetSource){Copy-Item $assetSource $repairSource -Recurse -Force}
+    if(-not $SkipAssets -and (Test-Path $assetSource)){Copy-Item $assetSource $repairSource -Recurse -Force}
     Copy-Item -LiteralPath (Join-Path $SourceRoot '声質安定版追加する.bat') -Destination $InstallRoot -Force
 }
 function Copy-Application([string]$SourceRoot,[string]$InstallRoot,[string]$Version) {
