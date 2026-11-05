@@ -1,4 +1,4 @@
-# Irodori Voice Reader
+# Irodori Voice Reader（β）
 
 ChatGPT・Gemini・MuseなどのAIチャットの文章を、**好きなキャラクターの声で読み上げる**Windows向けツールです。Chrome・Firefoxで利用できます。
 
