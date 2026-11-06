@@ -241,6 +241,10 @@
       "sha256": "f6e7e289b12ccbebee4bfd4f3eeca5e17cdc0ebe793a3322fbf8277ae30d1800"
     },
     {
+      "path": "docs/standard-speaker-embedding.md",
+      "sha256": "ea0a1ca5123a6ec867fedffaaec075bd46456404b861c8438c26fadd897470c2"
+    },
+    {
       "path": "docs/version-audit.md",
       "sha256": "bcb945eec0b556e3bfc6c7eeeec797cc1b8fa5d45089c124960b15625522a24e"
     },
@@ -353,6 +357,10 @@
       "sha256": "13c341e8c8ad62736b835faa95b8008f43aff2a2b539931e8c6e973fee8472bd"
     },
     {
+      "path": "irodori-api/config/voice_sources.example.json",
+      "sha256": "f862685685c0ed0668a4cd0357b21dc0cbd14f0de55dc97a08c423f13d74f71a"
+    },
+    {
       "path": "irodori-api/kurisu_voice/__init__.py",
       "sha256": "97846638b8ddf6eb9e70a93adc9d24014f5a4f035d43368030634fed1962f685"
     },
@@ -371,6 +379,10 @@
     {
       "path": "irodori-api/kurisu_voice/backends/base.py",
       "sha256": "e3f53fba20baf82c1ff6b24fe39110d29f613607de8c263233770dab4c679f1f"
+    },
+    {
+      "path": "irodori-api/kurisu_voice/backends/standard_audiocpp.py",
+      "sha256": "8f13d088acdca0aed577ed402a5678fb32bda387c218e94f5455c13094bb0321"
     },
     {
       "path": "irodori-api/kurisu_voice/engine.py",
@@ -405,12 +417,16 @@
       "sha256": "2234e652405ad41df34f15025bdae94e0ee083e3eb55a16874dd3b804e595832"
     },
     {
+      "path": "irodori-api/kurisu_voice/standard_voices.py",
+      "sha256": "b2f42d3aa2941ed4da3afc3755c0fe937fe5fea1bffbb5a73d8eb35a1fa5ea0e"
+    },
+    {
       "path": "irodori-api/kurisu_voice/voices.py",
       "sha256": "afc5dd726c0ca6d8a6cedcfb9402d227e43503d3d65c9f7bf1a3345479261027"
     },
     {
       "path": "irodori-api/kurisu_voice_api.py",
-      "sha256": "5308fc200afbf0ed3307cc0ef8154073f4d5ae2a72ae419e9b2063789d0151e8"
+      "sha256": "5bd1536444cf9e129efd6844cd393be450e8bd84ae73465bcef9f14d0e38e12d"
     },
     {
       "path": "irodori-api/kurisu_voice_stable_api.py",
@@ -481,6 +497,10 @@
       "sha256": "3616cde6509737abf45b08db1752b294dd4a678e48bb8cf1cbd3e7e1effb42ae"
     },
     {
+      "path": "irodori-api/tests/test_standard_embeddings.py",
+      "sha256": "083486fdbd9a607bdecaeb3c1650316f09989c0388073b24ed479427330ade9e"
+    },
+    {
       "path": "irodori-api/tests/test_voice_stable.py",
       "sha256": "6558d69f4f0f285390e2eed97def7c1c3f8548d2f63f912737c9c4e6a22b7144"
     },
@@ -506,7 +526,7 @@
     },
     {
       "path": "README.md",
-      "sha256": "3051d0e43b5ec6049c2b75f8fca65f257598509600364a4a9ffccb06eafcec8a"
+      "sha256": "6b168c6262df999bac61e86875aa65429c3b806bc04d14902a73c5268c8992f7"
     },
     {
       "path": "RELEASE_NOTES.md",
@@ -578,7 +598,7 @@
     },
     {
       "path": "scripts/privacy_scan.py",
-      "sha256": "dc6f915c3f55abfeb10fe285b5f9401da9fa4b666b921fe1cbc7e0222c7820b6"
+      "sha256": "9b684b8b49459fd16d49b93986e244a0d7a641dd7666e3ce5a5f65d0d84e8d65"
     },
     {
       "path": "scripts/register-hosts.ps1",
@@ -631,6 +651,10 @@
     {
       "path": "setup.bat",
       "sha256": "b8dcda95b069ce8d7525a949b8701658a9e9d4d2c4ce67fc3a1d7ac5d4fd71b2"
+    },
+    {
+      "path": "tests/firefox_marionette.py",
+      "sha256": "799545ff547bce113048a143e94e44dafb69322f9a7eb968d1942f304ebdaf63"
     },
     {
       "path": "tests/prepare_download_ui.py",
@@ -719,6 +743,18 @@
     {
       "path": "tests/test_voice_live_updates.js",
       "sha256": "17b01c3e938ff46dc87003966dd3f6d20366f1160074384ee1f4df664915e10a"
+    },
+    {
+      "path": "tests/verify_embedding_distribution.py",
+      "sha256": "77b6a68f568f253034ea3e2393fe8124344939b54c19627ba4a6db1be101cf26"
+    },
+    {
+      "path": "tests/verify_embedding_zip_setup.ps1",
+      "sha256": "c98fbc88c07b8b5869b725aec47e43ae9b06f14ebd0a710f08594c90ac485e41"
+    },
+    {
+      "path": "tests/verify_standard_embeddings.py",
+      "sha256": "2cda1edae6fdd850ce58aec0626db11478c1d693636141ddbc5b940c91d2e488"
     },
     {
       "path": "THIRD_PARTY_NOTICES.md",

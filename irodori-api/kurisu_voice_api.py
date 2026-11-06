@@ -14,10 +14,12 @@ from urllib.parse import parse_qs, urlparse
 
 from kurisu_voice import KurisuVoice
 from kurisu_voice.backends import AudioCppBackend
+from kurisu_voice.backends.standard_audiocpp import StandardAudioCppBackend
 from kurisu_voice.profiles import load_profiles, profile_from_config
 from kurisu_voice.speakers import clear_speaker_cache
 from kurisu_voice.stable_trace import collect_trace, stable_trace_path, trace_offset
 from kurisu_voice.voices import VoiceRegistry
+from kurisu_voice.standard_voices import StandardVoiceRegistry
 
 # Redirected Windows logs can inherit a non-Unicode encoding. Diagnostics must
 # never turn a successful synthesis into HTTP 400 through UnicodeEncodeError.
@@ -126,6 +128,7 @@ class State:
             self.api["port"] = int(runtime_setting("IRODORI_API_PORT", str(self.api["port"])))
             clear_speaker_cache()
             self.voices = VoiceRegistry(ROOT, VOICES_CONFIG_PATH)
+            self.standard_voices = StandardVoiceRegistry(ROOT, VOICES_CONFIG_PATH)
             self.device = self._device_name()
 
     @staticmethod
@@ -175,17 +178,21 @@ class State:
             profile["speaker_switch_enabled"] = False
         profile["speaker_tag_policy"] = speaker_tag_policy
         if voice_id:
-            voice = self.voices.get(voice_id)
+            registry = self.standard_voices if engine_name == "standard" else self.voices
+            voice = registry.get(voice_id)
             if voice["type"] == "safetensors":
                 raise ValueError("このVoice形式は現在のaudio.cppバックエンドでは直接利用できません。")
             profile["default_voice_path"] = voice["path"] if voice["type"] == "reference_wav" else ""
             profile["default_speaker_embedding_path"] = voice["path"] if voice["type"] == "speaker_embedding" else ""
-        backend = AudioCppBackend(
+        backend_class = StandardAudioCppBackend if engine_name == "standard" else AudioCppBackend
+        reference_options = {"reference_root": ROOT, "reference_cache_dir": self.standard_voices.reference_cache_dir} if engine_name == "standard" else {}
+        backend = backend_class(
             runtime_setting("IRODORI_AUDIO_CPP_API_URL", config.get("irodori_audiocpp_api_url", "http://127.0.0.1:8091/v1/audio/speech")),
             config.get("irodori_audiocpp_model", "irodori-500m-v3-q8"),
             config.get("irodori_audiocpp_num_steps", 40),
             config.get("irodori_audiocpp_seed", 1234),
             request_options=config.get("irodori_audiocpp_request_options", {}),
+            **reference_options,
         )
         return selected, KurisuVoice(ROOT, profile, backend)
 
@@ -546,7 +553,8 @@ class Handler(BaseHTTPRequestHandler):
                     "backend_ready": backend_ready,
                 })
             elif path in {"/voices", "/v1/voices"}:
-                self._send_json(200, {"voices": STATE.voices.list()})
+                registry = STATE.standard_voices if self._engine_name(query=query) == "standard" else STATE.voices
+                self._send_json(200, {"voices": registry.list()})
             elif path in {"/settings/long-text", "/v1/settings/long-text"}:
                 _, profile = STATE.profile(engine_name=self._engine_name(query=query))
                 self._send_json(200, {

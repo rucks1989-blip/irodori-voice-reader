@@ -49,6 +49,10 @@ Chromeの拡張一覧に表示される名前は「Irodori Voice Reader」です
 
 XPIは展開・編集しません。署名設定の無効化や開発者版Firefoxは不要です。同じFirefoxプロファイルの同じ拡張IDへの更新では既存設定を保持します。既に利用中の拡張を削除・初期化する必要はありません。
 
+### 通常版のSpeaker Embedding
+
+学習済みの `名前.speaker.safetensors` は、既存のVoice管理画面から新しいIDで登録して利用できます。外部フォルダーを元の場所のまま使う場合は、導入先ごとの `irodori-api/config/voice_sources.json` で追加先を指定できます。特定のドライブには固定しません。[登録・保存先設定・エラーの案内](docs/standard-speaker-embedding.md)
+
 ### 声質安定版を後から追加する
 
 通常版のみで導入しても問題ありません。インストール先の **「声質安定版追加する.bat」をダブルクリックすると後から追加できます**。
