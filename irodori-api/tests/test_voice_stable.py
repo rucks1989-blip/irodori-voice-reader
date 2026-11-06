@@ -56,6 +56,8 @@ class VoiceStableTransportTests(unittest.TestCase):
             forwarded = Path(payload["speaker_embedding_path"])
             self.assertTrue(forwarded.name.endswith(".speaker.safetensors"))
             self.assertFalse(forwarded.name.endswith(".wav"))
+            self.assertEqual(Path(payload["options"]["speaker_embedding_path"]), forwarded)
+            self.assertFalse(payload["options"]["no_ref"])
             self.assertEqual(forwarded.read_bytes(), source.read_bytes())
             self.assertNotIn("voice_ref", payload)
 

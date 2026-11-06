@@ -374,7 +374,7 @@
     },
     {
       "path": "irodori-api/kurisu_voice/backends/audiocpp.py",
-      "sha256": "fe561d523fcafddfced3acec48c2d9e68fd3474fb2ab1febb8f315c0c149540b"
+      "sha256": "dd8ceee5086dfe8106230d24b2078139ef55ef36fd2795ed20092c853070932d"
     },
     {
       "path": "irodori-api/kurisu_voice/backends/base.py",
@@ -498,11 +498,11 @@
     },
     {
       "path": "irodori-api/tests/test_standard_embeddings.py",
-      "sha256": "6d5635d5c5acb2386f11a2b0cfb6b13bfd43c1ac096f592e54689e1e7e10e265"
+      "sha256": "dcd0e600b06f16bd2e4db2c32b2e9d1f214dd93e8f7ee7971e83fc0aa359c2c5"
     },
     {
       "path": "irodori-api/tests/test_voice_stable.py",
-      "sha256": "6558d69f4f0f285390e2eed97def7c1c3f8548d2f63f912737c9c4e6a22b7144"
+      "sha256": "c5f013ddaec4dcfef0afaa1dc2743eb924d2d6783f28c6baffc5bc99dbf58844"
     },
     {
       "path": "irodori-api/tests/test_voices.py",
@@ -526,11 +526,11 @@
     },
     {
       "path": "README.md",
-      "sha256": "501eb69f41b7c4a72c0958a7e10a9691af3855332fff43eda9cfa9e8bcb962a5"
+      "sha256": "e9a5e4b42d163fd60222db2b79f7d864b30050deed59c3a44a6e26d447f9512e"
     },
     {
       "path": "RELEASE_NOTES.md",
-      "sha256": "e2ef24a3842558fae398b56ad294c71a659bc5affd7af2f13b02233960f0fabf"
+      "sha256": "dac7d03ccfcb01d723181f239669ca7ce23318f905b6a6e5e1a2b83d1cf0cc64"
     },
     {
       "path": "scripts/add-stable.ps1",
@@ -542,7 +542,7 @@
     },
     {
       "path": "scripts/build-backend.ps1",
-      "sha256": "aa4527a94e3174ca8d99baac62867cc33f2c93d3665409c660e9e9b8302cbbbd"
+      "sha256": "04e155d18bcfa0e4373330df9bce463cb4bd2914d373af25276c2d0c9c657307"
     },
     {
       "path": "scripts/build-fingerprint.py",
@@ -754,7 +754,7 @@
     },
     {
       "path": "tests/verify_standard_embeddings.py",
-      "sha256": "2cda1edae6fdd850ce58aec0626db11478c1d693636141ddbc5b940c91d2e488"
+      "sha256": "ac3186e20b7dc3dcada0d051a93fd31867cdf427cfb0f6b4548718aeb28f56f6"
     },
     {
       "path": "THIRD_PARTY_NOTICES.md",

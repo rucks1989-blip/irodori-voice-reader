@@ -59,6 +59,8 @@ XPIは展開・編集しないでください。追加後はサイドバーで�
 
 学習済みの `名前.speaker.safetensors` は、既存のVoice管理画面から新しいIDで登録して利用できます。外部フォルダーを元の場所のまま使う場合は、導入先ごとの `irodori-api/config/voice_sources.json` で追加先を指定できます。特定のドライブには固定しません。[登録・保存先設定・エラーの案内](docs/standard-speaker-embedding.md)
 
+通常版で選択した `.speaker.safetensors` が音声生成に反映されない問題を修正しました。通常版Irodori-TTSは文章によって声質が変動するため、元音声との完全一致は保証しません。
+
 ### 初期Voice表示について（β版の既知の不具合）
 
 初期状態で「kurisu」「yui」というVoice名が表示される場合がありますが、**これらのWAV音源は同梱されていないため、そのままでは使用できません。**

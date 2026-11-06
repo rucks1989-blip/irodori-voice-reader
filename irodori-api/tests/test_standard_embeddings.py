@@ -20,6 +20,19 @@ class StandardEmbeddingTests(unittest.TestCase):
     def backend(self, root):
         return StandardAudioCppBackend("http://127.0.0.1:1/v1/audio/speech", "standard", reference_root=root)
 
+    def test_embedding_is_forwarded_in_engine_options_not_only_top_level(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            source = root / "voices" / "test.speaker.safetensors"
+            source.parent.mkdir(parents=True)
+            source.write_bytes(b"embedding")
+            with patch("kurisu_voice.backends.audiocpp.requests.post", return_value=Response()) as post:
+                self.backend(root).synthesize_chunk("テスト", options={"speaker_embedding_path": str(source)})
+            payload = post.call_args.kwargs["json"]
+            self.assertEqual(payload["options"]["speaker_embedding_path"], payload["speaker_embedding_path"])
+            self.assertFalse(payload["options"]["no_ref"])
+            self.assertNotIn("voice_ref", payload)
+
     def test_managed_unicode_embedding_keeps_speaker_suffix_and_bytes(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
@@ -33,6 +46,7 @@ class StandardEmbeddingTests(unittest.TestCase):
             payload = post.call_args.kwargs["json"]
             forwarded = Path(payload["speaker_embedding_path"])
             self.assertTrue(forwarded.name.endswith(".speaker.safetensors"))
+            self.assertEqual(Path(payload["options"]["speaker_embedding_path"]), forwarded)
             self.assertEqual(forwarded.read_bytes(), source.read_bytes())
             self.assertNotIn("voice_ref", payload)
             self.assertEqual(source.read_bytes(), b"unique embedding contents")
@@ -47,12 +61,15 @@ class StandardEmbeddingTests(unittest.TestCase):
                     source.parent.mkdir(parents=True)
                     source.write_bytes(data)
                     self.backend(root).synthesize_chunk("テスト", options={"speaker_embedding_path": "voices/test.speaker.safetensors"})
-                    self.assertEqual(Path(post.call_args.kwargs["json"]["speaker_embedding_path"]).read_bytes(), data)
+                    embedding_payload = post.call_args.kwargs["json"]
+                    self.assertEqual(Path(embedding_payload["speaker_embedding_path"]).read_bytes(), data)
+                    self.assertEqual(Path(embedding_payload["options"]["speaker_embedding_path"]), Path(embedding_payload["speaker_embedding_path"]))
                     wav = root / "voices" / "reference.wav"
                     wav.write_bytes(b"reference wav")
                     self.backend(root).synthesize_chunk("テスト", "voices/reference.wav")
                     self.assertEqual(Path(post.call_args.kwargs["json"]["voice_ref"]).resolve(), wav.resolve())
                     self.assertNotIn("speaker_embedding_path", post.call_args.kwargs["json"])
+                    self.assertNotIn("speaker_embedding_path", post.call_args.kwargs["json"]["options"])
 
     def test_japanese_native_host_temp_uses_user_private_ascii_cache(self):
         with tempfile.TemporaryDirectory() as folder:

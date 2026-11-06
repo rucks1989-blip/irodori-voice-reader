@@ -102,7 +102,11 @@ def main():
             if self.path != "/v1/audio/speech":
                 self.send_error(404); return
             payload = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
-            reference = payload.get("speaker_embedding_path") or payload.get("voice_ref")
+            # Record only the path the engine actually consumes: Irodori-TTS
+            # reads options.speaker_embedding_path. A top-level-only field is
+            # ignored by the standard v0.9.3 server and must fail this test.
+            options = payload.get("options") or {}
+            reference = options.get("speaker_embedding_path") or payload.get("voice_ref")
             records.append({"payload": payload, "referenceSha256": digest(reference) if reference else None})
             reply = requests.post(target + self.path, json=payload, timeout=600)
             self.send_response(reply.status_code)
@@ -124,8 +128,16 @@ def main():
         processes.append(process)
         return process
 
+    trace_path = args.test_root / "backend-trace.log"
+
+    def trace_since(offset):
+        if not trace_path.exists():
+            return ""
+        return trace_path.read_bytes()[offset:].decode("utf8", "replace")
+
     try:
-        backend = launch([str(exe), "--config", str(config_path)], exe.parent, "backend")
+        backend = launch([str(exe), "--config", str(config_path), "--log",
+                          "--log-file", str(trace_path)], exe.parent, "backend")
         ready(target, backend)
         for number, name in enumerate(("日本語の導入先", "other-installation")):
             installed = args.test_root / name
@@ -163,6 +175,7 @@ def main():
                      ("embedding-a", personal[0], "speaker_embedding_path"), ("embedding-b", personal[1], "speaker_embedding_path"),
                      ("wav-test", personal[2], "voice_ref"), ("embedding-a", personal[0], "speaker_embedding_path")]
             for index, (voice_id, source, field) in enumerate(cases):
+                offset = trace_path.stat().st_size if trace_path.exists() else 0
                 response = post("/tts", {"text": "こんにちは。動作確認です。", "voice": voice_id,
                                          "engine": "standard", "speaker_tag_policy": "preserve"})
                 if not response.ok:
@@ -174,11 +187,30 @@ def main():
                 assert len(audio) > 0 and abs(audio).max() > 0, "Empty/silent audio"
                 record = records[-1]
                 assert record["referenceSha256"] == digest(source)
-                assert field in record["payload"]
-                assert ("voice_ref" if field == "speaker_embedding_path" else "speaker_embedding_path") not in record["payload"]
+                if field == "speaker_embedding_path":
+                    assert record["payload"]["options"]["speaker_embedding_path"]
+                    assert record["payload"]["options"]["no_ref"] is False
+                    assert "voice_ref" not in record["payload"]
+                else:
+                    assert record["payload"]["voice_ref"]
+                    assert record["payload"]["options"]["no_ref"] is False
+                    assert "speaker_embedding_path" not in record["payload"]["options"]
                 assert record["payload"]["model"] == model["id"]
+                trace = ""
+                deadline = time.monotonic() + 5
+                while time.monotonic() < deadline:
+                    trace = trace_since(offset)
+                    if "irodori_tts.reference.used 1" in trace and "session.wall_ms" in trace:
+                        break
+                    time.sleep(.1)
+                assert "irodori_tts.reference.used 1" in trace, trace
+                if field == "speaker_embedding_path":
+                    assert "irodori_tts.speaker_embedding.tokens 16" in trace, trace
+                else:
+                    assert "irodori_tts.speaker_embedding.tokens" not in trace, trace
                 results.append({"installation": name, "voice": voice_id, "file": wav.name,
-                                "seconds": len(audio) / rate, "referenceSha256": record["referenceSha256"]})
+                                "seconds": len(audio) / rate, "referenceSha256": record["referenceSha256"],
+                                "engineLoadedEmbedding": field == "speaker_embedding_path"})
             before = len(records)
             unknown = post("/tts", {"text": "test", "voice": "not-registered", "engine": "standard"})
             assert unknown.status_code == 404 and len(records) == before

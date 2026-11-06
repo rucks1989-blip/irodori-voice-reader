@@ -51,7 +51,10 @@ class AudioCppBackend(TTSBackend):
             raise RuntimeError("reference WAV and speaker embedding cannot be used together")
         backend_options = dict(self.request_options)
         backend_options.update({
-            "no_ref": not bool(voice_ref),
+            # speaker_embedding_path is a reference condition by itself. Sending
+            # no_ref=true makes audio.cpp reject the request. The top-level
+            # embedding field below is for the older voice-stable engine.
+            "no_ref": not bool(voice_ref) and not bool(speaker_embedding_path),
             "text_chunk_size": str(options.get("text_chunk_size", 250)),
             "text_chunk_mode": str(options.get("text_chunk_mode", "japanese")),
         })
@@ -71,6 +74,12 @@ class AudioCppBackend(TTSBackend):
             valid_name = embedding.name == "speaker.safetensors" or embedding.name.endswith(".speaker.safetensors")
             if not embedding.is_file() or not valid_name:
                 raise RuntimeError(f"speaker.safetensorsが見つかりません: {speaker_embedding_path}")
+            # The standard audio.cpp v0.9.3 server reads Irodori-TTS options
+            # from the request's "options" object. The top-level field is kept
+            # for the older patched voice-stable engine, whose server maps it
+            # into options. Without the options entry, the standard engine
+            # ignores the embedding and silently generates its default voice.
+            backend_options["speaker_embedding_path"] = str(embedding)
             payload["speaker_embedding_path"] = str(embedding)
         response = requests.post(self.url, json=payload, timeout=self.timeout)
         if not response.ok:

@@ -50,7 +50,11 @@ function Find-Cuda {
     return ''
 }
 $watch=[Diagnostics.Stopwatch]::StartNew()
-$patchFiles=if($StandardOnly){@()}else{@('audio-cpp-stable-patch\stable-rescue.patch','audio-cpp-stable-patch\speaker-embedding-dump.patch','audio-cpp-patch\apply_speaker_embedding_patch.py','audio-cpp-patch\speaker_embedding_loader.inc')}
+# Speaker Embedding direct reading is required by both the standard and the
+# voice-stable engine. The stable-only rescue/dump patches stay out of the
+# standard build so its normal voice quality is unchanged.
+$patchFiles=@('audio-cpp-patch\apply_speaker_embedding_patch.py','audio-cpp-patch\speaker_embedding_loader.inc')
+if(-not $StandardOnly){$patchFiles=@('audio-cpp-stable-patch\stable-rescue.patch','audio-cpp-stable-patch\speaker-embedding-dump.patch')+$patchFiles}
 $legacyInputs=@($patchFiles | ForEach-Object {Join-Path $Root $_})
 if(-not $StandardOnly){$legacyInputs+=@(Get-ChildItem (Join-Path $Root 'audio-cpp-stable-patch\added-files') -Recurse -File | Sort-Object FullName | ForEach-Object {$_.FullName})}
 $legacyHash=($legacyInputs | ForEach-Object {(Get-FileHash $_ -Algorithm SHA256).Hash}) -join ''
@@ -143,15 +147,17 @@ if (-not (Test-Path $marker)) {
             if($LASTEXITCODE -eq 0 -and $head.Trim() -eq $manifest.audioCppCommit){$source=$old.source;$adopted=$true;Write-Host '既存の一致するソース/CMake/Ninjaキャッシュを再利用します。'}
         }
     }
-    if($adopted -and -not $StandardOnly){
+    if($adopted){
         Run $Python @((Join-Path $Root 'audio-cpp-patch\apply_speaker_embedding_patch.py'),$source,'--check')
-        # Later embedding/CMake fixes overlap the original patch hunks, so a
-        # reverse-apply check would reject a valid layered cache. Verify its
-        # marker, copied inputs and embedding implementation without rewriting
-        # those sources; the full source fingerprint is retained on completion.
-        foreach($file in Get-ChildItem (Join-Path $Root 'audio-cpp-stable-patch\added-files') -Recurse -File){
-            $relative=$file.FullName.Substring((Join-Path $Root 'audio-cpp-stable-patch\added-files').Length).TrimStart('\')
-            if(-not(Test-DownloadFile (Join-Path $source $relative) (Get-FileHash $file.FullName).Hash $file.Length)){throw '以前のソースキャッシュに変更があります。上書きせず停止します。別のCacheRootを指定してください。'}
+        if(-not $StandardOnly){
+            # Later embedding/CMake fixes overlap the original patch hunks, so a
+            # reverse-apply check would reject a valid layered cache. Verify its
+            # marker, copied inputs and embedding implementation without rewriting
+            # those sources; the full source fingerprint is retained on completion.
+            foreach($file in Get-ChildItem (Join-Path $Root 'audio-cpp-stable-patch\added-files') -Recurse -File){
+                $relative=$file.FullName.Substring((Join-Path $Root 'audio-cpp-stable-patch\added-files').Length).TrimStart('\')
+                if(-not(Test-DownloadFile (Join-Path $source $relative) (Get-FileHash $file.FullName).Hash $file.Length)){throw '以前のソースキャッシュに変更があります。上書きせず停止します。別のCacheRootを指定してください。'}
+            }
         }
     }
     if(-not $adopted){
@@ -164,20 +170,20 @@ if (-not (Test-Path $marker)) {
     Expand-Download $archive $manifest.audioCppSource $source $Python -StripRoot ('audio.cpp-'+$manifest.audioCppCommit)
     if(-not(Test-Path (Join-Path $source 'scripts\build_windows.ps1'))){throw '固定ソースZIPの構造が想定と異なります。'}
     if(-not $StandardOnly){
-    foreach ($relative in @('audio-cpp-stable-patch\stable-rescue.patch','audio-cpp-stable-patch\speaker-embedding-dump.patch')) {
-        $file = Join-Path $Root $relative
-        Run $git.Source @('-C',$source,'apply','--check',$file)
-        Run $git.Source @('-C',$source,'apply','--whitespace=nowarn',$file)
+        foreach ($relative in @('audio-cpp-stable-patch\stable-rescue.patch','audio-cpp-stable-patch\speaker-embedding-dump.patch')) {
+            $file = Join-Path $Root $relative
+            Run $git.Source @('-C',$source,'apply','--check',$file)
+            Run $git.Source @('-C',$source,'apply','--whitespace=nowarn',$file)
+        }
+        Copy-Item (Join-Path $Root 'audio-cpp-stable-patch\added-files\*') -Destination $source -Recurse -Force
     }
-    Copy-Item (Join-Path $Root 'audio-cpp-stable-patch\added-files\*') -Destination $source -Recurse -Force
     Run $Python @((Join-Path $Root 'audio-cpp-patch\apply_speaker_embedding_patch.py'),$source)
     Run $Python @((Join-Path $Root 'audio-cpp-patch\apply_speaker_embedding_patch.py'),$source,'--check')
-    }
     }
     Save-Json $marker @{ source=$source; commit=$manifest.audioCppCommit; patchHash=$digest }
 } else {
     $source = (Get-Content $marker -Raw -Encoding UTF8 | ConvertFrom-Json).source
-    if(-not $StandardOnly){Run $Python @((Join-Path $Root 'audio-cpp-patch\apply_speaker_embedding_patch.py'),$source,'--check')}
+    Run $Python @((Join-Path $Root 'audio-cpp-patch\apply_speaker_embedding_patch.py'),$source,'--check')
 }
 if(-not $StandardOnly){Run $Python @($sharedPatch,$source);Run $Python @($sharedPatch,$source,'--check')}
 $preset=if($Backend -eq 'cuda'){'windows-cuda-release'}else{'windows-cpu-release'}
@@ -205,7 +211,7 @@ if($Backend -eq 'cuda'){
         Get-ChildItem (Join-Path $cuda 'bin') -Filter $pattern -File | Copy-Item -Destination $runtime -Force
     }
 }
-Save-Json (Join-Path $runtime 'build.json') @{ standardOnly=[bool]$StandardOnly; stableSupported=(-not $StandardOnly); commit=$manifest.audioCppCommit; patchHash=$digest; sharedSessionPatchSha256=$(if(-not $StandardOnly){(Get-FileHash $sharedPatch).Hash}else{''}); backend=$Backend; arch=$arch; portableCuda=[bool]$PortableCuda;supportedArchitectures=$(if($PortableCuda){$portableArchitectures}elseif($arch){@($arch)}else{@()});exeSha256=(Get-FileHash $exe -Algorithm SHA256).Hash }
+Save-Json (Join-Path $runtime 'build.json') @{ standardOnly=[bool]$StandardOnly; stableSupported=(-not $StandardOnly); speakerEmbeddingSupported=$true; commit=$manifest.audioCppCommit; patchHash=$digest; sharedSessionPatchSha256=$(if(-not $StandardOnly){(Get-FileHash $sharedPatch).Hash}else{''}); backend=$Backend; arch=$arch; portableCuda=[bool]$PortableCuda;supportedArchitectures=$(if($PortableCuda){$portableArchitectures}elseif($arch){@($arch)}else{@()});exeSha256=(Get-FileHash $exe -Algorithm SHA256).Hash }
 $toolPaths=@((Get-ChildItem (Join-Path $vs 'VC\Tools\MSVC\*\bin\Hostx64\x64\cl.exe') | Sort-Object FullName -Descending | Select-Object -First 1).FullName)
 if($Backend -eq 'cuda'){$toolPaths+=Join-Path $cuda 'bin\nvcc.exe'}
 $tools=@($toolPaths | ForEach-Object {@{path=$_;sha256=(Get-FileHash $_).Hash}})
