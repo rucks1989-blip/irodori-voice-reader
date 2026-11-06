@@ -526,7 +526,7 @@
     },
     {
       "path": "README.md",
-      "sha256": "ed8c38080ec23e4806b75b4de64ae2ce9a61afba55957503496209959074697d"
+      "sha256": "6d36d8adab1725e9f9b5be7158d978aa048b7a082a75d36f8ef76431e0359578"
     },
     {
       "path": "RELEASE_NOTES.md",
@@ -761,7 +761,7 @@
       "sha256": "a1f76d502cf5b758d1694a52013db4fbbaaa8cf7ce52bab8528d271406763fca"
     },
     {
-      "path": "\u58f0\u8cea\u5b89\u5b9a\u7248\u8ffd\u52a0\u3059\u308b.bat",
+      "path": "声質安定版追加する.bat",
       "sha256": "d0618504a677ccf84f8f8d7239e68d559f9fc5cafe895acc5b0f7970d88d5557"
     }
   ]
