@@ -498,7 +498,7 @@
     },
     {
       "path": "irodori-api/tests/test_standard_embeddings.py",
-      "sha256": "083486fdbd9a607bdecaeb3c1650316f09989c0388073b24ed479427330ade9e"
+      "sha256": "6d5635d5c5acb2386f11a2b0cfb6b13bfd43c1ac096f592e54689e1e7e10e265"
     },
     {
       "path": "irodori-api/tests/test_voice_stable.py",

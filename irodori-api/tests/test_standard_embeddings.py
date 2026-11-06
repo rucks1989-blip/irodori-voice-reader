@@ -65,7 +65,7 @@ class StandardEmbeddingTests(unittest.TestCase):
             ), patch("kurisu_voice.backends.audiocpp.requests.post", return_value=Response()) as post:
                 self.backend(root).synthesize_chunk("test", options={"speaker_embedding_path": str(source)})
             copied = Path(post.call_args.kwargs["json"]["speaker_embedding_path"])
-            self.assertTrue(copied.is_relative_to(local))
+            self.assertTrue(copied.is_relative_to(local.resolve()))
             str(copied).encode("ascii")
             self.assertTrue(copied.name.endswith(".speaker.safetensors"))
             self.assertEqual(copied.read_bytes(), source.read_bytes())
@@ -92,7 +92,7 @@ class StandardEmbeddingTests(unittest.TestCase):
             with patch("kurisu_voice.backends.audiocpp.requests.post", return_value=Response()) as post:
                 backend.synthesize_chunk("test", options={"speaker_embedding_path": str(source)})
             copied = Path(post.call_args.kwargs["json"]["speaker_embedding_path"])
-            self.assertTrue(copied.is_relative_to(chosen))
+            self.assertTrue(copied.is_relative_to(chosen.resolve()))
             self.assertTrue(copied.name.endswith(".speaker.safetensors"))
             self.assertEqual(copied.read_bytes(), source.read_bytes())
 
